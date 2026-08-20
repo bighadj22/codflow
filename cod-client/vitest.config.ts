@@ -11,8 +11,10 @@ export default defineConfig({
       "lib/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
     ],
   },
-  esbuild: {
-    jsx: "automatic",
+  oxc: {
+    jsx: {
+      runtime: "automatic",
+    },
   },
   resolve: {
     alias: {
