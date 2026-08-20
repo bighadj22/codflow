@@ -46,7 +46,7 @@
     "@vitest/ui": "^2.1.9",
     "better-sqlite3": "^12.8.0",
     "drizzle-kit": "^0.30.1",
-    "fast-check": "^4.6.0",
+    "fast-check": "^4.9.0",
     "miniflare": "^4.20260312.1",
     "typescript": "^5.7.2",
     "vitest": "^2.1.9",
