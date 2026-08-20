@@ -59,7 +59,7 @@
     "fast-check": "^4.6.0",
     "glob": "^13.0.6",
     "jsdom": "^27.0.1",
-    "miniflare": "^4.20260312.1",
+    "miniflare": "^4.20260730.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vercel": "^59",
