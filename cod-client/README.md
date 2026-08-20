@@ -1,6 +1,6 @@
 # CodFlow Dashboard
 
-CodFlow's admin dashboard for Algerian e-commerce businesses — orders, customers, products, drivers, delivery-carrier integration, and MCP agent access. Built with Next.js 15, OpenNext on Cloudflare Workers, and D1.
+CodFlow's admin dashboard for Algerian e-commerce businesses — orders, customers, products, drivers, delivery-carrier integration, and MCP agent access. Built with Next.js 16, OpenNext on Cloudflare Workers, and D1.
 
 ## Reads vs writes
 
@@ -58,7 +58,7 @@ npm run build
 
 ```
 cod-client/
-├── app/              # Next.js 15 App Router (routes and pages)
+├── app/              # Next.js 16 App Router (routes and pages)
 ├── components/       # React components (UI and features)
 ├── hooks/            # Custom React hooks
 ├── lib/              # Utility functions and helpers (auth, api, email, rbac)
@@ -84,7 +84,7 @@ Each major directory has its own README with detailed documentation:
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **Next.js 15** - React framework with App Router
+- **Next.js 16** - React framework with App Router
 - **React 19** - UI library
 - **TypeScript** - Type safety
 - **Tailwind CSS** - Utility-first CSS
