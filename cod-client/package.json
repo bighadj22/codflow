@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260313.1",
-    "@opennextjs/cloudflare": "1.19.0",
+    "@opennextjs/cloudflare": "1.20.2",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
