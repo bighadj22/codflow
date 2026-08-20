@@ -1,0 +1,49 @@
+{
+  "page_title": "وسوم العملاء",
+  "tags_count": "وسم",
+  "search_placeholder": "البحث عن وسم...",
+  "new_tag": "وسم جديد",
+  "create_tag": "إنشاء وسم",
+  "success_deleted": "تم حذف الوسم",
+  "error_delete_failed": "فشل حذف الوسم",
+  "actions": {
+    "view": "عرض",
+    "edit": "تعديل",
+    "delete": "حذف"
+  },
+  "empty_state": {
+    "title": "لا توجد وسوم بعد",
+    "description": "أنشئ وسوماً لتصنيف وفلترة عملائك بسرعة بناءً على معايير محددة.",
+    "action": "أضف وسمك الأول"
+  },
+  "table": {
+    "name": "الاسم",
+    "customers": "العملاء",
+    "created": "تاريخ الإنشاء"
+  },
+  "detail": {
+    "customers": "العملاء",
+    "no_customers": "لا يوجد عملاء بهذا الوسم",
+    "add_customer": "إضافة عميل",
+    "remove_customer": "إزالة الوسم",
+    "customer_added": "تمت إضافة الوسم للعميل",
+    "customer_removed": "تمت إزالة الوسم من العميل",
+    "search_add": "البحث عن عميل...",
+    "no_available": "لا يوجد عملاء للإضافة",
+    "search_customers": "البحث في العملاء...",
+    "orders_label": "طلب"
+  },
+  "form": {
+    "title_add": "إضافة وسم",
+    "title_edit": "تعديل الوسم",
+    "name_label": "اسم الوسم",
+    "name_placeholder": "مثال: vip، مرتجع، جملة...",
+    "color_label": "اللون",
+    "cancel": "إلغاء",
+    "save": "حفظ الوسم",
+    "saving": "جاري الحفظ...",
+    "success_add": "تمت إضافة الوسم",
+    "success_edit": "تم تحديث الوسم",
+    "error_required": "يرجى تعبئة الحقول المطلوبة"
+  }
+}

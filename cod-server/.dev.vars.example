@@ -1,0 +1,31 @@
+# CodFlow server — local development secrets
+# Copy this file to .dev.vars and fill in your values.
+# (.dev.vars is gitignored — your real values never get committed.)
+
+# ── Required for local dev ────────────────────────────────────────────────────
+
+# Used by the storefront (cod-astro) and cod-client to authenticate against the
+# server's store API. Generate one with:  openssl rand -hex 32
+# It is hashed with SHA-256 before storage (see scripts/seed-local.mjs).
+# STORE_API_KEY=
+
+# ── Only needed if you exercise the R2 image presign flow locally ─────────────
+# (R2 credentials are stored as wrangler secrets in production:
+#  `wrangler secret put CF_ACCOUNT_ID` etc. — do not put them in wrangler.toml.)
+
+# Your Cloudflare account ID — the long hex string on your Cloudflare dashboard.
+# CF_ACCOUNT_ID=
+# R2 API token access key id (https://dash.cloudflare.com/profile/api-tokens → R2)
+# R2_ACCESS_KEY_ID=
+# R2 API token secret access key
+# R2_SECRET_ACCESS_KEY=
+
+# ── Optional overrides ────────────────────────────────────────────────────────
+# Overrides the [vars] block in wrangler.toml for local runs if you need to test
+# MCP token verification against a live dashboard, or a different environment:
+# ENVIRONMENT=development
+# BETTER_AUTH_URL=http://localhost:3000/api/auth
+# WORKER_SELF_URL=http://localhost:8787/
+# WORKER_URL=http://localhost:8787
+# MEDIA_DOMAIN=media.example.com
+# R2_BUCKET_NAME=codflow-images

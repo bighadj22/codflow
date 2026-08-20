@@ -1,0 +1,116 @@
+---
+import { Image } from "astro:assets";
+import type { StoreConfig } from "@/core/api/types";
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  config: StoreConfig;
+  content?: StoreFrontContent;
+}
+const { config, content } = Astro.props;
+const year = new Date().getFullYear();
+
+const badges = [
+  { icon: "heroicons:credit-card", title: content?.trust1Title ?? "الدفع عند الاستلام", sub: content?.trust1Sub ?? "بدون دفع مسبق" },
+  { icon: "heroicons:truck",       title: content?.trust2Title ?? "توصيل لجميع الولايات", sub: content?.trust2Sub ?? "58 ولاية" },
+  { icon: "heroicons:bolt",        title: content?.trust3Title ?? "تأكيد سريع", sub: content?.trust3Sub ?? "خلال 24 ساعة" },
+];
+---
+
+<footer class="mt-8 border-t border-black/[0.04] pb-16 sm:pb-4" style="background: var(--clr-surface)">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-8">
+      {/* Brand Column */}
+      <div class="md:col-span-4 space-y-3">
+        <a href="/" class="flex items-center gap-3 active:scale-95 transition-transform">
+          {config.logoUrl ? (
+            <Image
+              src={config.logoUrl}
+              alt={config.name}
+              width={120}
+              height={32}
+              format="webp"
+              quality={90}
+              class="h-8 w-auto object-contain"
+              loading="lazy"
+            />
+          ) : (
+            <span class="text-xl font-black uppercase tracking-tighter" style="color: var(--clr-primary)">{config.name}</span>
+          )}
+        </a>
+        <p class="text-[0.8125rem] sm:text-[0.875rem] font-medium leading-relaxed max-w-sm" style="color: var(--clr-text-2)">
+          {content?.footerAbout}
+        </p>
+      </div>
+
+      {/* Links Columns */}
+      <div class="md:col-span-8 grid grid-cols-2 sm:grid-cols-3 gap-6">
+        <div>
+          <h3 class="text-[0.6875rem] sm:text-[0.75rem] font-black uppercase tracking-widest mb-3 sm:mb-4" style="color: var(--clr-text)">
+            {content?.footerQuickLinks}
+          </h3>
+          <ul class="space-y-2.5">
+            {[
+              { label: content?.navHome, href: "/" },
+              { label: content?.navProducts, href: "/products" },
+              { label: content?.navNewArrivals, href: "/products" },
+              { label: content?.navBestSellers, href: "/products" },
+            ].map((link) => (
+              <li>
+                <a href={link.href} class="text-[0.8125rem] sm:text-[0.875rem] font-bold transition-all hover:text-primary" style="color: var(--clr-text-2)">
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-[0.6875rem] sm:text-[0.75rem] font-black uppercase tracking-widest mb-3 sm:mb-4" style="color: var(--clr-text)">
+            {content?.footerSupport}
+          </h3>
+          <ul class="space-y-2.5">
+            {[
+              { label: content?.footerShipping },
+              { label: content?.footerReturns },
+              { label: content?.navContact },
+            ].map((link) => (
+              <li>
+                <span class="text-[0.8125rem] sm:text-[0.875rem] font-bold transition-all cursor-pointer" style="color: var(--clr-text-2)">
+                  {link.label}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div class="col-span-2 sm:col-span-1">
+          <h3 class="text-[0.6875rem] sm:text-[0.75rem] font-black uppercase tracking-widest mb-3 sm:mb-4" style="color: var(--clr-text)">
+            {content?.trust1Title}
+          </h3>
+          <div class="space-y-2.5">
+            {badges.map((b) => (
+              <div class="flex items-center gap-2.5 group">
+                <div class="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-xl flex items-center justify-center bg-black/[0.02] border border-black/[0.04] text-primary">
+                  <Icon name={b.icon} class="w-4 h-4" />
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[0.6875rem] sm:text-[0.6875rem] font-black leading-tight" style="color: var(--clr-text)">{b.title}</p>
+                  <p class="text-[0.5625rem] sm:text-[0.625rem] font-bold" style="color: var(--clr-text-2)">{b.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Bottom Bar */}
+    <div class="border-t border-black/[0.04] mt-6 sm:mt-8 pt-4 sm:pt-5 text-center">
+      <p class="text-[0.6875rem] sm:text-[0.75rem] font-bold" style="color: var(--clr-text-2)">
+        &copy; {year} {config.name}. {content?.footerRights}
+      </p>
+    </div>
+  </div>
+</footer>

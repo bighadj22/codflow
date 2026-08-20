@@ -1,0 +1,52 @@
+{
+  "header": {
+    "title": "Tableau de bord",
+    "subtitle": "Aperçu des performances de la boutique"
+  },
+  "stats": {
+    "total_orders": "Total des commandes",
+    "revenue": "Chiffre d'affaires",
+    "customers": "Clients",
+    "delivered": "Livré",
+    "active_orders": "Actif"
+  },
+  "status_breakdown": {
+    "title": "Statut des commandes",
+    "subtitle": "Répartition par statut"
+  },
+  "recent_orders": {
+    "title": "Commandes récentes",
+    "subtitle": "Dernières transactions",
+    "view_all": "Voir tout",
+    "empty": "Aucune commande pour le moment",
+    "col_order": "Commande",
+    "col_customer": "Client",
+    "col_status": "Statut",
+    "col_price": "Prix",
+    "col_date": "Date"
+  },
+  "order_statuses": {
+    "new": "Nouveau",
+    "preparing": "En préparation",
+    "ready": "Prêt",
+    "assigned": "Assigné",
+    "out_for_delivery": "En cours de livraison",
+    "delivered": "Livré",
+    "returned": "Retourné",
+    "cancelled": "Annulé"
+  },
+  "status_tooltips": {
+    "total_orders": "Nombre total de commandes tous statuts confondus",
+    "new": "Commande reçue, en attente de vérification et de confirmation",
+    "confirmed": "Commande confirmée par l'équipe, prête à être préparée",
+    "unreachable": "Le client n'a pas pu être joint pour confirmer la commande",
+    "preparing": "La commande est en cours de préparation et d'emballage",
+    "ready": "Commande emballée, en attente d'enlèvement ou d'expédition",
+    "assigned": "Un livreur a été assigné pour récupérer et livrer cette commande",
+    "dispatched": "Commande remise à une société de livraison",
+    "out_for_delivery": "Commande en route, livraison imminente",
+    "delivered": "Commande livrée avec succès au client",
+    "returned": "Le client a refusé ou retourné la commande à la porte",
+    "cancelled": "Commande annulée, ne sera pas traitée"
+  }
+}

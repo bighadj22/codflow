@@ -1,0 +1,74 @@
+---
+// ── STREAMING COMPONENT ──
+// Fetches products and renders featured/all products grid
+// Allows parent page to stream this independently
+import ProductCard from "@/theme/components/product/ProductCard.astro";
+import { Icon } from "astro-icon/components";
+import { fetchProductsRaw } from "@/core/api/client";
+
+interface Props {
+  currencySymbol: string;
+  content: any;
+}
+
+const { currencySymbol, content } = Astro.props;
+
+// Fetch products (this component streams when ready)
+const allProducts = await fetchProductsRaw();
+const featured = allProducts.filter((p: any) => p.storeFeatured);
+const heroProducts = featured.length ? featured : allProducts.slice(0, 8);
+const showViewAll = allProducts.length > 8;
+---
+
+{heroProducts.length > 0 ? (
+  <section class="max-w-5xl mx-auto px-5 py-8">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-xl font-black tracking-tight" style="color: var(--clr-text)">
+        {featured.length ? content.featuredSection : content.allProductsSection}
+      </h2>
+      {showViewAll && (
+        <a
+          href="/products"
+          data-astro-prefetch="hover"
+          class="text-[0.875rem] font-black transition-all active:opacity-60"
+          style="color: var(--clr-primary)"
+          aria-label={`${content.viewAllCta} - ${featured.length ? content.featuredSection : content.allProductsSection}`}
+        >
+          {content.viewAllCta}
+        </a>
+      )}
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+      {heroProducts.map((p, i) => (
+        <ProductCard
+          product={p}
+          currencySymbol={currencySymbol}
+          eager={i < 4}
+        />
+      ))}
+    </div>
+
+    {showViewAll && (
+      <div class="text-center mt-12">
+        <a
+          href="/products"
+          data-astro-prefetch="hover"
+          class="inline-flex items-center gap-2 px-8 py-4 rounded-2xl font-black text-[1rem] border-2 active:scale-95 transition-all shadow-md"
+          style="background: var(--clr-surface); border-color: var(--clr-primary); color: var(--clr-primary)"
+          aria-label={`${content.viewAllCta} - Browse all ${allProducts.length} products`}
+        >
+          {content.viewAllCta}
+        </a>
+      </div>
+    )}
+  </section>
+) : (
+  <section class="max-w-5xl mx-auto px-5 py-24 text-center">
+    <div class="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 text-primary" style="background: var(--clr-surface-alt)">
+      <Icon name="heroicons:shopping-bag" class="w-10 h-10" />
+    </div>
+    <h2 class="text-2xl font-black mb-2" style="color: var(--clr-text)">{content.emptyStoreTitle}</h2>
+    <p class="font-bold" style="color: var(--clr-text-2)">{content.emptyStoreSub}</p>
+  </section>
+)}

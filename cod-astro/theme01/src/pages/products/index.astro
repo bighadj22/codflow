@@ -1,0 +1,26 @@
+---
+// ── CUSTOMIZE HERE ────────────────────────────────────────────────────────────
+// All-products listing page: category filter bar + product grid.
+// Data is fetched in streaming component for optimal performance.
+// ─────────────────────────────────────────────────────────────────────────────
+import StoreLayout from "@/theme/layouts/StoreLayout.astro";
+import ProductsListContent from "@/theme/components/products/ProductsListContent.astro";
+import { getStoreContext } from "@/theme/config/store";
+
+// ── STREAMING OPTIMIZATION ──
+// Store context is fetched first (needed for layout)
+// Products and categories are fetched inside streaming component
+// This allows layout/navigation to render immediately while data loads
+const { config, content } = await getStoreContext();
+---
+
+<StoreLayout config={config} content={content} title={`${content.allProductsSection} — ${config.name}`}>
+  <!-- 
+    ProductsListContent streams in after layout renders
+    Products and categories fetch in parallel inside component
+  -->
+  <ProductsListContent 
+    currencySymbol={config.currencySymbol}
+    content={content}
+  />
+</StoreLayout>

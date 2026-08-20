@@ -1,0 +1,154 @@
+---
+// ── STREAMING COMPONENT ──
+// This component handles the product fetch and rendering
+// Allows the parent page to stream layout/head immediately
+import OrderForm from "@/theme/components/order/OrderForm.astro";
+import ProductGallery from "@/theme/components/product/ProductGallery.astro";
+import ProductInfo from "@/theme/components/product/ProductInfo.astro";
+import ReviewsIsland from "@/theme/components/product/ReviewsIsland.astro";
+import ShippingIsland from "@/theme/components/product/ShippingIsland.astro";
+import { getProductJsonLd } from "@/theme/utils/seo";
+import { fetchProductByHandle } from "@/core/api/client";
+
+interface Props {
+  slug: string;
+  config: any;
+  content: any;
+  isRTL: boolean;
+  fieldErrors: any;
+  serverError: string | null;
+}
+
+const { slug, config, content, isRTL, fieldErrors, serverError } = Astro.props;
+
+// Fetch product data (this component streams when ready)
+const product = await fetchProductByHandle(slug);
+
+if (!product) return Astro.redirect("/");
+
+const cur = config.currencySymbol;
+const defaultVariant = product.hasVariants
+  ? (product.variants.find((v: typeof product.variants[0]) => v.isDefault) ?? product.variants[0])
+  : null;
+const basePrice    = defaultVariant?.price ?? product.price;
+const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice;
+const hasDiscount  = comparePrice != null && comparePrice > basePrice;
+const discountPct  = hasDiscount ? Math.round((1 - basePrice / comparePrice!) * 100) : 0;
+
+const isOutOfStock = product.trackInventory && product.inventory === 0;
+const isLowStock   = product.trackInventory && product.inventory > 0 && product.inventory <= 5;
+const lowStockText = content.lowStock.replace("{n}", String(product.inventory));
+
+const defaultVariantId = defaultVariant?.id ?? null;
+const jsonLd = getProductJsonLd(product, basePrice);
+---
+
+<script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+<!-- Data bridge: server-computed values → client script -->
+<div
+  id="page-data"
+  class="sr-only"
+  data-variants={JSON.stringify(product.variants)}
+  data-base-price={basePrice}
+  data-compare-price={comparePrice ?? ""}
+  data-cur={cur}
+  data-is-rtl={isRTL ? "1" : "0"}
+  data-shipping-label={content.shippingLabel}
+  data-shipping-calc={content.shippingCalculated}
+  data-shipping-free={content.shippingFree}
+  data-total-label={content.totalLabel}
+  data-commune-placeholder={content.formCommunePlaceholder}
+  data-commune-loading={content.formCommuneLoading}
+  data-commune-disabled={content.formCommuneDisabled}
+  data-offers={JSON.stringify(product.offers)}
+  data-offer-free-label={content.offerFreeLabel}
+  data-offer-active={content.offerActive}
+  data-offer-unlocked={content.offerUnlocked}
+  data-offer-add-more={content.offerAddMore}
+  data-offer-add-one={content.offerAddOne}
+  data-offer-you-get={content.offerYouGet}
+  data-track-inventory={product.trackInventory ? "1" : "0"}
+  data-out-of-stock-label={content.outOfStock}
+  data-qty-max-stock={content.qtyMaxStock}
+  data-inventory={String(product.inventory)}
+  data-pixel-id={config.pixelId ?? ""}
+  data-product-id={product.id}
+  data-product-name={product.name}
+/>
+
+<!-- Dynamic data Island (Deferred) -->
+<ShippingIsland server:defer />
+
+<div class="max-w-5xl mx-auto px-0 sm:px-5 py-0 sm:py-8">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-0 lg:gap-12">
+
+    <!-- ── LEFT: Images ── -->
+    <div>
+      <ProductGallery
+        product={product}
+        hasDiscount={hasDiscount}
+        discountPct={discountPct}
+        isRTL={isRTL}
+        content={content}
+      />
+      <ProductInfo
+        product={product}
+        basePrice={basePrice}
+        comparePrice={comparePrice}
+        cur={cur}
+        isLowStock={isLowStock}
+        lowStockText={lowStockText}
+        isDesktop={true}
+      />
+    </div>
+
+    <!-- ── RIGHT: Product info + Order form ── -->
+    <div class="px-5 sm:px-0 py-6 sm:py-0">
+
+      <!-- Mobile Info -->
+      <ProductInfo
+        product={product}
+        basePrice={basePrice}
+        comparePrice={comparePrice}
+        cur={cur}
+        isLowStock={isLowStock}
+        lowStockText={lowStockText}
+      />
+
+      <OrderForm
+        product={product}
+        content={content}
+        fieldErrors={fieldErrors}
+        serverError={serverError}
+        basePrice={basePrice}
+        defaultVariant={defaultVariant ?? null}
+        cur={cur}
+        isRTL={isRTL}
+        offers={product.offers}
+        defaultVariantId={defaultVariantId}
+        isOutOfStock={isOutOfStock}
+      />
+    </div>
+  </div>
+</div>
+
+<!-- Reviews section (Deferred Server Island) -->
+{config.reviewsEnabled && (
+  <div class="max-w-5xl mx-auto px-5 pb-12">
+    <ReviewsIsland productId={product.id} content={content} server:defer>
+      <!-- Skeleton fallback while loading -->
+      <div slot="fallback" class="animate-pulse space-y-8 mt-12 pt-10" style="border-top: 1px solid var(--clr-border)">
+        <div class="h-8 rounded-lg w-1/4" style="background: var(--clr-surface-alt)"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          <div class="space-y-4">
+            {[1,2,3].map(() => (
+              <div class="h-32 rounded-2xl" style="background: var(--clr-surface-alt); border: 1px solid var(--clr-border)"></div>
+            ))}
+          </div>
+          <div class="h-64 rounded-2xl" style="background: var(--clr-surface-alt); border: 1px solid var(--clr-border)"></div>
+        </div>
+      </div>
+    </ReviewsIsland>
+  </div>
+)}

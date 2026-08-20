@@ -1,0 +1,18 @@
+---
+/**
+ * ShippingIsland.astro
+ * Fetches shipping rates on the server and injects them as a JSON bridge
+ * for the client-side product script.
+ */
+import { fetchShippingRates } from "@/core/api/client";
+
+interface Props {}
+
+const shippingRates = await fetchShippingRates();
+---
+
+<div
+  id="shipping-rates-data"
+  class="hidden"
+  data-rates={JSON.stringify(shippingRates)}
+></div>

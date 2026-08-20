@@ -1,0 +1,45 @@
+---
+// ── CUSTOMIZE HERE ────────────────────────────────────────────────────────────
+// Category page: sibling category pills + filtered product grid.
+// Data is fetched in streaming component for optimal performance.
+// ─────────────────────────────────────────────────────────────────────────────
+import StoreLayout from "@/theme/layouts/StoreLayout.astro";
+import CategoryPageContent from "@/theme/components/category/CategoryPageContent.astro";
+import { getStoreContext } from "@/theme/config/store";
+import { fetchCategoriesRaw } from "@/core/api/client";
+
+const { slug } = Astro.params;
+
+// ── STREAMING OPTIMIZATION ──
+// Store context is fetched first (needed for layout)
+// Category data and products are fetched inside streaming component
+// This allows layout/navigation to render immediately while data loads
+const { config, content } = await getStoreContext();
+
+// Fetch categories for SEO meta tags (lightweight — no products)
+const categories = await fetchCategoriesRaw();
+const category = categories.find((c: any) => c.slug === slug);
+
+const metaTitle = category?.metaTitle || (category ? `${category.name} - ${config.name}` : config.name);
+const metaDescription = category?.metaDescription || category?.description || undefined;
+const ogImage = category?.imageUrl || undefined;
+---
+
+<StoreLayout
+  config={config}
+  content={content}
+  title={metaTitle}
+  description={metaDescription}
+  ogImage={ogImage}
+>
+  <!--
+    CategoryPageContent streams in after layout renders
+    Category lookup and products fetch happen inside component
+  -->
+  <CategoryPageContent
+    slug={slug!}
+    currencySymbol={config.currencySymbol}
+    content={content}
+    configName={config.name}
+  />
+</StoreLayout>

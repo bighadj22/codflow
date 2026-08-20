@@ -1,0 +1,76 @@
+{
+  "page_title": "Promotional Offers",
+  "add_offer": "Create Offer",
+  "offers_count": "offer",
+  "table": {
+    "name": "Offer Name",
+    "trigger": "Trigger",
+    "reward": "Reward",
+    "status": "Status",
+    "schedule": "Schedule",
+    "actions": "Actions"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "empty_state": {
+    "title": "No active offers",
+    "description": "Create compelling 'Buy X Get Y' or 'Free Shipping' offers to drive more sales and reward your customers.",
+    "action": "Create Your First Offer"
+  },
+  "actions": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "activate": "Activate",
+    "deactivate": "Deactivate"
+  },
+  "discount_type": {
+    "free": "Free item",
+    "free_shipping": "Free shipping"
+  },
+  "form": {
+    "title_add": "Create New Offer",
+    "title_edit": "Edit Offer",
+    "name_label": "Offer Name",
+    "name_placeholder": "e.g. Buy 2 Get 1 Free",
+    "discount_type_label": "Offer type",
+    "free_shipping_note": "Customer gets free shipping when the trigger quantity is met",
+    "section_trigger": "Trigger Condition",
+    "trigger_product_label": "Trigger Product",
+    "trigger_product_placeholder": "Select product",
+    "trigger_variant_label": "Trigger Variant",
+    "trigger_variant_any": "Any variant",
+    "trigger_qty_label": "Minimum purchase quantity",
+    "trigger_qty_hint": "Customer must order at least this many",
+    "section_reward": "Reward",
+    "reward_product_label": "Free Product",
+    "reward_product_placeholder": "Select product",
+    "reward_variant_label": "Free Variant",
+    "reward_variant_same": "Same as ordered variant",
+    "reward_variant_any": "Default variant",
+    "reward_qty_label": "Free quantity",
+    "section_schedule": "Schedule (optional)",
+    "starts_at_label": "Starts at",
+    "ends_at_label": "Ends at",
+    "status_label": "Offer status",
+    "status_active": "Active",
+    "status_inactive": "Inactive",
+    "save": "Save Offer",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "success_add": "Offer created successfully",
+    "success_edit": "Offer updated successfully",
+    "error_save": "Failed to save, please try again",
+    "delete_confirm": "Permanently delete this offer?",
+    "error_name_required": "Offer name is required",
+    "error_trigger_product_required": "Please select a trigger product",
+    "error_reward_product_required": "Please select a reward product",
+    "error_trigger_qty": "Minimum quantity must be at least 1",
+    "error_reward_qty": "Free quantity must be at least 1"
+  },
+  "buy_x_get_y": "Buy {x} Get {y} Free",
+  "buy_x_free_shipping": "Buy {x} → Free Shipping",
+  "any_variant": "Any variant",
+  "free_shipping_reward": "Free Shipping 🚚"
+}

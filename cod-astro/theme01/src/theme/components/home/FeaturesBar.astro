@@ -1,0 +1,34 @@
+---
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  content: StoreFrontContent;
+}
+
+const { content } = Astro.props;
+
+const features = [
+  { icon: "heroicons:check-badge",  title: content.feature1Title },
+  { icon: "heroicons:truck",        title: content.feature2Title },
+  { icon: "heroicons:banknotes",    title: content.feature3Title },
+  { icon: "heroicons:clock",        title: content.feature5Title },
+];
+---
+
+<section class="border-y border-black/[0.04]" style="background: var(--clr-surface)">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="grid grid-cols-2 md:grid-cols-4 divide-x divide-black/[0.04] rtl:divide-x-reverse">
+      {features.map((f) => (
+        <div class="flex flex-col items-center justify-center text-center p-8 gap-4 group hover:bg-black/[0.01] transition-colors">
+          <div class="text-primary opacity-40 group-hover:opacity-100 transition-all duration-500 scale-90 group-hover:scale-110">
+            <Icon name={f.icon} class="w-6 h-6" />
+          </div>
+          <span class="text-[0.8125rem] font-black uppercase tracking-widest leading-tight" style="color: var(--clr-text)">
+            {f.title}
+          </span>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

@@ -1,0 +1,78 @@
+---
+// ── CUSTOMIZE HERE ────────────────────────────────────────────────────────────
+// Product detail page: image gallery, product info, order form.
+// To restyle the form, edit src/components/OrderForm.astro.
+// To restyle the gallery or product info, edit this file below the fence.
+// ─────────────────────────────────────────────────────────────────────────────
+import StoreLayout from "@/theme/layouts/StoreLayout.astro";
+import ProductDetailContent from "@/theme/components/product/ProductDetailContent.astro";
+import { getStoreContext } from "@/theme/config/store";
+import { actions } from "astro:actions";
+import { isInputError } from "astro:actions";
+
+const { slug } = Astro.params;
+
+// ── STREAMING OPTIMIZATION ──
+// Store context is fetched first (needed for layout)
+// Product data is fetched inside ProductDetailContent component
+// This allows layout/head/navigation to render immediately while product streams in
+const { config, content, isRTL } = await getStoreContext();
+
+// Action result (must be checked before rendering)
+const result = Astro.getActionResult(actions.placeOrder);
+// If order succeeded, pass data to client — the inline script below will call
+// __markAbandonedConverted (keepalive fetch) then redirect to /thank-you.
+// This avoids losing the conversion signal on a hard server redirect.
+const orderSuccess = result?.data?.orderNumber
+  ? {
+      orderNumber: result.data.orderNumber,
+      total: result.data.total,
+      orderId: result.data.orderId ?? "",
+    }
+  : null;
+const fieldErrors  = isInputError(result?.error) ? result.error.fields : {};
+const serverError  = result?.error && !isInputError(result.error) ? result.error.message : null;
+---
+
+<StoreLayout
+  config={config}
+  content={content}
+  title={`${config.name}`}
+  hideMobileNav={true}
+>
+  <!-- 
+    ProductDetailContent streams in after layout renders
+    This improves perceived performance by showing navigation/header immediately
+  -->
+  <ProductDetailContent
+    slug={slug!}
+    config={config}
+    content={content}
+    isRTL={isRTL}
+    fieldErrors={fieldErrors}
+    serverError={serverError}
+  />
+</StoreLayout>
+
+<script src="../../theme/scripts/product.ts"></script>
+<script src="../../theme/scripts/track-abandonment.ts"></script>
+{orderSuccess && (
+  <script
+    is:inline
+    define:vars={{ orderNumber: orderSuccess.orderNumber, total: orderSuccess.total, orderId: orderSuccess.orderId }}
+  >
+    (async () => {
+      if (typeof window.__markAbandonedConverted === "function") {
+        await window.__markAbandonedConverted(orderId, orderNumber);
+      }
+      window.location.replace(
+        "/thank-you?order=" +
+          encodeURIComponent(orderNumber) +
+          "&total=" +
+          total +
+          "&oid=" +
+          encodeURIComponent(orderId)
+      );
+    })();
+  </script>
+)}

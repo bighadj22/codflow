@@ -1,0 +1,45 @@
+---
+import type { StoreConfig } from "@/core/api/types";
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  config: StoreConfig;
+  content?: StoreFrontContent;
+}
+
+const { config, content } = Astro.props;
+const path = Astro.url.pathname;
+
+const items = [
+  {
+    label: content?.navHome ?? "Home",
+    href: "/",
+    active: path === "/",
+    icon: "heroicons:home",
+  },
+  {
+    label: content?.navProducts ?? "Products",
+    href: "/products",
+    active: path.startsWith("/products"),
+    icon: "heroicons:squares-2x2",
+  },
+];
+---
+
+<nav class="mobile-nav sm:hidden" aria-label={content?.ariaMainNavigation ?? "Main navigation"}>
+  {items.map((item) => (
+    <a
+      href={item.href}
+      aria-label={item.label}
+      aria-current={item.active ? "page" : undefined}
+      class:list={[
+        "mobile-nav-item active:scale-95",
+        item.active ? "active" : ""
+      ]}
+    >
+      <span aria-hidden="true"><Icon name={item.icon} class="w-5 h-5" /></span>
+      <span>{item.label}</span>
+    </a>
+  ))}
+</nav>

@@ -1,0 +1,45 @@
+name: Feature request
+description: Suggest a feature for CodFlow
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature. Be concrete so maintainers and
+        contributors can evaluate it.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What problem does this solve? Who is it for?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should the feature do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you try or consider?
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the project would this touch?
+      options:
+        - cod-server (API / Workers)
+        - cod-client (dashboard)
+        - cod-astro/theme01 (storefront)
+        - cod-shared (schema / queries)
+        - Documentation
+        - CI / tooling
+    validations:
+      required: true

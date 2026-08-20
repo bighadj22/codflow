@@ -1,0 +1,16 @@
+---
+// ── CUSTOMIZE HERE ────────────────────────────────────────────────────────────
+// Top announcement banner (Cash on Delivery)
+// ─────────────────────────────────────────────────────────────────────────────
+import type { StoreConfig } from "@/core/api/types";
+import type { StoreFrontContent } from "@/theme/config/content";
+
+interface Props {
+  config: StoreConfig;
+  content: StoreFrontContent;
+}
+
+const { config, content } = Astro.props;
+---
+
+<!-- Top announcement banner implementation goes here -->

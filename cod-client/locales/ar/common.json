@@ -1,0 +1,62 @@
+{
+  "currency": {
+    "symbol": "دج",
+    "name": "دينار جزائري",
+    "per_meter": "دج/م"
+  },
+  "roles": {
+    "admin": "مشرف",
+    "staff": "موظف"
+  },
+  "time": {
+    "moments_ago": "منذ لحظات",
+    "minute_ago": "منذ دقيقة",
+    "minutes_ago": "منذ {count} دقيقة",
+    "hour_ago": "منذ ساعة",
+    "hours_ago": "منذ {count} ساعة",
+    "day_ago": "منذ يوم",
+    "days_ago": "منذ {count} يوم"
+  },
+  "table": {
+    "all": "الكل",
+    "actions": "الإجراءات",
+    "showing": "عرض {from} إلى {to} من {total}",
+    "page": "صفحة",
+    "of": "من"
+  },
+  "statuses": {
+    "new": "جديد",
+    "confirmed": "تم التأكيد",
+    "unreachable": "لا يرد",
+    "preparing": "قيد التحضير",
+    "ready": "جاهز",
+    "assigned": "مُعيَّن",
+    "dispatched": "تم الإرسال",
+    "out_for_delivery": "في التوصيل",
+    "delivered": "تم التسليم",
+    "returned": "مُعاد",
+    "cancelled": "ملغى",
+    "available": "متاح",
+    "busy": "مشغول",
+    "inactive": "غير نشط",
+    "offline": "غير متصل",
+    "active": "نشط",
+    "suspended": "موقوف",
+    "out_of_stock": "نفد المخزون",
+    "low_stock": "مخزون منخفض",
+    "ACTIVE": "نشط",
+    "DRAFT": "مسودة",
+    "ARCHIVED": "مؤرشف"
+  },
+  "error_occurred": "حدث خطأ",
+  "retry": "إعادة المحاولة",
+  "cancel": "إلغاء",
+  "confirm": "تأكيد",
+  "delete": "حذف",
+  "remove": "إزالة",
+  "disconnect": "قطع الاتصال",
+  "confirm_delete": "هل أنت متأكد من حذف \"{name}\"؟",
+  "confirm_delete_title": "حذف \"{name}\"؟",
+  "toggle_theme": "تبديل المظهر",
+  "no_results_found": "لا توجد نتائج"
+}

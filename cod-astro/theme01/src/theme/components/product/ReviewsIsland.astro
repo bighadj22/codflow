@@ -1,0 +1,40 @@
+---
+/**
+ * ReviewsIsland.astro
+ * A Server Island component that fetches and renders reviews.
+ * Using 'server:defer' in the parent allows the main page to be static/cached
+ * while this part streams in dynamically.
+ */
+import { fetchProductReviews } from "@/core/api/client";
+import ReviewsList from "./ReviewsList.astro";
+import ReviewForm from "./ReviewForm.astro";
+import type { StoreFrontContent } from "@/theme/config/content";
+
+interface Props {
+  productId: string;
+  content: StoreFrontContent;
+}
+
+const { productId, content } = Astro.props;
+
+// Fetch reviews dynamically on the server
+const reviewsData = await fetchProductReviews(productId, 10, 0);
+const hasReviews = reviewsData.rows.length > 0;
+---
+
+<div class={hasReviews ? "grid grid-cols-1 lg:grid-cols-2 gap-12" : ""}>
+  <!-- Reviews list (only shown when there are reviews) -->
+  <ReviewsList
+    reviews={reviewsData.rows}
+    total={reviewsData.total}
+    content={content}
+    productId={productId}
+  />
+  <!-- Review form (centered when no reviews, right column when reviews exist) -->
+  <div class={hasReviews ? "" : "max-w-2xl mx-auto"}>
+    <ReviewForm
+      productId={productId}
+      content={content}
+    />
+  </div>
+</div>

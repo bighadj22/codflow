@@ -1,0 +1,109 @@
+---
+// ── STREAMING COMPONENT ──
+// Customer testimonials from real product reviews
+import type { StoreConfig } from "@/core/api/types";
+import type { StoreFrontContent } from "@/theme/config/content";
+import { fetchProductsRaw, fetchProductReviews } from "@/core/api/client";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  config: StoreConfig;
+  content: StoreFrontContent;
+}
+
+const { config, content } = Astro.props;
+
+// Only render if reviews are enabled
+let reviews: any[] = [];
+
+if (config.reviewsEnabled) {
+  // Fetch products that have reviews
+  const products = await fetchProductsRaw();
+  const withReviews = products
+    .filter((p: any) => p.reviewStats && p.reviewStats.reviewCount > 0)
+    .sort((a: any, b: any) => (b.reviewStats?.reviewCount ?? 0) - (a.reviewStats?.reviewCount ?? 0))
+    .slice(0, 3);
+
+  // Fetch actual reviews from top-reviewed products
+  const reviewPromises = withReviews.map((p: any) =>
+    fetchProductReviews(p.id, 2, 0)
+  );
+  const results = await Promise.all(reviewPromises);
+  reviews = results
+    .flatMap((r) => r.rows)
+    .filter((r: any) => r.rating >= 4)
+    .slice(0, 3);
+}
+---
+
+{reviews.length > 0 && (
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+    <div class="text-center mb-16">
+      <h2 class="text-3xl sm:text-5xl font-black tracking-tighter" style="color: var(--clr-text)">
+        {content.testimonialsTitle}
+      </h2>
+      <p class="text-lg font-bold mt-4 opacity-50" style="color: var(--clr-text)">
+        {content.testimonialsSub}
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
+      {reviews.map((review: any) => (
+        <div
+          class="p-8 sm:p-10 flex flex-col justify-between transition-all duration-500 hover:shadow-2xl border border-black/[0.04] bg-white group hover:-translate-y-2"
+          style={`border-radius: var(--radius-card)`}
+        >
+          <div>
+            {/* Quote Icon */}
+            <div class="text-primary opacity-20 mb-6 group-hover:opacity-100 transition-opacity duration-500">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M14.017 21L14.017 18C14.017 16.8954 14.9124 16 16.017 16H19.017C19.5693 16 20.017 15.5523 20.017 15V9C20.017 8.44772 19.5693 8 19.017 8H16.017C15.4647 8 15.017 8.44772 15.017 9V12C15.017 12.5523 14.5693 13 14.017 13H12.017V21H14.017ZM6.017 21L6.017 18C6.017 16.8954 6.91243 16 8.017 16H11.017C11.5693 16 12.017 15.5523 12.017 15V9C12.017 8.44772 11.5693 8 11.017 8H8.017C7.46472 8 7.017 8.44772 7.017 9V12C7.017 12.5523 6.56929 13 6.017 13H4.017V21H6.017Z" />
+              </svg>
+            </div>
+
+            {/* Review body */}
+            <p class="text-[1.0625rem] font-medium leading-relaxed mb-8 opacity-80" style="color: var(--clr-text)">
+              “{review.body}”
+            </p>
+          </div>
+
+          <div class="flex items-center justify-between">
+            {/* Customer name + verified badge */}
+            <div class="flex items-center gap-4">
+              <div
+                class="w-12 h-12 flex items-center justify-center text-sm font-black text-white shrink-0 shadow-lg"
+                style={`background: var(--clr-primary); border-radius: var(--radius-btn)`}
+              >
+                {review.customerName?.charAt(0)?.toUpperCase() ?? "?"}
+              </div>
+              <div class="min-w-0">
+                <p class="text-[1rem] font-black truncate" style="color: var(--clr-text)">
+                  {review.customerName}
+                </p>
+                <p class="text-[0.75rem] font-bold flex items-center gap-1" style="color: var(--clr-success)">
+                  <Icon name="heroicons:check-circle" class="w-3.5 h-3.5" />
+                  {content.reviewsVerifiedBuyer}
+                </p>
+              </div>
+            </div>
+
+            {/* Star rating */}
+            <div class="flex gap-0.5" aria-label={content.ariaStarRating?.replace("{n}", String(review.rating)).replace("{s}", review.rating > 1 ? "s" : "")}>
+              {[1,2,3,4,5].map((s: number) => (
+                <svg
+                  width="14" height="14" viewBox="0 0 24 24"
+                  fill={s <= review.rating ? "var(--clr-primary)" : "none"}
+                  stroke="var(--clr-primary)" stroke-width="2"
+                  class="opacity-60"
+                  aria-hidden="true"
+                >
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+)}

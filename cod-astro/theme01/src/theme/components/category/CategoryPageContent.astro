@@ -1,0 +1,94 @@
+---
+// ── STREAMING COMPONENT ──
+// Fetches category products and all categories, renders the category page
+// Allows parent page to stream this after layout renders
+import ProductCard from "@/theme/components/product/ProductCard.astro";
+import { fetchProductsRaw, fetchCategoriesRaw } from "@/core/api/client";
+
+interface Props {
+  slug: string;
+  currencySymbol: string;
+  content: any;
+  configName: string;
+}
+
+const { slug, currencySymbol, content, configName } = Astro.props;
+
+// Fetch categories first to find the current one
+const categories = await fetchCategoriesRaw();
+const category = categories.find((c: any) => c.slug === slug);
+
+if (!category) return Astro.redirect("/");
+
+// Fetch products for this category
+const products = await fetchProductsRaw({ categoryId: category.id });
+---
+
+<div class="max-w-5xl mx-auto px-5 py-8">
+  <div class="mb-8">
+    <h1 class="text-3xl font-black tracking-tight" style="color: var(--clr-text)">{category.name}</h1>
+    <p class="text-[0.8125rem] font-bold uppercase tracking-widest mt-1" style="color: var(--clr-text-2)">
+      {products.length} {content.productCountLabel}
+    </p>
+    {category.description && (
+      <p class="text-sm mt-3 max-w-2xl" style="color: var(--clr-text-2)">{category.description}</p>
+    )}
+  </div>
+
+  <!-- Sub-categories (siblings) -->
+  {categories.length > 1 && (
+    <div class="flex items-center gap-2.5 overflow-x-auto scrollbar-hide pb-4 mb-8 touch-pan-x">
+      <a
+        href="/products"
+        data-astro-prefetch="hover"
+        class="shrink-0 px-5 py-2.5 rounded-2xl text-[0.875rem] font-black border-2 active:scale-95 shadow-sm"
+        style="border-color: var(--clr-border); background: var(--clr-surface); color: var(--clr-text-2)"
+      >
+        {content.allLabel}
+      </a>
+      {categories.map((cat) => (
+        <a
+          href={`/category/${cat.slug}`}
+          data-astro-prefetch="hover"
+          class:list={[
+            "shrink-0 px-5 py-2.5 rounded-2xl text-[0.875rem] font-black border-2 transition-all active:scale-95 shadow-sm",
+            cat.slug === slug
+              ? "bg-[var(--clr-primary)] border-[var(--clr-primary)] text-white shadow-lg shadow-[var(--clr-primary)]/20 scale-105 mx-1"
+              : "",
+          ]}
+          style={cat.slug !== slug ? "border-color: var(--clr-border); background: var(--clr-surface); color: var(--clr-text-2)" : ""}
+        >
+          {cat.name}
+        </a>
+      ))}
+    </div>
+  )}
+
+  {products.length > 0 ? (
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+      {products.map((p, i) => (
+        <ProductCard
+          product={p}
+          currencySymbol={currencySymbol}
+          eager={i < 4}
+          content={content}
+        />
+      ))}
+    </div>
+  ) : (
+    <div class="py-24 text-center">
+      <div class="w-20 h-20 rounded-full flex items-center justify-center text-4xl mx-auto mb-6" style="background: var(--clr-surface-alt)">🔍</div>
+      <h2 class="text-xl font-black mb-2" style="color: var(--clr-text)">
+        {content.noProductsTitle}
+      </h2>
+      <a
+        href="/products"
+        data-astro-prefetch="hover"
+        class="btn-primary !w-auto !px-8 mt-6"
+        aria-label={content.ariaBrowseAllProducts}
+      >
+        {content.viewAllCta}
+      </a>
+    </div>
+  )}
+</div>

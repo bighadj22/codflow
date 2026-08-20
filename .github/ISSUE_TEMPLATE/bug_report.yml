@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a bug in CodFlow
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Fill in the details below
+        so the maintainers can reproduce and fix it.
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: What tag, commit SHA, or `main` state are you on?
+      placeholder: e.g. main @ abc1234
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the project is affected?
+      options:
+        - cod-server (API / Workers)
+        - cod-client (dashboard)
+        - cod-astro/theme01 (storefront)
+        - cod-shared (schema / queries)
+        - Documentation
+        - CI / tooling
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened, and why is it wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimum steps to trigger the bug.
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Node version, browser, OS, wrangler/Next versions, etc.
+    validations:
+      required: false

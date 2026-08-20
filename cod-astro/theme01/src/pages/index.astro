@@ -1,0 +1,54 @@
+---
+// ── Home page layout ────────────────────────────────────────────────────────
+// Full home page: hero, categories, best sellers, how it works,
+// new arrivals, features bar, promo banner, testimonials.
+// Streaming components fetch their own data in parallel for optimal performance.
+// ─────────────────────────────────────────────────────────────────────────────
+import StoreLayout from "@/theme/layouts/StoreLayout.astro";
+import Hero from "@/theme/components/home/Hero.astro";
+import CategoryCards from "@/theme/components/home/CategoryCards.astro";
+import BestSellers from "@/theme/components/home/BestSellers.astro";
+import HowItWorks from "@/theme/components/home/HowItWorks.astro";
+import NewArrivals from "@/theme/components/home/NewArrivals.astro";
+import FeaturesBar from "@/theme/components/home/FeaturesBar.astro";
+import WhatsAppCTA from "@/theme/components/home/WhatsAppCTA.astro";
+import CustomerTestimonials from "@/theme/components/home/CustomerTestimonials.astro";
+import { getStoreContext } from "@/theme/config/store";
+
+const { config, content } = await getStoreContext();
+---
+
+<StoreLayout config={config} content={content}>
+  <!-- Hero renders immediately (no data fetch) -->
+  <Hero content={content} />
+
+  <!-- CategoryCards streams (fetches categories) -->
+  <CategoryCards content={content} />
+
+  <!-- BestSellers streams (fetches featured products) -->
+  <BestSellers
+    currencySymbol={config.currencySymbol}
+    content={content}
+  />
+
+  <!-- HowItWorks renders immediately (presentational) -->
+  <HowItWorks content={content} />
+
+  <!-- NewArrivals streams (fetches products) -->
+  <NewArrivals
+    currencySymbol={config.currencySymbol}
+    content={content}
+  />
+
+  <!-- FeaturesBar renders immediately (presentational) -->
+  <FeaturesBar content={content} />
+
+  <!-- Promo banner renders immediately (presentational) -->
+  <WhatsAppCTA content={content} />
+
+  <!-- CustomerTestimonials streams (fetches reviews, conditional) -->
+  <CustomerTestimonials
+    config={config}
+    content={content}
+  />
+</StoreLayout>

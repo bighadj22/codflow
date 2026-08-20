@@ -1,0 +1,31 @@
+{
+  "title": "My Profile",
+  "subtitle": "Personal info and account security",
+  "info": {
+    "title": "Account Information",
+    "subtitle": "Your identity and role in this store",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "status": "Status"
+  },
+  "security": {
+    "title": "Change Password",
+    "subtitle": "Update your login password",
+    "current": "Current Password",
+    "current_placeholder": "Enter current password",
+    "new": "New Password",
+    "new_placeholder": "At least 8 characters",
+    "new_hint": "Minimum 8 characters",
+    "confirm": "Confirm New Password",
+    "confirm_placeholder": "Repeat new password",
+    "save": "Update Password",
+    "saving": "Updating...",
+    "success": "Password updated successfully",
+    "error_required": "This field is required",
+    "error_min_length": "Password must be at least 8 characters",
+    "error_mismatch": "Passwords do not match",
+    "error_wrong": "Current password is incorrect",
+    "error_generic": "Failed to update password. Please try again."
+  }
+}

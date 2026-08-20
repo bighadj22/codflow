@@ -1,0 +1,76 @@
+{
+  "page_title": "Offres Promotionnelles",
+  "add_offer": "Créer une offre",
+  "offers_count": "offre",
+  "table": {
+    "name": "Nom de l'offre",
+    "trigger": "Déclencheur",
+    "reward": "Récompense",
+    "status": "Statut",
+    "schedule": "Période",
+    "actions": "Actions"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "empty_state": {
+    "title": "Aucune offre active",
+    "description": "Créez des offres attrayantes comme 'Achetez X obtenez Y' ou 'Livraison gratuite' pour augmenter vos ventes et récompenser vos clients.",
+    "action": "Créer votre première offre"
+  },
+  "actions": {
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "activate": "Activer",
+    "deactivate": "Désactiver"
+  },
+  "discount_type": {
+    "free": "Article gratuit",
+    "free_shipping": "Livraison gratuite"
+  },
+  "form": {
+    "title_add": "Créer une nouvelle offre",
+    "title_edit": "Modifier l'offre",
+    "name_label": "Nom de l'offre",
+    "name_placeholder": "Ex: Achetez 2 obtenez 1 gratuit",
+    "discount_type_label": "Type d'offre",
+    "free_shipping_note": "Le client obtient la livraison gratuite lorsque la condition de quantité est remplie",
+    "section_trigger": "Condition de déclenchement",
+    "trigger_product_label": "Produit déclencheur",
+    "trigger_product_placeholder": "Sélectionner un produit",
+    "trigger_variant_label": "Variante déclencheuse",
+    "trigger_variant_any": "Toute variante",
+    "trigger_qty_label": "Quantité minimale d'achat",
+    "trigger_qty_hint": "Le client doit commander au moins cette quantité",
+    "section_reward": "Récompense",
+    "reward_product_label": "Produit offert",
+    "reward_product_placeholder": "Sélectionner un produit",
+    "reward_variant_label": "Variante offerte",
+    "reward_variant_same": "Même variante que commandée",
+    "reward_variant_any": "Variante par défaut",
+    "reward_qty_label": "Quantité offerte",
+    "section_schedule": "Planification (optionnel)",
+    "starts_at_label": "Débute le",
+    "ends_at_label": "Se termine le",
+    "status_label": "Statut de l'offre",
+    "status_active": "Active",
+    "status_inactive": "Inactive",
+    "save": "Enregistrer l'offre",
+    "saving": "Enregistrement...",
+    "cancel": "Annuler",
+    "success_add": "Offre créée avec succès",
+    "success_edit": "Offre mise à jour avec succès",
+    "error_save": "Échec de l'enregistrement, réessayez",
+    "delete_confirm": "Supprimer définitivement cette offre ?",
+    "error_name_required": "Le nom de l'offre est requis",
+    "error_trigger_product_required": "Veuillez sélectionner un produit déclencheur",
+    "error_reward_product_required": "Veuillez sélectionner un produit récompense",
+    "error_trigger_qty": "La quantité minimale doit être d'au moins 1",
+    "error_reward_qty": "La quantité gratuite doit être d'au moins 1"
+  },
+  "buy_x_get_y": "Achetez {x} obtenez {y} gratuit",
+  "buy_x_free_shipping": "Achetez {x} → Livraison gratuite",
+  "any_variant": "Toute variante",
+  "free_shipping_reward": "Livraison gratuite 🚚"
+}

@@ -1,0 +1,223 @@
+---
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  productId: string;
+  content: StoreFrontContent;
+}
+
+const { productId, content } = Astro.props;
+---
+
+<section class="review-form-section mt-10" id="write-review">
+  <div class="card !border-none !shadow-lg sm:!border sm:!shadow-md">
+    <!-- Header -->
+    <div
+      class="px-6 py-5 border-b border-black/[.03]"
+      style="background: color-mix(in srgb, var(--clr-primary) 4%, white)"
+    >
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm" style="background: var(--clr-surface); color: var(--clr-primary)">
+          <Icon name="heroicons:star" class="w-5 h-5" />
+        </div>
+        <h2 class="font-black text-[1rem] leading-tight" style="color: var(--clr-text)">{content.reviewFormTitle}</h2>
+      </div>
+    </div>
+
+    <!-- Success state (hidden by default) -->
+    <div id="review-success" class="hidden p-8 text-center">
+      <div
+        class="w-16 h-16 rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 shadow-sm"
+        style="background: color-mix(in srgb, var(--clr-primary) 10%, white); color: var(--clr-primary)"
+      >
+        <Icon name="heroicons:check-circle" class="w-8 h-8" />
+      </div>
+      <p class="font-black text-[1rem] leading-snug px-4" style="color: var(--clr-text)">{content.reviewFormSuccess}</p>
+    </div>
+
+    <!-- Form -->
+    <form id="review-form" class="p-6 space-y-5" novalidate>
+      <input type="hidden" name="productId" value={productId} />
+
+      <!-- Error banner -->
+      <div id="review-error" class="hidden p-4 bg-red-50 border border-red-100 rounded-[1.25rem] text-[0.875rem] font-bold text-red-600 flex items-start gap-3">
+        <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 shrink-0" />
+        <p id="review-error-msg"></p>
+      </div>
+
+      <!-- Order ID -->
+      <div>
+        <label for="review-order-id" class="form-label">
+          {content.reviewFormOrderLabel} <span class="text-red-400">*</span>
+        </label>
+        <input
+          id="review-order-number"
+          type="text"
+          name="orderNumber"
+          required
+          autocomplete="off"
+          placeholder={content.reviewFormOrderPlaceholder}
+          class="form-input"
+          dir="ltr"
+        />
+        <p class="text-[0.75rem] font-bold mt-1.5 ps-1" style="color: var(--clr-text)">{content.reviewFormOrderHelp}</p>
+      </div>
+
+      <!-- Rating -->
+      <div>
+        <label class="form-label">{content.reviewFormRatingLabel} <span class="text-red-400">*</span></label>
+        <div class="flex gap-2 mt-1" id="star-rating-group" role="group" aria-label={content.reviewFormRatingLabel}>
+          {[1,2,3,4,5].map(n => (
+            <button
+              type="button"
+              class="star-btn w-10 h-10 rounded-2xl flex items-center justify-center transition-all active:scale-90 border-2 border-transparent"
+              style="background: var(--clr-surface-alt)"
+              data-value={n}
+              aria-label={content.ariaStarRating.replace("{n}", n.toString()).replace("{s}", n > 1 ? "s" : "")}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="star-icon transition-colors" style="color: var(--clr-disabled)">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </button>
+          ))}
+        </div>
+        <input type="hidden" name="rating" id="review-rating-hidden" value="" />
+      </div>
+
+      <!-- Title (optional) -->
+      <div>
+        <label for="review-title" class="form-label">{content.reviewFormTitleLabel}</label>
+        <input
+          id="review-title"
+          type="text"
+          name="title"
+          maxlength="150"
+          placeholder={content.reviewFormTitlePlaceholder}
+          class="form-input"
+        />
+      </div>
+
+      <!-- Body -->
+      <div>
+        <label for="review-body" class="form-label">
+          {content.reviewFormBodyLabel} <span class="text-red-400">*</span>
+        </label>
+        <textarea
+          id="review-body"
+          name="body"
+          rows="4"
+          required
+          minlength="10"
+          maxlength="2000"
+          placeholder={content.reviewFormBodyPlaceholder}
+          class="form-input"
+        ></textarea>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" id="review-submit-btn" class="btn-primary !h-[3.5rem] !text-[1rem]">
+        {content.reviewFormSubmit}
+      </button>
+    </form>
+  </div>
+</section>
+
+<script is:inline define:vars={{
+  errorDuplicate: content.reviewFormErrorDuplicate,
+  errorInvalidOrder: content.reviewFormErrorInvalidOrder,
+  errorGeneric: content.reviewFormErrorGeneric,
+  reviewFormMinLengthError: content.reviewFormMinLengthError,
+  reviewFormRatingRequired: content.reviewFormRatingRequired,
+}}>
+  (function () {
+    const form      = document.getElementById("review-form");
+    const success   = document.getElementById("review-success");
+    const errorDiv  = document.getElementById("review-error");
+    const errorMsg  = document.getElementById("review-error-msg");
+    const submitBtn = document.getElementById("review-submit-btn");
+    const ratingInput = document.getElementById("review-rating-hidden");
+    const starBtns = document.querySelectorAll(".star-btn");
+
+    let selectedRating = 0;
+
+    // Star rating interaction
+    starBtns.forEach((btn) => {
+      btn.addEventListener("mouseenter", () => highlightStars(parseInt(btn.dataset.value)));
+      btn.addEventListener("mouseleave", () => highlightStars(selectedRating));
+      btn.addEventListener("click", () => {
+        selectedRating = parseInt(btn.dataset.value);
+        ratingInput.value = String(selectedRating);
+        highlightStars(selectedRating);
+      });
+    });
+
+    function highlightStars(n) {
+      starBtns.forEach((btn) => {
+        const v = parseInt(btn.dataset.value);
+        const icon = btn.querySelector(".star-icon");
+        if (v <= n) {
+          icon.style.fill = "var(--clr-primary)";
+          icon.style.stroke = "var(--clr-primary)";
+          icon.style.color = "var(--clr-primary)";
+        } else {
+          icon.style.fill = "none";
+          icon.style.stroke = "";
+          icon.style.color = "";
+        }
+      });
+    }
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorDiv.classList.remove("hidden");
+      errorDiv.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function clearError() {
+      errorDiv.classList.add("hidden");
+      errorMsg.textContent = "";
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearError();
+
+      const data = new FormData(form);
+      // orderNumber is the customer-facing identifier (ORD-YYYYMMDD-NNNN) —
+      // the same value shown on the thank-you page. NOT the internal UUID.
+      const orderNumber = data.get("orderNumber")?.toString().trim();
+      const productId = data.get("productId")?.toString();
+      const rating = parseInt(data.get("rating")?.toString() ?? "0");
+      const title = data.get("title")?.toString().trim() || undefined;
+      const body = data.get("body")?.toString().trim();
+
+      if (!orderNumber) { showError(errorInvalidOrder); return; }
+      if (!rating || rating < 1 || rating > 5) { showError(reviewFormRatingRequired); return; }
+      if (!body || body.length < 10) { showError(reviewFormMinLengthError); return; }
+
+      submitBtn.disabled = true;
+
+      try {
+        const res = await fetch("/api/submit-review", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderNumber, productId, rating, title, body }),
+        });
+        const json = await res.json();
+
+        if (res.status === 409) { showError(errorDuplicate); return; }
+        if (res.status === 404) { showError(errorInvalidOrder); return; }
+        if (!res.ok) { showError(json.error ?? errorGeneric); return; }
+
+        // Success
+        form.classList.add("hidden");
+        success.classList.remove("hidden");
+      } catch {
+        showError(errorGeneric);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  })();
+</script>

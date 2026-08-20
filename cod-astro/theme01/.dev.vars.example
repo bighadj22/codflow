@@ -1,0 +1,15 @@
+# CodFlow storefront (cod-astro/theme01) — local development secrets
+# Copy this file to .dev.vars and fill in your values.
+# (.dev.vars is gitignored — your real values never get committed.)
+
+# API key for the store — must match the key_hash seeded into D1
+# (see cod-server/scripts/seed-local.mjs; the local seed uses "codflow-dev-store-key"
+# when STORE_API_KEY is not set).
+STORE_API_KEY=codflow-dev-store-key
+
+# Base URL of the cod-server API Worker.
+COD_SERVER_URL=http://localhost:8787
+
+# Optional: media/CDN domain serving R2 images (no scheme, e.g. media.yourdomain.com).
+# Unset → the image optimizer passes original image URLs through unchanged.
+# MEDIA_DOMAIN=media.yourdomain.com

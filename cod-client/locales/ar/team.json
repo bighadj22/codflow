@@ -1,0 +1,168 @@
+{
+  "header": {
+    "title": "إدارة الفريق",
+    "subtitle": "إدارة أعضاء الفريق والأذونات والأدوار"
+  },
+  "invite_user": "دعوة مستخدم",
+  "team_members": "أعضاء الفريق",
+  "joined": "انضم في",
+  "manage_permissions": "إدارة الأذونات",
+  "generate_api_key": "إنشاء مفتاح API",
+  "revoke_api_key": "إلغاء مفتاح API",
+  "rotate_api_key": "تجديد مفتاح API",
+  "rotate_key_dialog": {
+    "confirm_title": "تجديد مفتاح API لـ {name}؟",
+    "confirm_description": "سيتم إبطال المفتاح الحالي فورًا. يُعرض المفتاح الجديد مرة واحدة فقط — انسخه قبل الإغلاق.",
+    "confirm_button": "تجديد المفتاح",
+    "result_title": "مفتاح API الجديد",
+    "result_subtitle": "تم تجديد مفتاح {name}",
+    "warning": "لن يُعرض هذا المفتاح مجددًا. انسخه الآن وشاركه بشكل آمن.",
+    "done": "تم"
+  },
+  "search_placeholder": "البحث في أعضاء الفريق...",
+  "table": {
+    "name": "الاسم",
+    "email": "البريد الإلكتروني",
+    "role": "الدور",
+    "status": "الحالة",
+    "permissions": "الأذونات",
+    "scopes": "صلاحيات",
+    "joined": "تاريخ الانضمام"
+  },
+  "actions": {
+    "view": "عرض",
+    "edit": "تعديل"
+  },
+  "filters": {
+    "role": "الدور",
+    "status": "الحالة"
+  },
+  "status": {
+    "active": "نشط",
+    "inactive": "غير نشط",
+    "suspended": "معلق"
+  },
+  "empty_state": {
+    "title": "لا يوجد أعضاء فريق"
+  },
+  "status_updated": "تم تحديث الحالة بنجاح",
+  "status_update_failed": "فشل في تحديث الحالة",
+  "role_updated": "تم تحديث الدور بنجاح",
+  "role_update_failed": "فشل في تحديث الدور",
+  "api_key_generated": "تم إنشاء مفتاح API بنجاح",
+  "api_key_copied": "تم نسخ مفتاح API إلى الحافظة",
+  "api_key_generation_failed": "فشل في إنشاء مفتاح API",
+  "api_key_revoked": "تم إلغاء مفتاح API بنجاح",
+  "api_key_revoke_failed": "فشل في إلغاء مفتاح API",
+  "invite_dialog": {
+    "title": "دعوة مستخدم جديد",
+    "name": "الاسم",
+    "name_placeholder": "أدخل اسم المستخدم",
+    "email": "البريد الإلكتروني",
+    "email_placeholder": "أدخل البريد الإلكتروني",
+    "role": "الدور",
+    "cancel": "إلغاء",
+    "send_invite": "إرسال الدعوة",
+    "sending": "جاري الإرسال...",
+    "success": "تم إرسال الدعوة بنجاح",
+    "error": "فشل في إرسال الدعوة",
+    "validation_error": "يرجى ملء جميع الحقول المطلوبة"
+  },
+  "view_activity": "عرض النشاط",
+  "activity_log": {
+    "title": "سجل النشاط",
+    "subtitle": "جميع الإجراءات التي قام بها هذا العضو",
+    "empty": "لا يوجد نشاط مسجّل بعد",
+    "load_more": "تحميل المزيد",
+    "filters": {
+      "all": "الكل",
+      "orders": "الطلبات",
+      "customers": "العملاء",
+      "drivers": "السائقون",
+      "products": "المنتجات",
+      "team": "الفريق",
+      "reviews": "التقييمات"
+    },
+    "stats": {
+      "actions": "إجراء",
+      "last_active": "آخر نشاط"
+    },
+    "actions": {
+      "order.created":           "أنشأ طلبًا جديدًا",
+      "order.status_changed":    "غيّر حالة الطلب",
+      "order.driver_assigned":   "عيّن سائقًا للطلب",
+      "order.dispatched":        "أرسل الطلب إلى شركة",
+      "order.deleted":           "حذف طلبًا",
+      "customer.created":        "أضاف عميلًا جديدًا",
+      "customer.updated":        "حدّث بيانات عميل",
+      "customer.deleted":        "حذف عميلًا",
+      "driver.created":          "أضاف سائقًا جديدًا",
+      "driver.updated":          "حدّث بيانات سائق",
+      "driver.status_changed":   "غيّر حالة السائق",
+      "driver.deleted":          "حذف سائقًا",
+      "product.created":         "أضاف منتجًا جديدًا",
+      "product.updated":         "حدّث بيانات منتج",
+      "product.status_changed":  "غيّر حالة منتج",
+      "product.deleted":         "حذف منتجًا",
+      "user.created":            "أضاف عضوًا للفريق",
+      "user.updated":            "حدّث بيانات عضو",
+      "user.role_changed":       "غيّر دور عضو",
+      "user.scope_granted":      "منح صلاحية لعضو",
+      "user.scope_revoked":      "سحب صلاحية من عضو",
+      "user.api_key_generated":  "أنشأ مفتاح API",
+      "user.api_key_revoked":    "أبطل مفتاح API",
+      "review.approved":         "وافق على تقييم",
+      "review.rejected":         "رفض تقييمًا",
+      "review.deleted":          "حذف تقييمًا"
+    }
+  },
+  "scope_dialog": {
+    "title": "إدارة الأذونات",
+    "security_warning": "منح صلاحيات واسعة قد يؤثر على أمان النظام",
+    "cancel": "إلغاء",
+    "save_changes": "حفظ التغييرات",
+    "saving": "جاري الحفظ...",
+    "success": "تم تحديث الأذونات بنجاح",
+    "error": "فشل في تحديث الأذونات",
+    "will_grant": "سيتم منحه",
+    "will_revoke": "سيتم إلغاؤه"
+  },
+  "scope_categories": {
+    "dashboard": "لوحة التحكم",
+    "orders": "الطلبات",
+    "customers": "العملاء",
+    "customerGroups": "مجموعات العملاء",
+    "customerTags": "وسوم العملاء",
+    "products": "المنتجات",
+    "delivery": "التوصيل",
+    "productGroups": "مجموعات المنتجات",
+    "stock": "المخزون",
+    "reviews": "التقييمات",
+    "offers": "العروض",
+    "settings": "الإعدادات"
+  },
+  "scope_actions": {
+    "view": "عرض",
+    "read": "قراءة",
+    "create": "إنشاء",
+    "update": "تحديث",
+    "delete": "حذف",
+    "assign": "تعيين",
+    "manage": "إدارة",
+    "dispatch": "إرسال",
+    "team": "الفريق",
+    "integrations": "التكاملات",
+    "notifications": "الإشعارات"
+  },
+  "invite_dialog_extra": {
+    "permissions_label": "الصلاحيات",
+    "n_selected": "{{count}} محدد",
+    "admin_full_access": "المسؤولون لديهم وصول كامل لجميع الميزات — لا حاجة لتحديد الصلاحيات.",
+    "api_key_label": "مفتاح API",
+    "temp_password_label": "كلمة المرور المؤقتة",
+    "api_key_warning": "لن يُعرض مفتاح API هذا مجددًا. انسخه الآن وشاركه بأمان مع عضو الفريق.",
+    "temp_password_warning": "شارك كلمة المرور المؤقتة مع المستخدم ليتمكن من تسجيل الدخول للمرة الأولى.",
+    "success_title": "تمت إضافة العضو",
+    "success_subtitle": "تأهيل عضو فريق جديد"
+  }
+}

@@ -1,0 +1,76 @@
+---
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  content: StoreFrontContent;
+}
+
+const { content } = Astro.props;
+---
+
+<section class="hero-bg-subtle overflow-hidden relative -mt-[calc(4.5rem+var(--safe-top))] pt-[calc(4.5rem+var(--safe-top))]">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-center min-h-[500px] sm:min-h-[550px] lg:min-h-[600px]">
+
+      <div class="flex flex-col justify-center py-16 sm:py-20 lg:py-24 relative z-20 text-center">
+        <div class="space-y-6 sm:space-y-8 max-w-2xl mx-auto">
+          {/* Eyebrow badge */}
+          {content.heroEyebrow && (
+            <div class="animate-fade-in-up">
+              <span class="inline-flex items-center gap-2 text-[0.75rem] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full bg-white/50 border border-black/[0.04] text-primary backdrop-blur-sm">
+                {content.heroEyebrow}
+              </span>
+            </div>
+          )}
+
+          {/* Headline */}
+          <h1
+            class="text-[2.25rem] sm:text-[3.5rem] lg:text-[5rem] font-black leading-[1.1] tracking-tight animate-fade-in-up [animation-delay:100ms] text-balance"
+            style="color: var(--clr-text)"
+          >
+            {content.heroTitle}
+          </h1>
+
+          {/* Subtitle */}
+          <p
+            class="text-[1rem] sm:text-lg lg:text-xl font-medium leading-relaxed opacity-80 animate-fade-in-up [animation-delay:200ms] text-pretty max-w-md mx-auto"
+            style="color: var(--clr-text-2)"
+          >
+            {content.heroSubtitle}
+          </p>
+
+          {/* CTA buttons */}
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 animate-fade-in-up [animation-delay:300ms]">
+            <a
+              href="/products"
+              class="btn-primary group !w-full sm:!w-auto !px-10 h-14 sm:h-16 text-base"
+            >
+              {content.heroCtaPrimary}
+              <Icon name="heroicons:arrow-right" class="w-5 h-5 transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" />
+            </a>
+            <a
+              href="#best-sellers"
+              class="inline-flex items-center justify-center px-10 h-14 sm:h-16 font-black text-sm transition-all duration-300 active:scale-95 border-2 border-black/[0.08] hover:bg-white/50 w-full sm:w-auto bg-white/20 backdrop-blur-sm rounded-2xl"
+              style="color: var(--clr-text)"
+            >
+              {content.heroCtaSecondary}
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<style>
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in-up {
+    animation: fade-in-up 0.8s var(--animate-spring) forwards;
+    opacity: 0;
+  }
+</style>

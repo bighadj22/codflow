@@ -1,0 +1,120 @@
+---
+import StoreLayout from "@/theme/layouts/StoreLayout.astro";
+import { getStoreContext } from "@/theme/config/store";
+import { Icon } from "astro-icon/components";
+
+const { config, content, isRTL } = await getStoreContext();
+
+const orderNumber = Astro.url.searchParams.get("order") ?? "";
+const orderId = Astro.url.searchParams.get("oid") ?? "";
+const total = Astro.url.searchParams.get("total");
+const totalFormatted = total
+  ? parseInt(total).toLocaleString("ar-DZ")
+  : null;
+
+if (!orderNumber) {
+  return Astro.redirect("/");
+}
+
+const pixelId = config.pixelId ?? null;
+const totalNum = total ? parseInt(total) : null;
+
+const steps = [
+  { icon: "heroicons:phone", title: content.step1Title, sub: content.step1Sub },
+  { icon: "heroicons:cube",  title: content.step2Title, sub: content.step2Sub },
+  { icon: "heroicons:truck", title: content.step3Title, sub: content.step3Sub },
+];
+---
+
+<StoreLayout
+  config={config}
+  content={content}
+  title={`${content.thankYouPageTitle} — ${config.name}`}
+  noindex={true}
+>
+  <div class="max-w-lg mx-auto px-5 py-12 sm:py-20 text-center">
+    <!-- Success icon -->
+    <div
+      class="w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-xl animate-spring"
+      style="background: var(--clr-surface); border: 4px solid color-mix(in srgb, var(--clr-primary) 10%, white); color: var(--clr-primary)"
+    >
+      <Icon name="heroicons:check-circle" class="w-12 h-12" />
+    </div>
+
+    <h1 class="text-3xl font-black mb-3 tracking-tight" style="color: var(--clr-text)">
+      {content.thankYouTitle}
+    </h1>
+    <p class="font-bold text-[1.0625rem] mb-10 text-balance px-4" style="color: var(--clr-text-2)">
+      {content.thankYouSubtitle}
+    </p>
+
+    <!-- Order card (Ticket style) -->
+    <div class="relative rounded-[2rem] border border-black/[.03] shadow-lg p-8 mb-10 text-start overflow-hidden" style="background: var(--clr-surface)">
+      <div class="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-[var(--clr-bg)] rounded-full border-r border-black/[.03]"></div>
+      <div class="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-[var(--clr-bg)] rounded-full border-l border-black/[.03]"></div>
+
+      <div class="flex items-center justify-between pb-6 border-b border-dashed mb-6" style="border-color: var(--clr-border)">
+        <span class="text-[0.6875rem] font-black uppercase tracking-[0.2em]" style="color: var(--clr-text-2)">
+          {content.orderNumberLabel}
+        </span>
+        <span
+          class="font-black text-xl tracking-wider"
+          style="color: var(--clr-primary)"
+        >
+          {orderNumber}
+        </span>
+      </div>
+
+      {totalFormatted && (
+        <div class="flex items-center justify-between mb-6">
+          <span class="text-sm font-bold" style="color: var(--clr-text-2)">{content.totalAmountLabel}</span>
+          <span class="font-black text-2xl tracking-tight" style="color: var(--clr-text)">
+            {totalFormatted} <span class="text-sm opacity-60 font-bold tracking-tighter uppercase">{config.currencySymbol}</span>
+          </span>
+        </div>
+      )}
+
+      <div class="p-4 rounded-2xl border" style="background: var(--clr-surface-alt); border-color: var(--clr-border)">
+        <p class="text-[0.8125rem] font-black leading-relaxed flex items-center gap-2" style="color: var(--clr-text-2)">
+          <Icon name="heroicons:credit-card" class="w-5 h-5 shrink-0 text-primary" />
+          {content.codNote}
+        </p>
+      </div>
+    </div>
+
+    <!-- Steps -->
+    <div class="grid grid-cols-3 gap-3 mb-12">
+      {steps.map((step) => (
+        <div class="flex flex-col items-center gap-2">
+          <div
+            class="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border border-black/[.03] text-primary"
+            style="background: var(--clr-surface)"
+          >
+            <Icon name={step.icon} class="w-5 h-5" />
+          </div>
+          <p class="text-[0.75rem] font-black leading-tight" style="color: var(--clr-text)">{step.title}</p>
+          <p class="text-[0.625rem] font-bold" style="color: var(--clr-text-2)">{step.sub}</p>
+        </div>
+      ))}
+    </div>
+
+    <a
+      href="/"
+      class="btn-primary !h-[3.75rem] !text-[1rem] active:scale-95 shadow-xl shadow-[var(--clr-primary)]/20"
+    >
+      {content.backToStore}
+      <Icon name="heroicons:arrow-right" class:list={["w-5 h-5", isRTL ? 'rotate-180' : '']} />
+    </a>
+  </div>
+</StoreLayout>
+
+{pixelId && (
+  <script type="text/javascript" set:html={`
+(function() {
+  if (typeof fbq !== 'function') return;
+  var eventId = ${JSON.stringify(orderId || orderNumber)};
+  var total   = ${JSON.stringify(totalNum)};
+  fbq('track', 'Lead', total ? { value: total, currency: 'DZD' } : {}, { eventID: eventId });
+})();
+  `} />
+)}
