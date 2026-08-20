@@ -29,6 +29,12 @@ migrations_dir = "src/db/migrations"
 binding = "IMAGES"
 bucket_name = "codflow-images"
 
+# KV namespace for rate limiting.
+# Create with: wrangler kv:namespace create "RATE_LIMIT"
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "00000000000000000000000000000000"
+
 # MCP remote server — one Durable Object per active MCP session holds
 # transport state (streamable-HTTP connection, pending elicitations, etc.).
 # Binding name MCP_SESSIONS is referenced by CodMcpAgent.serve("/mcp", { binding: "MCP_SESSIONS" }).
