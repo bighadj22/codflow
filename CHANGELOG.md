@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-CodFlow is a pre-release monorepo with no tagged releases yet. This section
-tracks work in progress toward the initial public release.
+## [0.1.0] - 2026-08-20
+
+Initial public release of CodFlow — the open-source, COD-first e-commerce +
+delivery platform for Algeria.
 
 ### Added
 
@@ -26,9 +28,15 @@ tracks work in progress toward the initial public release.
 
 ### Security
 
-- No public releases yet; see `SECURITY.md` for the reporting process
+- Inbound webhooks (Yalidine, ZR Express) verified with Svix HMAC signatures
+- MCP remote server protected with OAuth + offline JWKS verification (RFC 9728)
+- API keys hashed at rest (SHA-256); production secrets only via
+  `wrangler secret put` — none committed to the repository
+- Dependabot security & grouped version updates enabled; branch protection on
+  `main`
 
-## [0.1.0] - TBD
+### Changed
 
-Placeholder for the initial tagged release. Version numbers and release dates
-will be added here when the first tag is cut.
+- Storefront upgraded to Astro 7 (Rust compiler, Vite 8); server & dashboard
+  upgraded to TypeScript 7 and Vitest 4; Drizzle ORM → 0.45; Next.js → 16;
+  Wrangler → 4

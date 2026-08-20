@@ -1,6 +1,6 @@
 # Getting help with CodFlow
 
-CodFlow is a pre-release project. Here is where to go depending on what you
+CodFlow is an open-source project. Here is where to go depending on what you
 need:
 
 ## Bugs and feature requests
@@ -24,5 +24,5 @@ The primary documentation is the repository [`README.md`](./README.md) and the
 
 ## Commercial / priority support
 
-There is currently no commercial support tier. This project is pre-release and
-maintained on a best-effort basis.
+There is currently no commercial support tier. This project is maintained on a
+best-effort basis.
