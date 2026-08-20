@@ -1,125 +1,90 @@
 ---
 name: codflow-governance
-description: CodFlow repository governance — build, test, and ship code that meets this repo's standards. Use when making ANY change to CodFlow (cod-server, cod-client, cod-shared, cod-astro/theme01, README, docs, CI), before committing or opening a PR, writing README feature claims, touching migrations or the D1 schema, adding dependencies, or reviewing contributions. Enforces: code-verified README claims, no secrets, typecheck+tests verification, conventional commits, changelog updates, Apache-2.0/NOTICE, and SECURITY.md reporting rules.
+description: CodFlow repository workflow — the process for making and shipping a change that meets this repo's standards. Use when making ANY change to CodFlow (cod-server, cod-client, cod-shared, cod-astro/theme01, README, docs, CI), before committing or opening a PR, writing README feature claims, touching migrations or the D1 schema, adding dependencies, or reviewing contributions. Loads and defers to AGENTS.md for the repo contract; this skill is the step-by-step workflow, not a duplicate of it.
 ---
 
-# CodFlow Governance
+# CodFlow Governance — change workflow
 
 CodFlow is an Apache-2.0, self-hosted, cash-on-delivery (COD) e-commerce
-platform for Algeria, open-sourced for the first time. Every change must keep
-the repo **honest, tested, and secure**. This skill is the contract for how
-code lands here.
+platform for Algeria, open-sourced for the first time. This skill is the
+**workflow** for landing a change. The repo contract (layout, commands,
+verification, boundaries, traps, security rules) lives in the root
+`AGENTS.md` — read it first; it is the source of truth. Package-specific
+commands and boundaries live in each package's `AGENTS.md`
+(`cod-astro/theme01/AGENTS.md`).
 
-## Repo layout (know where things live)
+## When to use
 
-- `cod-server/` — Cloudflare Workers API (Hono). Merchant `/api/*`, public
-  `/store/*`, `/webhooks`, `/images`, `/mcp`. D1 via Drizzle.
-- `cod-client/` — Next.js merchant dashboard (App Router, `"use client"`
-  heavy). `app/(dashboard)/*` is the merchant UI.
-- `cod-shared/` — single source of truth for the D1 schema, shared queries,
-  RBAC scopes, and error codes. Imported via relative path
-  (`../../cod-shared/...`). **Not published.**
-- `cod-astro/theme01/` — swappable storefront theme (Astro). No package.json.
-  Keep engine logic out of it.
+- You are about to change code, docs, schema, or CI in this repo.
+- You are writing README feature claims.
+- You are reviewing a contribution.
 
-There is **no root package.json and no npm workspaces**. Each package installs
-its own dependencies.
+## The change workflow
 
-## Commands (exact, run inside the package dir)
+### 1. Locate the change
+
+- Identify the package(s) affected (cod-server / cod-client / cod-shared /
+  cod-astro/theme01). Read the root `AGENTS.md`, then the package's `AGENTS.md`.
+- Respect the `cod-shared` boundary: schema, queries, RBAC scopes, and error
+  codes are defined there and only there. Do not duplicate them in a package.
+- Migrations: add a new migration; never rewrite an already-applied one.
+- Ask before adding a production dependency or changing the D1 schema.
+- Keep engine logic out of `cod-astro/theme01` (swappable theme layer).
+
+### 2. Install dependencies
+
+Run in this order — cod-server/cod-client tests and typecheck fail if
+`cod-shared` deps are not installed first:
 
 ```sh
-cd cod-shared && npm ci        # always first — others resolve cod-shared deps
-cd cod-server && npm ci        # then
-cd cod-server && npm run typecheck
-cd cod-server && npm test
-cd cod-server && npm run dev   # wrangler dev :8787
+cd cod-shared && npm ci
+cd cod-server && npm ci   # and/or cd cod-client && npm ci
 ```
 
-Same for `cod-client` (`npm ci`, `npm run typecheck`, `npm test`, `npm run dev`).
-`cod-astro/theme01` needs no install (`npm run dev` starts Astro).
-CI runs exactly these commands in `.github/workflows/ci.yml`.
+### 3. Make the change
 
-## Verification — NEVER skip
+- One logical change per commit. Conventional Commits
+  (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`, `ci:`).
+- No explanatory code comments unless asked.
+- Never commit secrets (API keys, carrier tokens, credentials). Real secrets go
+  in `wrangler secrets` / `.dev.vars` (gitignored).
+- Add or update a **focused test** for behavior changes.
+
+### 4. Verify — never skip
 
 - After **any TypeScript change**: run `npm run typecheck` in the affected
-  package. Failing typecheck is a blocker.
+  package (theme01: `npx astro check`).
 - After **any behavior change**: run `npm test` in the affected package.
-  (cod-server currently: 689 tests; cod-client: 141.)
-- Add or update a **focused test** for the behavior you changed. Do not rely on
-  "it compiles" — behavior changes need coverage.
+- README claims must be code-verified: never write a feature claim the code
+  does not implement. If a feature is partially built, say exactly that.
 - Do not mark work complete until typecheck + tests actually pass.
 
-## README claims MUST be code-verified
+### 5. Commit, branch, PR
 
-This is the repo's non-negotiable rule:
-
-> Never write a feature claim in the README that is not actually implemented.
-
-- Before editing a README feature list, confirm the code exists (read the
-  handler/route/component).
-- If a feature is only partially built (e.g. backend done, UI is a "Coming
-  Soon" placeholder), say exactly that — do not claim it as complete.
-- Use the ✅/❌/🧭 markers the README already uses; keep them accurate.
-- If you discover a README claim that the code does not support, fix the README
-  or flag it — never leave an overclaim.
-
-## Secrets — NEVER
-
-- No live API keys, carrier tokens, or credentials in source, tests, or
-  fixtures. Ever.
-- Real secrets go in `wrangler secrets` or `.dev.vars` (gitignored).
-- Before committing, scan your diff for tokens (`API_TOKEN=`, `SECRET_KEY=`,
-  `Bearer`, long base64/high-entropy strings).
-- If you find a committed secret: rotate it, remove it from history, and report
-  via `SECURITY.md` process — do not silently leave it.
-
-## Commits & branches
-
-- One logical change per commit. Conventional Commits:
-  `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`, `ci:`.
-- Branch naming: `feat/…`, `fix/…`, `chore/…`, `docs/…`.
-- Work on a branch; merge via a PR (CI runs on it). Never force-push shared
-  branches.
-
-## Pull requests
-
+- Work on a branch named `feat/…`, `fix/…`, `chore/…`, `docs/…`.
 - PRs must be small enough to review in one sitting (< ~500 lines).
-- PR template checklist must pass: no secrets, tests cover the change, README
-  claims match code, conventional commit message.
-- CI (typecheck + tests for cod-server and cod-client) must be green before
-  merge.
-- When reviewing a contribution, check: does the README claim only what the
-  code does? Are secrets absent? Are tests included?
+- The PR template checklist must pass: no secrets, tests cover the change,
+  README claims match code, conventional commit message.
+- CI (typecheck + tests for cod-server and cod-client) must be green.
+- When reviewing: README claims only what code does? Secrets absent? Tests
+  included? Migrations additive?
 
-## Changelog & releases
+### 6. Changelog
 
-- `CHANGELOG.md` uses Keep a Changelog. New user-visible changes go under
-  `[Unreleased]` grouped by Added / Changed / Deprecated / Removed / Fixed /
+- User-visible changes go under `[Unreleased]` in `CHANGELOG.md` (Keep a
+  Changelog), grouped by Added / Changed / Deprecated / Removed / Fixed /
   Security.
-- Releases follow SemVer (`v0.1.x` patch, `v0.x.0` minor, `v1.0.0` major), are
-  git-tagged, and announced via GitHub Releases.
-- Update the CHANGELOG when you add, change, or fix user-visible behavior.
+- Releases follow SemVer, are git-tagged, and announced via GitHub Releases.
 
-## Boundaries (don't cross without asking)
+## Review checklist (use when reviewing a contribution)
 
-- `cod-shared` is the single source of truth for schema, queries, RBAC scopes,
-  and error codes. Do NOT duplicate them in cod-server or cod-client.
-- Migrations: add a NEW migration; never rewrite an already-applied one.
-- Ask before adding a production dependency or changing the D1 schema.
-- Keep engine logic out of `cod-astro/theme01` (it must stay swappable).
-
-## Known traps (verify before blaming CI)
-
-- cod-server/cod-client tests or typecheck fail if `cod-shared` deps are not
-  installed first — run `cd cod-shared && npm ci` first.
-- Inbound webhooks exist only for **Yalidine** and **ZR Express**. NOEST and
-  EcoTrack tracking is pulled on demand via `GET /orders/:id/tracking`; there is
-  no inbound receiver for them.
-- The abandoned-order dashboard page
-  (`cod-client/app/(dashboard)/orders/abandoned`) is a "Coming Soon"
-  placeholder — backend collection + cron exist, the merchant UI does not.
-- cod-server tests run on miniflare + better-sqlite3 locally; no network or
-  credentials required.
+- [ ] README claims only what the code actually does
+- [ ] No secrets / credentials in the diff
+- [ ] Tests cover the change (or an existing test covers it)
+- [ ] Migrations are additive (new file, not a rewrite)
+- [ ] `cod-shared` boundaries respected (no duplicated schema/scopes)
+- [ ] Conventional commit message
+- [ ] Typecheck + tests pass for affected packages
 
 ## Security reports
 
@@ -127,9 +92,3 @@ This is the repo's non-negotiable rule:
   GitHub private vulnerability reporting (see `SECURITY.md`).
 - Acknowledgment target: 3 business days; coordinated disclosure.
 - Supported versions: only `main` and the latest tag.
-
-## License
-
-- The project is Apache-2.0 (`LICENSE`) with copyright attribution in
-  `NOTICE`. Preserve both; do not change the license without the owner's
-  explicit decision.

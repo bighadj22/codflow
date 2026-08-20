@@ -12,8 +12,9 @@ TypeScript, deployed on Cloudflare (Workers, D1, R2, KV).
 - `cod-shared/` — shared Drizzle schema, queries, RBAC scopes, error codes.
   Imported by both apps via relative path (`../../cod-shared/...`). **Not
   published.**
-- `cod-astro/theme01/` — storefront theme (Astro). No package.json; it is a
-  swappable theme layer, not a Node package.
+- `cod-astro/theme01/` — storefront theme (Astro). It is a swappable theme
+  layer, not a platform package; keep engine logic out. Its commands and
+  boundaries differ — read `cod-astro/theme01/AGENTS.md` before editing it.
 
 There is **no root package.json and no npm workspaces**. Each package installs
 its own dependencies.
@@ -32,7 +33,8 @@ cd cod-server && npm run dev   # wrangler dev :8787
 
 Same for `cod-client` (`npm ci`, `npm run typecheck`, `npm test`, `npm run dev`).
 
-`cod-astro/theme01` needs no install (`npm run dev` inside it starts Astro).
+`cod-astro/theme01` is a separate package with its own lockfile — see
+`cod-astro/theme01/AGENTS.md` for its commands.
 
 ## Verification
 
@@ -59,7 +61,7 @@ Same for `cod-client` (`npm ci`, `npm run typecheck`, `npm test`, `npm run dev`)
 - Migrations: add a new migration; never rewrite an already-applied one.
 - Ask before adding a production dependency or changing the D1 schema.
 - Keep engine logic out of `cod-astro/theme01`; the theme layer is meant to be
-  swappable.
+  swappable (see `cod-astro/theme01/AGENTS.md`).
 
 ## Known traps
 
