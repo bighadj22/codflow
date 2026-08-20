@@ -19,7 +19,7 @@
   "dependencies": {
     "@astrojs/cloudflare": "^14.2.3",
     "@iconify-json/heroicons": "^1.2.3",
-    "@playform/compress": "^0.2.2",
+    "@playform/compress": "^0.2.5",
     "astro": "^7.2.4",
     "astro-icon": "^1.1.5"
   },
