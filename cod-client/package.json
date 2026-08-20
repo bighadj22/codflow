@@ -64,6 +64,6 @@
     "typescript": "^5",
     "vercel": "^59",
     "vitest": "^2.1.9",
-    "wrangler": "^4.65.0"
+    "wrangler": "^4.123.0"
   }
 }
