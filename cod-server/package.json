@@ -49,7 +49,7 @@
     "fast-check": "^4.6.0",
     "miniflare": "^4.20260312.1",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.9",
+    "vitest": "^4.1.10",
     "vitest-environment-miniflare": "^2.14.4",
     "wrangler": "^4.84.1"
   }
