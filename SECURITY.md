@@ -20,11 +20,10 @@ issues, discussions, or pull requests.
 Instead, report them privately through **GitHub private vulnerability
 reporting** for this repository:
 
-`https://github.com/OWNER/codflow-os/security/advisories/new`
+`https://github.com/bighadj22/codflow/security/advisories/new`
 
 If private vulnerability reporting is unavailable for the report, email the
-maintainers at `security@codflow.dev` (replacing the address once a real one
-exists).
+maintainers at `124762008+bighadj22@users.noreply.github.com`.
 
 ### What to include
 
