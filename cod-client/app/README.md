@@ -1,6 +1,6 @@
 # App Directory
 
-This directory contains the Next.js 15 App Router structure with all application routes and layouts.
+This directory contains the Next.js 16 App Router structure with all application routes and layouts.
 
 ## Structure
 

@@ -1,7 +1,7 @@
 # theme01 — CodFlow Storefront
 
 The default storefront theme for CodFlow: a mobile-first, multi-locale,
-conversion-focused **Astro 5** storefront that talks to the CodFlow backend
+conversion-focused **Astro 7** storefront that talks to the CodFlow backend
 (`cod-server`) over the public `/store/*` API.
 
 theme01 is part of the [CodFlow monorepo](../../README.md). It is one of three
@@ -25,7 +25,7 @@ Workers that make up the platform:
 
 ## Quick start
 
-Prereqs: Node 20+, the [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/),
+Prereqs: Node 22.12+, the [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/),
 and a running `cod-server` (the storefront reads all data from its `/store/*` API).
 
 ```bash

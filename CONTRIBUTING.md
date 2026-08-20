@@ -8,14 +8,15 @@ Algerian market, built as a monorepo of four packages running on Cloudflare.
 ## Table of contents
 
 1. [Repository layout](#repository-layout)
-2. [First-time setup](#first-time-setup)
-3. [Local development](#local-development)
-4. [Configuration](#configuration)
-5. [Architecture & code conventions](#architecture--code-conventions)
-6. [Testing](#testing)
-7. [Commit & PR guidelines](#commit--pr-guidelines)
-8. [Hard rules](#hard-rules)
-9. [Getting help](#getting-help)
+2. [Where do I start? (first contribution)](#where-do-i-start-first-contribution)
+3. [First-time setup](#first-time-setup)
+4. [Local development](#local-development)
+5. [Configuration](#configuration)
+6. [Architecture & code conventions](#architecture--code-conventions)
+7. [Testing](#testing)
+8. [Commit & PR guidelines](#commit--pr-guidelines)
+9. [Hard rules](#hard-rules)
+10. [Getting help](#getting-help)
 
 ---
 
@@ -24,7 +25,7 @@ Algerian market, built as a monorepo of four packages running on Cloudflare.
 ```
 codflow-os/
 ├── cod-server/   # Backend API  — Cloudflare Worker (Hono + D1 + R2)
-├── cod-client/   # Merchant dashboard — Next.js 15 + OpenNext on Cloudflare
+├── cod-client/   # Merchant dashboard — Next.js 16 + OpenNext on Cloudflare
 ├── cod-astro/    # Customer storefront — Astro, trilingual (AR/FR/EN)
 │   └── theme01/  #   the default theme (theme layer is swappable)
 └── cod-shared/   # Source-shared TS — D1 schema, RBAC scopes, read queries
@@ -44,13 +45,44 @@ imports (`../../cod-shared/...`) — it has no build step.
 
 ---
 
+## Where do I start? (first contribution)
+
+New here? Here's the shortest path to a merged change:
+
+1. **Find an issue.** Look for issues labeled `good first issue`. They are
+   scoped so a first-time contributor can finish them in one sitting.
+2. **Pick your package.** Each package is self-contained (see the layout above).
+   The `Area` dropdown in the issue tells you which one a task touches.
+3. **Set up once.** Complete the [First-time setup](#first-time-setup) section —
+   it takes about 10 minutes and applies to every later contribution.
+4. **Make a small change.** Keep it under ~500 lines. Follow the conventions in
+   [Architecture & code conventions](#architecture--code-conventions) — if the
+   task touches `cod-shared`, read that boundary first.
+5. **Verify before pushing.** Run `npm run typecheck` and `npm test` in the
+   package you changed (theme01: `npx astro check` + `npm test`). CI runs the
+   same checks.
+6. **Open a PR** using the PR template. Mention the issue with "Closes #N".
+7. **Review happens on the PR.** Keep it small, respond to feedback, and CI must
+   be green.
+
+> Tips:
+> - `cod-astro/theme01` is the most self-contained package — a good place to
+>   start if you are new to the platform.
+> - The storefront's `src/core/` is **off-limits** (platform-owned engine). New
+>   storefront work goes in `src/theme/`.
+> - Never put a real secret in your PR — secrets live in `.dev.vars` and
+>   `wrangler secret put`, never in a wrangler config file or source.
+
 ## First-time setup
 
 ### Prerequisites
 
-- **Node.js 20+** and npm
+- **Node.js 22.12+** and npm
 - The [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (`npm i -g wrangler`)
 - A Cloudflare account (D1 + R2 are free-tier friendly)
+
+> The repo's `.nvmrc` pins Node 24; CI runs Node 24. Astro 7 (the storefront)
+> requires Node 22.12+.
 
 ### 1. Install
 
@@ -71,8 +103,10 @@ wrangler kv namespace create RATE_LIMIT_KV   # only needed for cod-client
 
 ### 3. Configure
 
-Every package ships a **`wrangler.toml` with placeholder values** and a
-**`.dev.vars.example`**. Copy the example files and paste your own resource IDs:
+Every package ships a Cloudflare config with placeholder values
+(`wrangler.toml` in cod-server/cod-client, `wrangler.jsonc` in
+cod-astro/theme01) and a **`.dev.vars.example`**. Copy the example files and
+paste your own resource IDs:
 
 ```bash
 # backend
@@ -130,15 +164,16 @@ Open **four terminals**, one per package (D1 state is shared through
 ## Configuration
 
 **There is no hardcoded configuration.** URLs, domains, database IDs, and bucket
-names are placeholders in each `wrangler.toml`; secrets go in gitignored
-`.dev.vars` files or `wrangler secret put` in production.
+names are placeholders in each package's Cloudflare config (`wrangler.toml` in
+cod-server/cod-client, `wrangler.jsonc` in cod-astro/theme01); secrets go in
+gitignored `.dev.vars` files or `wrangler secret put` in production.
 
 | Variable | Owner | Purpose |
 |----------|-------|---------|
 | `WORKER_URL`, `MEDIA_DOMAIN`, `R2_BUCKET_NAME`, `BETTER_AUTH_URL`, `WORKER_SELF_URL` | `cod-server` | public URLs + R2 (see `src/types/env.ts`) |
 | `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_WORKER_URL` | `cod-client` | dashboard origin + API origin (auth base URL, MCP audience, email sender domain) |
 | `COD_SERVER_URL`, `STORE_API_KEY`, `MEDIA_DOMAIN` | `cod-astro/theme01` | backend base URL + store key + media CDN |
-| `BETTER_AUTH_SECRET`, R2 creds, `CF_ACCOUNT_ID` | all | secrets — never in `wrangler.toml` |
+| `BETTER_AUTH_SECRET`, R2 creds, `CF_ACCOUNT_ID` | all | secrets — never in a wrangler config file |
 
 ---
 
@@ -202,8 +237,8 @@ orders/
 Run the full suite of a package before pushing:
 
 ```bash
-cd cod-server        && npm test       # ~700 tests
-cd cod-client        && npm test       # ~140 tests
+cd cod-server        && npm test       # 698 tests
+cd cod-client        && npm test       # 141 tests
 cd cod-astro/theme01 && npm test       # property + behavior tests
 ```
 
@@ -231,7 +266,7 @@ cd cod-astro/theme01 && npm test       # property + behavior tests
 
 ## Hard rules
 
-1. **No secrets in `wrangler.toml`** — they go in `.dev.vars` (local) or
+1. **No secrets in a wrangler config file** — they go in `.dev.vars` (local) or
    `wrangler secret put` (prod).
 2. **No hardcoded URLs/domains** in source or config. Everything must be swappable
    so a fresh clone can run against its own Cloudflare account.
@@ -246,5 +281,7 @@ cd cod-astro/theme01 && npm test       # property + behavior tests
 - Read the per-package READMEs: `cod-server/README.md`, `cod-client/README.md`,
   `cod-astro/theme01/THEME_GUIDE.md`, and the endpoint docs under
   `cod-server/src/endpoints/*/README.md`.
+- Coding agents should read the repo instructions: `AGENTS.md` (root) and
+  `cod-astro/theme01/AGENTS.md` (storefront).
 
 Happy shipping! 🚚
