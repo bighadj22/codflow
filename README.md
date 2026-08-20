@@ -24,6 +24,21 @@ EcoTrack) — labels, tracking, and real-time status sync included.
 
 ---
 
+## Contents
+
+- [Why CodFlow](#why-codflow)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+- [Deploying to production](#deploying-to-production)
+- [Testing](#testing)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
 ## Why CodFlow
 
 Most "e-commerce platforms" are a CRUD dashboard with a payment gateway bolted
@@ -32,20 +47,11 @@ on. CodFlow is different on three axes:
 ### 1. Agentic-ready by design
 
 CodFlow ships a complete **MCP remote server** (Model Context Protocol) out of
-the box — so AI agents can operate the store the same way your staff can:
+the box, so AI agents can operate the store the same way your staff can —
 create and update products and variants, move orders through the delivery
 lifecycle, manage customers, stock, offers, and reviews. It's not a plugin you
-wire up later — the agent layer speaks to the same engine your dashboard uses.
-
-- **Built on the Cloudflare Agents SDK** — a Durable Object per MCP session, so
-  conversations stay stateful and isolated.
-- **14 scoped tool factories** covering orders, products, customers, drivers,
-  driver payments, stock, reviews, offers, shipping, and more.
-- **OAuth-scoped and RBAC-gated** — tokens are verified offline via JWKS
-  (RFC 9728) and every tool is hidden from the model unless the user's scopes
-  allow it. No per-call permission guessing.
-- **Durable Cloudflare Workflows** run long-lived jobs — like firing Meta CAPI
-  events with retries and backoff — decoupled from request handling.
+wire up later: the agent layer speaks to the same engine your dashboard uses.
+See [Features → Agentic & AI](#agentic--ai) for the details.
 
 ### 2. COD-first for the Algerian market
 
@@ -69,8 +75,8 @@ around COD from day one:
   (D1 + R2 + KV), no lock-in, no per-order fees, no third-party dependency.
 - **One shared schema** — storefront, dashboard, and backend read the same D1
   database through a single source of truth (`cod-shared`).
-- **Open source** — Apache-2.0 licensed: read every line, deploy it, extend it,
-  even sell it. Only requirement: preserve the license notice.
+- **Open source** — Apache-2.0; read every line, deploy it, extend it. See
+  [License](#license).
 
 ---
 
@@ -386,9 +392,8 @@ cd cod-astro/theme01 && npm run build
 
 ## Contributing
 
-CodFlow is **open source** under the **Apache License 2.0** and self-hosted —
-contributions are welcome. See
-[`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full guide. The essentials:
+Contributions are welcome. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the
+full guide. The essentials:
 
 1. **No secrets in `wrangler.toml`** — `.dev.vars` locally, `wrangler secret put` in prod.
 2. **No hardcoded URLs or domains** — everything must be swappable so a fresh
@@ -399,16 +404,7 @@ contributions are welcome. See
 
 ## License
 
-CodFlow is **open source** under the **Apache License 2.0** — an OSI-approved
-permissive license.
-
-You may **use, copy, modify, and redistribute** CodFlow for any purpose —
-including commercial use, reselling, and building competing products — as long
-as you preserve the copyright notice and license terms. Apache-2.0 also grants
-an explicit patent license from contributors.
-
-Self-host on your own Cloudflare account — deploy the three Workers, create the
-D1 and R2 resources, point the storefront at your backend, and you're live.
+CodFlow is open source under the **Apache License 2.0**.
 
 See [`LICENSE`](./LICENSE) for the full terms, and [`NOTICE`](./NOTICE) for
 copyright attribution.
