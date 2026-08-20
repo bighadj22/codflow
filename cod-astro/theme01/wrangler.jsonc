@@ -1,6 +1,6 @@
 {
   "name": "cod-astro-theme01",
-  "main": "./dist/_worker.js/index.js",
+  "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-04-22",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {

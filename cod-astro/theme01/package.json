@@ -17,21 +17,21 @@
     "validate": "npm run validate:all && npm run build"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^12.0.0",
+    "@astrojs/cloudflare": "^14.2.3",
     "@iconify-json/heroicons": "^1.2.3",
     "@playform/compress": "^0.2.2",
-    "astro": "^5.0.0",
+    "astro": "^7.2.4",
     "astro-icon": "^1.1.5"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.8",
-    "@tailwindcss/vite": "^4.0.0",
+    "@astrojs/check": "^0.9.10",
+    "@tailwindcss/vite": "^4.3.3",
     "@vitest/ui": "^3.2.4",
     "fast-check": "^4.6.0",
     "happy-dom": "^20.9.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4",
-    "wrangler": "^3.0.0"
+    "wrangler": "^4.125.0"
   }
 }

@@ -4,7 +4,7 @@
 // ║  UI customisation belongs in components, not here.                   ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 import { defineAction } from "astro:actions";
-import { z } from "astro:schema";
+import { z } from "astro/zod";
 import { placeOrder } from "@/core/api/client";
 
 export const server = {

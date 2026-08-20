@@ -6,8 +6,9 @@ import icon from "astro-icon";
 
 export default defineConfig({
   output: "server",
+  compressHTML: true,
+  session: false,
   adapter: cloudflare({
-    platformProxy: { enabled: true },
     imageService: "cloudflare",
   }),
   env: {
