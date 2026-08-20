@@ -128,7 +128,11 @@ app.all("/mcp", async (c) => {
 
   console.log("[MCP] Delegating to CodMcpAgent Durable Object...");
   const handler = CodMcpAgent.serve("/mcp", { binding: "MCP_SESSIONS" });
-  return handler.fetch(c.req.raw, c.env, c.executionCtx);
+  return handler.fetch(
+    c.req.raw,
+    c.env,
+    c.executionCtx as Parameters<typeof handler.fetch>[2],
+  );
 });
 
 // Health check (no auth required)
