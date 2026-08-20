@@ -62,7 +62,7 @@
     "miniflare": "^4.20260312.1",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vercel": "^32",
+    "vercel": "^59",
     "vitest": "^2.1.9",
     "wrangler": "^4.65.0"
   }
