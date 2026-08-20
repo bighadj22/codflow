@@ -2,13 +2,13 @@
 
 ## Supported Versions
 
-CodFlow is pre-release software. Only the latest code on the `main` branch and
+CodFlow is released software. Only the latest code on the `main` branch and
 the most recent tagged release receive security fixes. Fixes are backported to
 earlier releases only when explicitly stated in the release notes.
 
 | Version               | Supported          |
 |-----------------------|--------------------|
-| `main` (unreleased)   | :white_check_mark: |
+| `main` branch         | :white_check_mark: |
 | Latest tagged release | :white_check_mark: |
 | Older releases        | :x:                |
 

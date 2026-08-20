@@ -1,6 +1,7 @@
 # CodFlow
 
-> **⚠️ Pre-Release Status**: CodFlow is currently in pre-release development. The platform is functional and feature-complete for production use, but the API may still evolve. We welcome early adopters and contributors!
+> **v0.1.0** — CodFlow is released and production-ready for self-hosting. See
+> [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
 
 **The open-source, COD-first e-commerce + delivery platform for Algeria — built agentic-ready.**
 
@@ -198,9 +199,9 @@ Workers share one local D1 state during development.
 
 | Package | Stack | Runtime |
 |---------|-------|---------|
-| `cod-astro/theme01` | Astro 5, Tailwind CSS v4, TypeScript | Cloudflare Workers + Assets |
+| `cod-astro/theme01` | Astro 7, Tailwind CSS v4, TypeScript | Cloudflare Workers + Assets |
 | `cod-server` | Hono 4, Drizzle ORM, Zod, Better Auth, Cloudflare Agents SDK | Cloudflare Workers, D1, R2 |
-| `cod-client` | Next.js 15, React 19, Tailwind v4, OpenNext | Cloudflare Workers |
+| `cod-client` | Next.js 16, React 19, Tailwind v4, OpenNext | Cloudflare Workers |
 | `cod-shared` | Drizzle ORM, TypeScript | source-shared |
 
 ---
@@ -212,7 +213,7 @@ and backend sharing one database.
 
 ### 0. Prerequisites
 
-- **Node.js 20+** and npm
+- **Node.js 22.12+** and npm
 - The [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/)
   (`npm i -g wrangler`)
 - A Cloudflare account with **Workers**, **D1**, and **R2** (free tier is fine)
