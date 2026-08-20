@@ -269,8 +269,8 @@ function varVal(variations: unknown, key: string): string | undefined {
     <input type="number" name="quantity" id="qty-input" value="1" min="1" max="100" class="sr-only" aria-label={content.ariaQuantity} />
   </div>
 ) : (
-  <!-- No offers: standalone quantity stepper -->
   <div class="flex items-center justify-between gap-4">
+    <!-- No offers: standalone quantity stepper -->
     <div>
       <p class="font-black text-[0.9375rem]" style="color: var(--clr-text)">{content.qtyLabel}</p>
       <p class="text-[0.75rem] font-bold mt-0.5" style="color: var(--clr-text-2)">{content.qtyUnit}</p>

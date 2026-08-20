@@ -1,14 +1,14 @@
-import { z } from "astro:schema";
+import { z } from "astro/zod";
 
 /**
  * Product Image Schema
  */
 export const ProductImageSchema = z.object({
   id: z.string(),
-  src: z.string().url(),
-  srcSm: z.string().url().nullable(),
-  srcMd: z.string().url().nullable(),
-  srcLg: z.string().url().nullable(),
+  src: z.url(),
+  srcSm: z.url().nullable(),
+  srcMd: z.url().nullable(),
+  srcLg: z.url().nullable(),
   altText: z.string().nullable(),
   position: z.number(),
 });
@@ -18,7 +18,7 @@ export const ProductImageSchema = z.object({
  */
 export const ProductVariantSchema = z.object({
   id: z.string(),
-  variations: z.record(z.string()),
+  variations: z.record(z.string(), z.string()),
   price: z.number(),
   compareAtPrice: z.number().nullable(),
   inventory: z.number(),
@@ -90,6 +90,6 @@ export const CategorySchema = z.object({
   name: z.string(),
   slug: z.string(),
   description: z.string().nullable(),
-  imageUrl: z.string().url().nullable(),
+  imageUrl: z.url().nullable(),
   position: z.number(),
 });

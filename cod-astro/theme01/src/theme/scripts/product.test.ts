@@ -7,6 +7,7 @@
  * only — see BaseHead.astro), so navigation re-initialization no longer
  * applies and its bug-exploration tests were deleted.
  */
+/// <reference types="vitest/globals" />
 
 import * as fc from "fast-check";
 
