@@ -1,0 +1,76 @@
+---
+import "@/theme/styles/global.css";
+import BaseHead from "@/theme/components/layout/BaseHead.astro";
+import Header from "@/theme/components/layout/Header.astro";
+import Footer from "@/theme/components/layout/Footer.astro";
+import MobileNav from "@/theme/components/layout/MobileNav.astro";
+import type { StoreConfig } from "@/core/api/types";
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+import { DEFAULT_CONFIG } from "@/theme/config/store";
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  noindex?: boolean;
+  config?: StoreConfig;
+  content?: StoreFrontContent;
+  hideMobileNav?: boolean;
+}
+
+const { title, description, ogImage, noindex, config: c, content, hideMobileNav = false } = Astro.props;
+const config = c ?? DEFAULT_CONFIG;
+
+const isRTL = config.lang === "ar";
+const pageTitle = title ?? config.metaTitle ?? config.name;
+const pageDesc = description ?? config.metaDescription ?? (content?.defaultMetaDescription?.replace("{storeName}", config.name) ?? `Shop from ${config.name}`);
+const pageOg = ogImage ?? config.ogImage ?? "";
+
+// Sanitise theme values — never trust DB content as CSS
+const HEX = /^#[0-9a-fA-F]{3,8}$/;
+const primary = HEX.test(config.primaryColor) ? config.primaryColor : "#7c3aed";
+const accent  = HEX.test(config.accentColor)  ? config.accentColor  : "#f59e0b";
+const bg      = HEX.test(config.bgColor)      ? config.bgColor      : "#f4f4f7";
+const font    = config.fontFamily.replace(/["<>]/g, "");
+
+// Google Fonts — default: Cairo (AR) + Plus Jakarta Sans (EN fallback)
+const fontHref = config.fontUrl?.replace(/["<>]/g, "")
+  ?? "https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap";
+---
+
+<!doctype html>
+<html lang={config.lang} dir={isRTL ? "rtl" : "ltr"}>
+  <BaseHead 
+    title={pageTitle}
+    description={pageDesc}
+    ogImage={pageOg}
+    noindex={noindex}
+    config={config}
+    primary={primary}
+    accent={accent}
+    bg={bg}
+    font={font}
+    fontHref={fontHref}
+  />
+
+  <body class:list={[!hideMobileNav && "has-mobile-nav"]}>
+    <!-- Announcement bar -->
+    {(config.announcementBar || content?.announcementText) && (
+      <div class="store-announce">
+        <Icon name="heroicons:truck" class="w-3.5 h-3.5 opacity-80" />
+        <span>{config.announcementBar ?? content?.announcementText}</span>
+      </div>
+    )}
+
+    <Header config={config} content={content} />
+
+    <main>
+      <slot />
+    </main>
+
+    <Footer config={config} content={content} />
+
+    {!hideMobileNav && <MobileNav config={config} content={content} />}
+  </body>
+</html>

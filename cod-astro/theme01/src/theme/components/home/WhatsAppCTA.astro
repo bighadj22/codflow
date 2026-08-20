@@ -1,0 +1,49 @@
+---
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  content: StoreFrontContent;
+}
+
+const { content } = Astro.props;
+---
+
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+  <div class="relative overflow-hidden rounded-[2.5rem] shadow-2xl">
+    {/* Gradient background */}
+    <div
+      class="absolute inset-0"
+      style="background: linear-gradient(135deg, var(--clr-primary) 0%, color-mix(in srgb, var(--clr-primary) 80%, black) 100%)"
+    ></div>
+    <div
+      class="absolute inset-0 opacity-20"
+      style="background: radial-gradient(circle at 70% 30%, var(--clr-accent) 0%, transparent 50%)"
+    ></div>
+    <div class="absolute inset-0 opacity-[0.03]" style="background-image: radial-gradient(white 2px, transparent 2px); background-size: 32px 32px;"></div>
+
+    <div class="relative px-8 py-16 sm:px-16 sm:py-24 flex flex-col items-center text-center">
+      <div class="w-20 h-20 mb-8 rounded-3xl bg-white/10 flex items-center justify-center shadow-2xl backdrop-blur-sm border border-white/10 animate-pulse text-white">
+        <Icon name="heroicons:chat-bubble-left" class="w-9 h-9" />
+      </div>
+      <h2 class="text-3xl sm:text-5xl font-black text-white tracking-tighter mb-6 text-balance max-w-2xl leading-[1.1]">
+        {content.promoTitle}
+      </h2>
+      <p class="text-white/70 font-medium text-lg sm:text-xl mb-10 max-w-lg mx-auto text-pretty">
+        {content.promoSub}
+      </p>
+      <a
+        href="/products"
+        class="group inline-flex items-center justify-center gap-3 px-10 py-5 font-black text-lg transition-all duration-300 active:scale-95 shadow-2xl"
+        style={`background: var(--clr-accent); color: var(--clr-text); border-radius: var(--radius-btn)`}
+      >
+        {content.promoCtaText}
+        <Icon name="heroicons:arrow-right" class="w-5 h-5 transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" aria-hidden="true" />
+      </a>
+    </div>
+
+    {/* Decorative elements */}
+    <div class="absolute -bottom-24 -left-24 w-64 h-64 rounded-full blur-3xl opacity-20 bg-white"></div>
+    <div class="absolute -top-24 -right-24 w-64 h-64 rounded-full blur-3xl opacity-10 bg-accent"></div>
+  </div>
+</section>

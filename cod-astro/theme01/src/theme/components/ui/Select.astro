@@ -1,0 +1,313 @@
+---
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  id: string;
+  name: string;
+  label: string;
+  placeholder?: string;
+  searchPlaceholder?: string;
+  noResultsText?: string;
+  options: { value: string | number; label: string }[];
+  required?: boolean;
+  error?: string;
+  /** When true: starts disabled with no options; populated later via window.__selectPopulate() */
+  dynamic?: boolean;
+}
+const { id, name, label, placeholder, searchPlaceholder = "Search...", noResultsText = "No results found", options, required, error, dynamic } = Astro.props;
+---
+
+<div class="custom-select-container relative w-full mb-4" data-id={id}>
+  <label for={id} class="form-label">{label} {required && <span class="text-red-400">*</span>}</label>
+
+  <div class="relative">
+    <button
+      type="button"
+      id={`${id}-trigger`}
+      disabled={dynamic || undefined}
+      class:list={[
+        "w-full h-14 px-4 flex items-center justify-between text-start rounded-2xl border-2 active:scale-[0.99] transition-all focus:border-[var(--clr-primary)] outline-none",
+        error && "border-red-200 bg-red-50",
+        dynamic && "opacity-50 cursor-not-allowed",
+      ]}
+      style="background: var(--clr-surface-alt); border-color: var(--clr-border)"
+    >
+      <span class="truncate font-bold select-display-text" style="color: var(--clr-text-2)">{placeholder}</span>
+      <div class="flex items-center gap-2 shrink-0">
+        <!-- Loading spinner (hidden by default, shown during async loads) -->
+        <div class="select-spinner hidden w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style="border-color: var(--clr-text-2); border-top-color: transparent"></div>
+        <Icon name="heroicons:chevron-down" class="w-5 h-5 shrink-0 select-chevron" style="color: var(--clr-text-2)" />
+      </div>
+    </button>
+
+    <!-- Dropdown Menu -->
+    <div
+      id={`${id}-dropdown`}
+      class="hidden absolute top-full left-0 right-0 mt-2 z-[100] border border-black/[.05] shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[320px] origin-top"
+      style="background: var(--clr-surface)"
+      style="display: none"
+    >
+      <!-- Search Input -->
+      <div class="p-3 border-b border-black/[.03] sticky top-0 z-10" style="background: var(--clr-surface)">
+        <div class="relative">
+          <input
+            type="text"
+            class="select-search-input w-full h-10 ps-10 pe-4 border-none rounded-xl font-bold text-sm focus:ring-2 focus:ring-[var(--clr-primary)]/20 outline-none"
+            style="background: var(--clr-surface-alt)"
+            placeholder={searchPlaceholder}
+            autocomplete="off"
+          />
+          <div class="absolute inset-y-0 start-3 flex items-center pointer-events-none" style="color: var(--clr-text-2)">
+            <Icon name="heroicons:magnifying-glass" class="w-4 h-4" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Scrollable List — options injected here (static or dynamic) -->
+      <div class="select-options-list overflow-y-auto flex-1 scrollbar-hide py-1">
+        {options.map(opt => (
+          <button
+            type="button"
+            class="select-option-item w-full text-start px-4 py-3.5 font-bold transition-colors flex items-center justify-between group"
+            style="color: var(--clr-text)"
+            data-value={opt.value}
+            data-label={opt.label}
+          >
+            <span>{opt.label}</span>
+            <Icon name="heroicons:check" class="check-mark opacity-0 text-[var(--clr-primary)] w-[18px] h-[18px]" />
+          </button>
+        ))}
+        <div class="no-results-msg hidden py-8 text-center font-bold text-sm" style="color: var(--clr-text-2)">
+          {noResultsText}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <input type="hidden" name={name} id={id} required={required} class="select-hidden-input" />
+</div>
+
+<script is:inline>
+(function () {
+  // ── Per-instance init ───────────────────────────────────────────────────────
+  function initSelect(container) {
+    if (container.dataset.ready) return;
+    container.dataset.ready = "true";
+
+    const trigger     = container.querySelector('button[id$="-trigger"]');
+    const dropdown    = container.querySelector('div[id$="-dropdown"]');
+    const searchInput = container.querySelector('.select-search-input');
+    const hiddenInput = container.querySelector('.select-hidden-input');
+    const displayText = container.querySelector('.select-display-text');
+    const optionsList = container.querySelector('.select-options-list');
+    const noResults   = container.querySelector('.no-results-msg');
+
+    function liveOptions() {
+      return optionsList.querySelectorAll('.select-option-item');
+    }
+
+    // We control visibility with INLINE style.display, not the .hidden
+    // class. Tailwind's class ordering and any future utility-class
+    // additions can't accidentally override an inline style. This was the
+    // root cause of the "everything blocked" bug: certain combinations
+    // of utility classes left the dropdown overlay rendered on top of
+    // the form, capturing every subsequent click.
+    function isOpen() {
+      return dropdown.style.display === 'flex';
+    }
+
+    function closeAllDropdowns() {
+      document.querySelectorAll('div[id$="-dropdown"]').forEach((d) => {
+        d.style.display = 'none';
+        d.style.top = '';
+        d.style.bottom = '';
+        d.style.marginBottom = '';
+      });
+    }
+
+    const toggle = (show) => {
+      if (show) {
+        // Reset positioning before measuring so a previous flip-up doesn't
+        // poison the new placement decision.
+        dropdown.style.top = '';
+        dropdown.style.bottom = '';
+        dropdown.style.marginBottom = '';
+        dropdown.style.display = 'flex';
+        const rect = dropdown.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight) {
+          dropdown.style.top    = 'auto';
+          dropdown.style.bottom = '100%';
+          dropdown.style.marginBottom = '8px';
+        }
+        searchInput.focus();
+      } else {
+        dropdown.style.display = 'none';
+        dropdown.style.top = '';
+        dropdown.style.bottom = '';
+        dropdown.style.marginBottom = '';
+        searchInput.value = '';
+        // Blur the search input so the mobile keyboard collapses; a stuck
+        // keyboard squashes the viewport and makes the next tap land off.
+        searchInput.blur();
+        liveOptions().forEach(o => o.classList.remove('hidden'));
+        noResults.classList.add('hidden');
+      }
+    };
+
+    trigger.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (trigger.disabled) return;
+      
+      const wasOpen = isOpen();
+      
+      if (wasOpen) {
+        // If this dropdown is already open, just close it
+        toggle(false);
+      } else {
+        // Close all other dropdowns first, then open this one
+        closeAllDropdowns();
+        toggle(true);
+      }
+    });
+
+    searchInput.addEventListener('click', e => e.stopPropagation());
+    searchInput.addEventListener('input', (e) => {
+      const val = e.target.value.toLowerCase();
+      let hasAny = false;
+      liveOptions().forEach(opt => {
+        const match = opt.dataset.label.toLowerCase().includes(val);
+        opt.classList.toggle('hidden', !match);
+        if (match) hasAny = true;
+      });
+      noResults.classList.toggle('hidden', hasAny);
+    });
+
+    // Event delegation — works for dynamically injected options too
+    optionsList.addEventListener('click', (e) => {
+      const opt = e.target.closest('.select-option-item');
+      if (!opt) return;
+      e.stopPropagation();
+
+      hiddenInput.value = opt.dataset.value;
+      displayText.textContent = opt.dataset.label;
+      displayText.style.color = 'var(--clr-text)';
+
+      liveOptions().forEach(o => o.querySelector('.check-mark').classList.add('opacity-0'));
+      opt.querySelector('.check-mark').classList.remove('opacity-0');
+
+      hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+      toggle(false);
+    });
+
+    document.addEventListener('click', () => toggle(false));
+  }
+
+  // ── Global API for dynamic selects ─────────────────────────────────────────
+
+  /**
+   * Populate a dynamic select with new options and re-enable it.
+   * @param {string} id - The data-id of the select container
+   * @param {Array<{value:string, label:string}>} items
+   * @param {string} [placeholder] - Text shown when nothing is selected yet
+   */
+  window.__selectPopulate = function (id, items, placeholder) {
+    const container = document.querySelector('.custom-select-container[data-id="' + id + '"]');
+    if (!container) return;
+
+    const trigger     = container.querySelector('button[id$="-trigger"]');
+    const optionsList = container.querySelector('.select-options-list');
+    const hiddenInput = container.querySelector('.select-hidden-input');
+    const displayText = container.querySelector('.select-display-text');
+    const spinner     = container.querySelector('.select-spinner');
+    const noResults   = container.querySelector('.no-results-msg');
+
+    // Clear existing option buttons (keep no-results-msg node)
+    optionsList.querySelectorAll('.select-option-item').forEach(el => el.remove());
+
+    // Reset value + display
+    hiddenInput.value = '';
+    if (placeholder) displayText.textContent = placeholder;
+    displayText.style.color = 'var(--clr-text-2)';
+    noResults.classList.add('hidden');
+
+    // Inject new options before the no-results node
+    items.forEach(function (item) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'select-option-item w-full text-start px-4 py-3.5 font-bold transition-colors flex items-center justify-between group';
+      btn.style.color = 'var(--clr-text)';
+      btn.dataset.value = String(item.value);
+      btn.dataset.label = item.label;
+      btn.innerHTML =
+        '<span>' + item.label + '</span>' +
+        '<svg class="check-mark opacity-0 text-[var(--clr-primary)]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      optionsList.insertBefore(btn, noResults);
+    });
+
+    // Enable trigger
+    spinner.classList.add('hidden');
+    trigger.disabled = false;
+    trigger.classList.remove('opacity-50', 'cursor-not-allowed');
+  };
+
+  /**
+   * Show/hide the loading spinner and disable/re-enable the trigger.
+   * @param {string} id
+   * @param {boolean} loading
+   * @param {string} [text] - Optional text to show while loading
+   */
+  window.__selectSetLoading = function (id, loading, text) {
+    var container = document.querySelector('.custom-select-container[data-id="' + id + '"]');
+    if (!container) return;
+    var trigger     = container.querySelector('button[id$="-trigger"]');
+    var spinner     = container.querySelector('.select-spinner');
+    var displayText = container.querySelector('.select-display-text');
+    if (text) displayText.textContent = text;
+    spinner.classList.toggle('hidden', !loading);
+    trigger.disabled = loading;
+    trigger.classList.toggle('opacity-50', loading);
+    trigger.classList.toggle('cursor-not-allowed', loading);
+  };
+
+  /**
+   * Reset a dynamic select to its initial disabled/empty state.
+   * @param {string} id
+   * @param {string} [text] - Placeholder text for the disabled state
+   */
+  window.__selectSetDisabled = function (id, text) {
+    var container = document.querySelector('.custom-select-container[data-id="' + id + '"]');
+    if (!container) return;
+    var trigger     = container.querySelector('button[id$="-trigger"]');
+    var spinner     = container.querySelector('.select-spinner');
+    var optionsList = container.querySelector('.select-options-list');
+    var hiddenInput = container.querySelector('.select-hidden-input');
+    var displayText = container.querySelector('.select-display-text');
+    var dropdown    = container.querySelector('div[id$="-dropdown"]');
+    if (text) displayText.textContent = text;
+    displayText.style.color = 'var(--clr-text-2)';
+    hiddenInput.value = '';
+    optionsList.querySelectorAll('.select-option-item').forEach(function (el) { el.remove(); });
+    spinner.classList.add('hidden');
+    dropdown.style.display = 'none';
+    dropdown.style.top = '';
+    dropdown.style.bottom = '';
+    dropdown.style.marginBottom = '';
+    trigger.disabled = true;
+    trigger.classList.add('opacity-50', 'cursor-not-allowed');
+  };
+
+  // ── Bootstrap ──────────────────────────────────────────────────────────────
+  function init() {
+    document.querySelectorAll('.custom-select-container').forEach(initSelect);
+  }
+
+  // Run initialization immediately if DOM is ready, otherwise wait
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    // DOM already loaded, but give it a tiny delay to ensure everything is painted
+    setTimeout(init, 0);
+  }
+})();
+</script>

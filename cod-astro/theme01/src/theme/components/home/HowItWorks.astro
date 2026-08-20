@@ -1,0 +1,65 @@
+---
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  content: StoreFrontContent;
+}
+
+const { content } = Astro.props;
+
+const steps = [
+  { num: "1", title: content.howStep1Title, sub: content.howStep1Sub, icon: "heroicons:shopping-bag" },
+  { num: "2", title: content.howStep2Title, sub: content.howStep2Sub, icon: "heroicons:chat-bubble-left-right" },
+  { num: "3", title: content.howStep3Title, sub: content.howStep3Sub, icon: "heroicons:banknotes" },
+];
+---
+
+<section
+  id="how-it-works"
+  class="py-16 sm:py-24"
+  style="background: color-mix(in srgb, var(--clr-primary) 3%, var(--clr-bg))"
+>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Heading -->
+    <div class="max-w-3xl mx-auto text-center mb-16">
+      <h2 class="text-3xl sm:text-4xl font-black tracking-tighter" style="color: var(--clr-text)">
+        {content.howItWorksTitle}
+      </h2>
+      <p class="text-[1rem] sm:text-lg font-bold mt-4 opacity-50 leading-relaxed" style="color: var(--clr-text)">
+        {content.howItWorksSub}
+      </p>
+    </div>
+
+    <!-- Steps grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16">
+      {steps.map((step) => (
+        <div class="flex flex-col items-center text-center group">
+          <!-- Icon container -->
+          <div
+            class="relative w-20 h-20 flex items-center justify-center transition-all duration-500 group-hover:scale-110 mb-8"
+            style={`background: var(--clr-surface); border-radius: var(--radius-card); box-shadow: var(--shadow-md); border: 1px solid var(--clr-border)`}
+          >
+            <div class="text-primary">
+              <Icon name={step.icon} class="w-7 h-7" />
+            </div>
+            <span
+              class="absolute -top-3 -end-3 w-9 h-9 flex items-center justify-center text-sm font-black rounded-full text-white shadow-lg"
+              style="background: var(--clr-primary)"
+            >
+              {step.num}
+            </span>
+          </div>
+          <div>
+            <h3 class="font-black text-xl mb-3" style="color: var(--clr-text)">
+              {step.title}
+            </h3>
+            <p class="text-[0.9375rem] font-medium leading-relaxed opacity-60 max-w-[280px] mx-auto" style="color: var(--clr-text)">
+              {step.sub}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

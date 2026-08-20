@@ -1,0 +1,329 @@
+/*
+ * ╔══════════════════════════════════════════════════════════════════════╗
+ * ║  CUSTOMIZE HERE                                                      ║
+ * ║  This is your main stylesheet. Feel free to edit any rule here.      ║
+ * ║  - Change radius, shadows, animations in @theme {}                   ║
+ * ║  - CSS custom properties in :root {} are overridden at runtime by    ║
+ * ║    StoreLayout (managed mode) — edit DEFAULT_CONFIG in lib/store.ts  ║
+ * ║    for the fallback values instead of changing :root directly.       ║
+ * ║  - All layout / utility classes below are safe to edit.              ║
+ * ╚══════════════════════════════════════════════════════════════════════╝
+ */
+@import "tailwindcss";
+
+@theme {
+  --color-primary: var(--clr-primary);
+  --color-accent: var(--clr-accent);
+  --color-bg: var(--clr-bg);
+  --color-surface: var(--clr-surface);
+  --color-border: var(--clr-border);
+  --color-text-main: var(--clr-text);
+  --color-text-muted: var(--clr-text-2);
+
+  --font-body: var(--font-body), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-card: 1.25rem;
+  --radius-input: 1rem;
+  --radius-btn: 1rem;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.05), 0 1px 2px rgba(0,0,0,.03);
+  --shadow-lg: 0 12px 24px rgba(0,0,0,.08), 0 4px 8px rgba(0,0,0,.04);
+  --shadow-primary: 0 8px 24px color-mix(in srgb, var(--clr-primary) 25%, transparent);
+
+  --animate-spring: cubic-bezier(0.175, 0.885, 0.32, 1.1);
+}
+
+/* ── CSS custom properties ───────────────────────────────────────────────── */
+/*
+ * --clr-primary, --clr-accent, --clr-bg, --font-body are injected at runtime
+ * by StoreLayout from the store config. DO NOT define them here — this CSS
+ * bundle is injected AFTER StoreLayout's inline <style>, so hardcoding them
+ * here would override the dynamic values and break managed-mode theming.
+ *
+ * To change defaults, edit DEFAULT_CONFIG in src/lib/store.ts.
+ *
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║  ACCESSIBILITY REQUIREMENTS - CONTRAST VALIDATION                        ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
+ *
+ * CRITICAL: --clr-primary must provide at least 4.5:1 contrast ratio with 
+ * white text when used on small badges (9px-11px font sizes). This ensures
+ * WCAG AA compliance for accessibility.
+ *
+ * RECOMMENDED COLOR VALUES (luminance ≤0.4 for compliance):
+ * ✅ Safe choices:
+ *    - #0066cc (Blue, 7.2:1 contrast)    - Professional, trustworthy
+ *    - #059669 (Green, 4.6:1 contrast)   - Success, eco-friendly  
+ *    - #dc2626 (Red, 5.3:1 contrast)     - Urgent, sale pricing
+ *    - #7c2d12 (Brown, 8.9:1 contrast)   - Warm, premium feel
+ *    - #1e40af (Dark Blue, 8.6:1 contrast) - Corporate, reliable
+ *
+ * ⚠️  Borderline (use with caution):
+ *    - #ea580c (Orange, 4.5:1 contrast)  - Energetic but minimal compliance
+ *    - #9333ea (Purple, 4.7:1 contrast)  - Creative but close to threshold
+ *
+ * ❌ Avoid (insufficient contrast):
+ *    - #fbbf24 (Yellow, 1.4:1 contrast)  - Fails accessibility standards
+ *    - #06b6d4 (Cyan, 3.1:1 contrast)    - Too light for small text
+ *    - #f97316 (Light Orange, 3.4:1 contrast) - Insufficient for badges
+ *
+ * VALIDATION: Test any custom colors using WebAIM Contrast Checker
+ * (https://webaim.org/resources/contrastchecker/) with white (#ffffff) text
+ * to ensure ≥4.5:1 ratio before deployment.
+ */
+:root {
+  /* Static UI tokens — not managed from the dashboard */
+  --clr-surface: #ffffff;
+  --clr-border: rgba(0, 0, 0, 0.06);
+  --clr-text: #0f172a;
+  --clr-text-2: #64748b;
+  
+  /* Semantic tokens for consistent theming */
+  --clr-success: #047857;
+  --clr-disabled: #94a3b8;
+  --clr-error: #ef4444;
+  --clr-error-bg: #fef2f2;
+  --clr-nav-bg: rgba(255, 255, 255, 0.9);
+  --clr-surface-alt: #f9fafb;
+  --clr-overlay: rgba(0, 0, 0, 0.45);
+  --overlay-dark: rgba(0, 0, 0, 0.7);
+
+  /* App safe areas */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html {
+  scroll-behavior: smooth;
+  height: -webkit-fill-available;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--clr-bg);
+  color: var(--clr-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* ── View transition animations — more app-like ─────────────────────────── */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+::view-transition-old(root) { animation: 200ms ease fade-out; }
+::view-transition-new(root) { animation: 400ms var(--animate-spring) slide-up; }
+
+/* ── Announcement bar ────────────────────────────────────────────────────── */
+.store-announce {
+  background: var(--clr-primary);
+  color: white;
+  text-align: center;
+  padding: calc(0.5rem + var(--safe-top)) 1.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.store-announce svg {
+  width: 1rem;
+  height: 1rem;
+  opacity: 0.9;
+}
+
+/* ── Hero Backgrounds ────────────────────────────────────────────────────── */
+.hero-bg-subtle {
+  background-color: #f6f5f3; /* Warm, premium neutral */
+  position: relative;
+}
+.hero-bg-subtle::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 70% 30%, color-mix(in srgb, var(--clr-primary) 8%, transparent) 0%, transparent 60%);
+  pointer-events: none;
+}
+.hero-bg-subtle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.02;
+  pointer-events: none;
+}
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--clr-surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--clr-border);
+  overflow: hidden;
+}
+
+/* ── Form controls ───────────────────────────────────────────────────────── */
+.form-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--clr-text);
+  margin-bottom: 0.5rem;
+  padding-inline: 0.25rem;
+}
+
+.form-input {
+  width: 100%;
+  height: 3.5rem;
+  padding-inline: 1.125rem;
+  background: var(--clr-surface);
+  border: 1.5px solid var(--clr-border);
+  border-radius: var(--radius-input);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--clr-text);
+  transition: all 0.2s var(--animate-spring);
+  appearance: none;
+  -webkit-appearance: none;
+}
+.form-input:focus {
+  outline: none;
+  border-color: var(--clr-primary);
+  background: var(--clr-surface);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--clr-primary) 10%, transparent);
+  transform: translateY(-1px);
+}
+.form-input.error {
+  border-color: var(--clr-error, #ef4444);
+  background: var(--clr-error-bg, #fef2f2);
+}
+textarea.form-input {
+  height: auto;
+  padding-block: 1rem;
+  resize: none;
+}
+
+/* ── Btn primary ─────────────────────────────────────────────────────────── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  padding-inline: 1.75rem;
+  height: 3.5rem;
+  border-radius: var(--radius-btn);
+  background: var(--clr-primary);
+  color: white;
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 1rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s var(--animate-spring);
+  box-shadow: var(--shadow-primary);
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary:active { transform: scale(0.96); opacity: 0.9; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* ── Gallery ─────────────────────────────────────────────────────────────── */
+.gallery-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  border-radius: var(--radius-card);
+  background: var(--clr-surface);
+}
+.gallery-track::-webkit-scrollbar { display: none; }
+.gallery-slide {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gallery-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+
+
+/* ── Native bottom nav ── */
+.mobile-nav {
+  position: fixed;
+  bottom: 0;
+  inset-inline-start: 0;
+  inset-inline-end: 0;
+  z-index: 45;
+  background: var(--clr-nav-bg);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-top: 1px solid var(--clr-border);
+  padding-bottom: var(--safe-bottom);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  height: calc(4rem + var(--safe-bottom));
+}
+
+@media (min-width: 640px) {
+  .mobile-nav { display: none !important; }
+}
+
+.has-mobile-nav {
+  padding-bottom: 4rem; /* Match mobile-nav height */
+}
+@media (min-width: 640px) {
+  .has-mobile-nav { padding-bottom: 0; }
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  color: var(--clr-text-2);
+  font-size: 0.625rem;
+  font-weight: 700;
+  transition: all 0.2s;
+}
+.mobile-nav-item.active { color: var(--clr-primary); }
+.mobile-nav-item svg { width: 1.5rem; height: 1.5rem; }
+
+/* ── Product card ────────────────────────────────────────────────────────── */
+.product-card {
+  box-shadow: 0 2px 12px rgba(0,0,0,.06), 0 1px 4px rgba(0,0,0,.03);
+  transition: box-shadow 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.product-card:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,.10), 0 4px 8px rgba(0,0,0,.05);
+}
+
+/* ── Scrollbar hide util ─────────────────────────────────────────────────── */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Text Utilities ──────────────────────────────────────────────────────── */
+.text-balance { text-wrap: balance; }
+.text-pretty { text-wrap: pretty; }

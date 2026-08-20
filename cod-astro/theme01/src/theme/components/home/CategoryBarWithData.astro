@@ -1,0 +1,44 @@
+---
+// ── STREAMING COMPONENT ──
+// Fetches categories and renders CategoryBar
+// Allows parent page to stream this independently
+import { fetchCategoriesRaw } from "@/core/api/client";
+import type { StoreFrontContent } from "@/theme/content/types";
+
+interface Props {
+  navProductsLabel: string;
+  content: StoreFrontContent;
+}
+
+const { navProductsLabel, content } = Astro.props;
+
+// Fetch categories (this component streams when ready)
+const categories = await fetchCategoriesRaw();
+---
+
+{categories.length > 0 && (
+  <section class="max-w-5xl mx-auto px-0 pt-8 pb-2 overflow-hidden">
+    <div class="flex items-center gap-3 overflow-x-auto scrollbar-hide px-5 pb-2 touch-pan-x">
+      <a
+        href="/products"
+        data-astro-prefetch="hover"
+        class="shrink-0 px-5 py-2.5 rounded-2xl text-[0.875rem] font-bold border border-black/[.05] active:scale-95 transition-all shadow-sm"
+          style="background: var(--clr-surface); color: var(--clr-text-2)"
+        aria-label={content.ariaBrowseAllProducts}
+      >
+        {navProductsLabel}
+      </a>
+      {categories.map((cat) => (
+        <a
+          href={`/category/${cat.slug}`}
+          data-astro-prefetch="hover"
+          class="shrink-0 px-5 py-2.5 rounded-2xl text-[0.875rem] font-bold border border-black/[.05] active:scale-95 transition-all shadow-sm"
+          style="background: var(--clr-surface); color: var(--clr-text-2)"
+          aria-label={content.ariaBrowseCategoryProducts.replace("{category}", cat.name)}
+        >
+          {cat.name}
+        </a>
+      ))}
+    </div>
+  </section>
+)}

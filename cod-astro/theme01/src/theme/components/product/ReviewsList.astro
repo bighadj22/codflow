@@ -1,0 +1,195 @@
+---
+import type { Review } from "@/core/api/types";
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  reviews: Review[];
+  total: number;
+  content: StoreFrontContent;
+  productId: string;
+}
+
+const { reviews, total, content, productId } = Astro.props;
+
+const avgRating = reviews.length
+  ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
+  : 0;
+
+// Star distribution
+const dist = [5, 4, 3, 2, 1].map((star) => ({
+  star,
+  count: reviews.filter((r) => r.rating === star).length,
+}));
+
+function formatDate(val: string) {
+  try {
+    const n = Number(val);
+    const d = isNaN(n) ? new Date(val) : new Date(n);
+    return d.toLocaleDateString("ar-DZ", { year: "numeric", month: "long", day: "numeric" });
+  } catch {
+    return val.slice(0, 10);
+  }
+}
+---
+
+{reviews.length > 0 && (
+<section class="reviews-section mt-12 pt-10 border-t border-black/[.05]" id="reviews" data-product-id={productId}>
+  <!-- Header row -->
+  <div class="flex items-center justify-between mb-8 gap-4 flex-wrap">
+    <h2 class="text-[1.25rem] font-black" style="color: var(--clr-text)">{content.reviewsTitle}</h2>
+    <div class="flex items-center gap-2">
+      <!-- Average stars -->
+      <div class="flex gap-0.5" aria-label={`${avgRating} out of 5 stars`}>
+        {[1,2,3,4,5].map(s => (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill={s <= Math.round(avgRating) ? "var(--clr-primary)" : "none"} stroke="var(--clr-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+        ))}
+      </div>
+      <span class="font-black" style="color: var(--clr-text)">{avgRating}</span>
+      <span class="font-bold text-sm" style="color: var(--clr-text)">({total})</span>
+    </div>
+  </div>
+
+  {(
+    <div>
+      <!-- Distribution bar (desktop only, hidden on small screens) -->
+      {total >= 3 && (
+        <div class="hidden sm:block mb-8 space-y-2">
+          {dist.map(({ star, count }) => (
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-bold w-3 shrink-0" style="color: var(--clr-text-2)">{star}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--clr-primary)" stroke="none" class="shrink-0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <div class="flex-1 rounded-full h-2 overflow-hidden" style="background: var(--clr-surface-alt)">
+                <div
+                  class="h-full rounded-full transition-all"
+                  style={`background: var(--clr-primary); width: ${total > 0 ? Math.round((count / total) * 100) : 0}%`}
+                />
+              </div>
+              <span class="text-xs font-bold w-5 text-end shrink-0" style="color: var(--clr-text)">{count}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <!-- Review cards -->
+      <div class="space-y-4" id="reviews-list">
+        {reviews.map((review) => (
+          <div class="rounded-[1.25rem] border border-black/[.05] p-5 shadow-sm" style="background: var(--clr-surface)">
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <!-- Avatar -->
+                <div
+                  class="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm text-white shrink-0"
+                  style="background: var(--clr-primary)"
+                  aria-hidden="true"
+                >
+                  {review.customerName.trim().charAt(0).toUpperCase()}
+                </div>
+                <div class="min-w-0">
+                  <p class="font-black text-sm truncate" style="color: var(--clr-text)">{review.customerName}</p>
+                  <span class="inline-flex items-center gap-1 text-[0.6875rem] font-bold text-[var(--clr-primary)] bg-[var(--clr-primary)]/8 px-2 py-0.5 rounded-full mt-0.5">
+                    <Icon name="heroicons:check" class="w-2.5 h-2.5" />
+                    {content.reviewsVerifiedBuyer}
+                  </span>
+                </div>
+              </div>
+              <time class="text-xs font-bold shrink-0 mt-1" style="color: var(--clr-text-2)" datetime={review.createdAt}>
+                {formatDate(review.createdAt)}
+              </time>
+            </div>
+
+            <!-- Stars -->
+            <div class="flex gap-0.5 mb-3" aria-label={`${review.rating} out of 5 stars`}>
+              {[1,2,3,4,5].map(s => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill={s <= review.rating ? "var(--clr-primary)" : "none"} stroke="var(--clr-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              ))}
+            </div>
+
+            {review.title && (
+              <p class="font-black text-[0.9375rem] mb-1" style="color: var(--clr-text)">{review.title}</p>
+            )}
+            <p class="font-medium text-sm leading-relaxed" style="color: var(--clr-text)">{review.body}</p>
+          </div>
+        ))}
+      </div>
+
+      <!-- Load more trigger (if more reviews exist) -->
+      {total > reviews.length && (
+        <div class="mt-6 text-center">
+          <button
+            type="button"
+            id="load-more-reviews"
+            data-product-id={productId}
+            data-offset={reviews.length}
+            class="px-6 py-3 rounded-2xl border-2 border-[var(--clr-primary)] text-[var(--clr-primary)] font-black text-sm hover:bg-[var(--clr-primary)]/5 active:scale-[0.97] transition-all"
+          >
+            {content.loadMoreLabel}
+          </button>
+        </div>
+      )}
+    </div>
+  )}
+</section>
+)}
+
+<script is:inline define:vars={{ content }}>
+  (function () {
+    const btn = document.getElementById("load-more-reviews");
+    if (!btn) return;
+
+    btn.addEventListener("click", async () => {
+      const productId = btn.dataset.productId;
+      const offset = parseInt(btn.dataset.offset ?? "0");
+
+      btn.disabled = true;
+      btn.textContent = "...";
+
+      try {
+        const res = await fetch(`/api/product-reviews/${productId}?offset=${offset}&limit=10`);
+        const json = await res.json();
+        const rows = json.data ?? [];
+
+        const list = document.getElementById("reviews-list");
+        rows.forEach((review) => {
+          const card = document.createElement("div");
+          card.className = "rounded-[1.25rem] border border-black/[.05] p-5 shadow-sm";
+          card.style.background = "var(--clr-surface)";
+          card.innerHTML = `
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm text-white shrink-0" style="background: var(--clr-primary)">${review.customerName.trim().charAt(0).toUpperCase()}</div>
+                <div class="min-w-0">
+                  <p class="font-black text-sm truncate" style="color: var(--clr-text)">${review.customerName}</p>
+                </div>
+              </div>
+              <time class="text-xs font-bold shrink-0 mt-1" style="color: var(--clr-text-2)">${(function(v){const n=Number(v);const d=isNaN(n)?new Date(v):new Date(n);try{return d.toLocaleDateString('ar-DZ',{year:'numeric',month:'long',day:'numeric'})}catch{return v.slice(0,10)}})(review.createdAt)}</time>
+            </div>
+            <div class="flex gap-0.5 mb-3">
+              ${[1,2,3,4,5].map(s => `<svg width="16" height="16" viewBox="0 0 24 24" fill="${s <= review.rating ? 'var(--clr-primary)' : 'none'}" stroke="var(--clr-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`).join('')}
+            </div>
+            ${review.title ? `<p class="font-black text-[0.9375rem] mb-1" style="color: var(--clr-text)">${review.title}</p>` : ''}
+            <p class="font-medium text-sm leading-relaxed" style="color: var(--clr-text)">${review.body}</p>
+          `;
+          list?.appendChild(card);
+        });
+
+        const newOffset = offset + rows.length;
+        btn.dataset.offset = String(newOffset);
+
+        if (newOffset >= (json.total ?? 0)) {
+          btn.remove();
+        } else {
+          btn.disabled = false;
+          btn.textContent = content.loadMoreLabel;
+        }
+      } catch {
+        btn.disabled = false;
+        btn.textContent = content.loadMoreLabel;
+      }
+    });
+  })();
+</script>

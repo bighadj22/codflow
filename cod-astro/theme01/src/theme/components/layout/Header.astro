@@ -1,0 +1,78 @@
+---
+import { Image } from "astro:assets";
+import type { StoreConfig } from "@/core/api/types";
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  config: StoreConfig;
+  content?: StoreFrontContent;
+}
+const { config, content } = Astro.props;
+---
+
+<header
+  class="sticky top-0 z-50 transition-all duration-300 bg-white/80 backdrop-blur-xl border-b border-black/[.04]"
+  style="padding-top: var(--safe-top); height: calc(4.5rem + var(--safe-top));"
+>
+  <div class="max-w-7xl mx-auto h-full flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+
+    {/* Logo — start */}
+    <div class="flex items-center gap-2.5 shrink-0">
+      <a href="/" class="flex items-center gap-2.5 active:scale-95 transition-transform" aria-label={config.name}>
+        {config.logoUrl ? (
+          <Image
+            src={config.logoUrl}
+            alt={config.name}
+            width={160}
+            height={48}
+            format="webp"
+            quality={90}
+            class="h-9 sm:h-10 w-auto object-contain"
+            loading="eager"
+            decoding="async"
+          />
+        ) : (
+          <span
+            class="font-black text-2xl sm:text-3xl leading-none tracking-tighter uppercase"
+            style="color: var(--clr-primary)"
+          >
+            {config.name}
+          </span>
+        )}
+      </a>
+    </div>
+
+    {/* Nav links — center (desktop only) */}
+    <nav
+      class="hidden md:flex items-center gap-4 text-[0.9375rem] font-bold flex-1 justify-center"
+      aria-label={content?.ariaMainNavigation}
+    >
+      <a href="/#new-arrivals" class="px-5 py-2 transition-all hover:text-primary active:scale-95" style="color: var(--clr-text)">
+        {content?.navNewArrivals}
+      </a>
+      <a href="/#best-sellers" class="px-5 py-2 transition-all hover:text-primary active:scale-95" style="color: var(--clr-text)">
+        {content?.navBestSellers}
+      </a>
+      <a href="/products" class="px-5 py-2 transition-all hover:text-primary active:scale-95" style="color: var(--clr-text)">
+        {content?.navProducts}
+      </a>
+      <a href="/#how-it-works" class="px-5 py-2 transition-all hover:text-primary active:scale-95" style="color: var(--clr-text)">
+        {content?.navContact}
+      </a>
+    </nav>
+
+    {/* Search icon — end */}
+    <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+      <a
+        href="/products"
+        class="p-2.5 rounded-full hover:bg-black/5 active:scale-90 transition-all"
+        style="color: var(--clr-text)"
+        aria-label={content?.searchLabel}
+      >
+        <Icon name="heroicons:magnifying-glass" class="w-[22px] h-[22px]" aria-hidden="true" />
+      </a>
+    </div>
+
+  </div>
+</header>

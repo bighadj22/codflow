@@ -1,0 +1,148 @@
+---
+// ── CUSTOMIZE HERE ────────────────────────────────────────────────────────────
+// Product card used on the home page, all-products page, and category pages.
+// ─────────────────────────────────────────────────────────────────────────────
+import { Image } from "astro:assets";
+import type { Product } from "@/core/api/types";
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  product: Product;
+  currencySymbol?: string;
+  eager?: boolean;
+  content?: StoreFrontContent;
+}
+
+const { product, currencySymbol = "دج", eager = false, content } = Astro.props;
+
+const image        = product.coverImage ?? product.images?.[0];
+const hasDiscount  = product.compareAtPrice != null && product.compareAtPrice > product.price;
+const discountPct  = hasDiscount ? Math.round((1 - product.price / product.compareAtPrice!) * 100) : 0;
+const isLowStock   = product.trackInventory && product.inventory > 0 && product.inventory <= 5;
+const isOutOfStock = product.trackInventory && product.inventory === 0;
+
+const ctaText      = content?.orderCta    ?? "اطلب الآن";
+const outOfStockTx = content?.outOfStock  ?? "نفد المخزون";
+const lowStockTx   = content?.lowStock
+  ? content.lowStock.replace("{n}", String(product.inventory))
+  : `آخر ${product.inventory} قطع`;
+---
+
+<a
+  href={`/products/${product.handle}`}
+  data-astro-prefetch="hover"
+  class="product-card group flex flex-col rounded-2xl overflow-hidden active:scale-[0.97]"
+  style="background: var(--clr-surface)"
+  aria-label={content?.ariaProductCard
+    ?.replace("{name}", product.name)
+    ?.replace("{price}", product.price.toLocaleString("ar-DZ"))
+    ?.replace("{currency}", currencySymbol) ?? product.name}
+>
+  <!-- ── Image ── -->
+  <div class="relative aspect-square overflow-hidden shrink-0" style="background: var(--clr-surface-alt)">
+    {image ? (
+      <Image
+        src={image.src}
+        alt={image.altText ?? product.name}
+        width={400}
+        height={400}
+        loading={eager ? "eager" : "lazy"}
+        decoding="async"
+        format="webp"
+        quality={85}
+        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+      />
+    ) : (
+      <div class="w-full h-full flex items-center justify-center opacity-20" style="color: var(--clr-text-2)" aria-hidden="true">
+        <Icon name="heroicons:photo" class="w-12 h-12" />
+      </div>
+    )}
+
+    <!-- Discount badge -->
+    {hasDiscount && (
+      <div class="absolute top-3 start-3" aria-hidden="true">
+        <span class="bg-red-600 text-white text-xs font-black px-2.5 py-1.5 rounded-lg shadow-md tracking-tight">
+          -{discountPct}%
+        </span>
+      </div>
+    )}
+
+    <!-- Out of stock overlay -->
+    {isOutOfStock && (
+      <div class="absolute inset-0 bg-black/50 flex items-center justify-center" aria-hidden="true">
+        <span class="bg-black/80 text-white text-sm font-black px-4 py-2 rounded-xl">
+          {outOfStockTx}
+        </span>
+      </div>
+    )}
+
+    <!-- Low stock strip at bottom of image -->
+    {!isOutOfStock && isLowStock && (
+      <div class="absolute bottom-0 inset-x-0 px-3 py-2.5"
+        style="background: linear-gradient(to top, var(--overlay-dark), transparent)"
+        aria-hidden="true">
+        <p class="text-white text-xs font-black">
+          <Icon name="heroicons:bolt" class="w-3 h-3 inline" /> {lowStockTx}
+        </p>
+      </div>
+    )}
+  </div>
+
+  <!-- ── Info ── -->
+  <div class="flex flex-col flex-1 p-4 gap-2.5">
+
+    <!-- Name -->
+    <p class="font-bold text-sm leading-snug line-clamp-2 flex-1" style="color: var(--clr-text)">
+      {product.name}
+    </p>
+
+    <!-- Rating -->
+    {product.reviewStats && product.reviewStats.reviewCount > 0 && (
+      <div class="flex items-center gap-1.5">
+        <div class="flex gap-px" aria-hidden="true">
+          {[1,2,3,4,5].map(s => (
+            <svg width="11" height="11" viewBox="0 0 24 24"
+              fill={s <= Math.round(product.reviewStats!.avgRating) ? "var(--clr-primary)" : "none"}
+              stroke="var(--clr-primary)" stroke-width="1.5"
+              stroke-linecap="round" stroke-linejoin="round"
+            >
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          ))}
+        </div>
+        <span class="text-[0.6875rem] font-bold leading-none" style="color: var(--clr-text-2)">
+          {product.reviewStats.avgRating}
+          <span class="opacity-70">({product.reviewStats.reviewCount})</span>
+        </span>
+      </div>
+    )}
+
+    <!-- Price row -->
+    <div class="flex items-baseline justify-between gap-1.5">
+      <span class="font-black text-lg leading-none" style="color: var(--clr-primary)">
+        {product.price.toLocaleString("ar-DZ")}
+        <span class="text-[0.625rem] font-bold ms-0.5" style="color: var(--clr-primary); opacity: 0.9">{currencySymbol}</span>
+      </span>
+      {hasDiscount && (
+        <span class="text-xs line-through font-semibold leading-none shrink-0" style="color: var(--clr-text-2)">
+          {product.compareAtPrice!.toLocaleString("ar-DZ")}
+        </span>
+      )}
+    </div>
+
+    <!-- CTA button -->
+    <div
+      class="w-full h-10 rounded-xl flex items-center justify-center gap-2 font-black text-sm text-white mt-0.5 transition-all duration-200 ease-out hover:brightness-110"
+      style={isOutOfStock
+        ? "background: var(--clr-disabled)"
+        : "background: var(--clr-primary)"}
+      aria-hidden="true"
+    >
+      {!isOutOfStock && (
+        <Icon name="heroicons:shopping-bag" class="w-4 h-4" aria-hidden="true" />
+      )}
+      {isOutOfStock ? outOfStockTx : ctaText}
+    </div>
+  </div>
+</a>

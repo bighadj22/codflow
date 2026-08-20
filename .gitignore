@@ -1,0 +1,45 @@
+# Skills / tooling
+skills-cloudflare/
+
+# Build artifacts
+cod-client/.next/
+cod-client/out/
+cod-client/.open-next/
+cod-client/.wrangler-output/
+cod-server/dist/
+cod-astro/theme01/dist/
+cod-astro/theme01/.astro/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+cod-client/node_modules/
+cod-server/node_modules/
+cod-shared/node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.dev.vars
+
+# Wrangler
+.wrangler/
+.wrangler-shared/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Local Claude Code state (per-machine)
+.claude/
+
+# Internal documentation (not for repository)
+GITHUB-GUIDE.md

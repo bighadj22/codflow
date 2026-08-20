@@ -1,0 +1,76 @@
+---
+// ── STREAMING COMPONENT ──
+// Fetches products and categories, renders the full products listing
+// Allows parent page to stream this after layout renders
+import ProductCard from "@/theme/components/product/ProductCard.astro";
+import { Icon } from "astro-icon/components";
+import { fetchProductsRaw, fetchCategoriesRaw } from "@/core/api/client";
+
+interface Props {
+  currencySymbol: string;
+  content: any;
+}
+
+const { currencySymbol, content } = Astro.props;
+
+// Fetch products and categories in parallel (this component streams when ready)
+const [products, categories] = await Promise.all([
+  fetchProductsRaw(),
+  fetchCategoriesRaw(),
+]);
+---
+
+<div class="max-w-5xl mx-auto px-5 py-8">
+  <div class="flex items-end justify-between mb-8">
+    <div>
+      <h1 class="text-3xl font-black tracking-tight" style="color: var(--clr-text)">{content.allProductsSection}</h1>
+      <p class="text-[0.8125rem] font-bold uppercase tracking-widest mt-1" style="color: var(--clr-text-2)">
+        {products.length} {content.productCountLabel}
+      </p>
+    </div>
+  </div>
+
+  <!-- Category filter -->
+  {categories.length > 0 && (
+    <div class="flex items-center gap-2.5 overflow-x-auto scrollbar-hide pb-4 mb-8 touch-pan-x">
+      <a
+        href="/products"
+        data-astro-prefetch="hover"
+        class="shrink-0 px-5 py-2.5 rounded-2xl text-[0.875rem] font-black border-2 transition-all active:scale-95 shadow-sm bg-[var(--clr-primary)] border-[var(--clr-primary)] text-white"
+      >
+        {content.allLabel}
+      </a>
+      {categories.map((cat) => (
+        <a
+          href={`/category/${cat.slug}`}
+          data-astro-prefetch="hover"
+          class="shrink-0 px-5 py-2.5 rounded-2xl text-[0.875rem] font-black border-2 transition-all active:scale-95 shadow-sm"
+          style="border-color: var(--clr-border); background: var(--clr-surface); color: var(--clr-text-2)"
+        >
+          {cat.name}
+        </a>
+      ))}
+    </div>
+  )}
+
+  {products.length > 0 ? (
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+      {products.map((p, i) => (
+        <ProductCard
+          product={p}
+          currencySymbol={currencySymbol}
+          eager={i < 4}
+          content={content}
+        />
+      ))}
+    </div>
+  ) : (
+    <div class="py-24 text-center">
+      <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 text-primary" style="background: var(--clr-surface-alt)">
+        <Icon name="heroicons:shopping-bag" class="w-8 h-8" />
+      </div>
+      <h2 class="text-xl font-black mb-2" style="color: var(--clr-text)">{content.emptyStoreTitle}</h2>
+      <p class="font-bold" style="color: var(--clr-text-2)">{content.emptyStoreSub}</p>
+    </div>
+  )}
+</div>

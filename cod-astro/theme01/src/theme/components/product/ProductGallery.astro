@@ -1,0 +1,136 @@
+---
+import { Image } from "astro:assets";
+import type { Product } from "@/core/api/types";
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  product: Product;
+  hasDiscount: boolean;
+  discountPct: number;
+  isRTL: boolean;
+  content: StoreFrontContent;
+}
+
+const { product, hasDiscount, discountPct, isRTL, content } = Astro.props;
+---
+
+<div class="relative">
+  <!-- Mobile scroll-snap gallery -->
+  <div class="gallery-track sm:rounded-[2rem] aspect-square lg:aspect-[4/5]" id="gallery">
+    {product.images.length > 0 ? product.images.map((img, idx) => (
+      <div class="gallery-slide" data-image-id={img.id}>
+        {idx === 0 ? (
+          /* LCP image: priority=true → fetchpriority=high + loading=eager + decoding=sync.
+             widths + sizes let the browser pick the right resolution:
+             ~400 px on mobile, ~720 px on desktop (saves ~15 KiB vs always fetching 800 px). */
+          <Image
+            src={img.src}
+            alt={img.altText ?? product.name}
+            width={800}
+            height={800}
+            widths={[400, 720, 800]}
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            priority={true}
+            format="webp"
+            quality={90}
+            class="w-full h-full object-cover"
+          />
+        ) : (
+          /* Non-visible slides: lazy so they don't compete with the LCP image. */
+          <Image
+            src={img.src}
+            alt={img.altText ?? product.name}
+            width={800}
+            height={800}
+            loading="lazy"
+            decoding="async"
+            format="webp"
+            quality={90}
+            class="w-full h-full object-cover"
+          />
+        )}
+      </div>
+    )) : (
+      <div class="gallery-slide flex items-center justify-center" style="background: var(--clr-surface-alt)">
+        <Icon name="heroicons:photo" class="w-24 h-24 opacity-20" style="color: var(--clr-text-2)" />
+      </div>
+    )}
+  </div>
+
+  <!-- Badges on gallery -->
+  <div class="absolute top-4 start-4 flex flex-col gap-2">
+    {hasDiscount && (
+      <span class="bg-red-600 text-white text-xs font-black px-2.5 py-1.5 rounded-lg shadow-md tracking-tight">
+        -{discountPct}%
+      </span>
+    )}
+  </div>
+
+  <!-- Dots (mobile) / Thumbnails (desktop) -->
+  <div class="px-5 sm:px-0 mt-4">
+    {product.images.length > 1 && (
+      <div class="flex items-center justify-center gap-2 sm:hidden" id="gallery-dots">
+        {product.images.map((_, i) => (
+          <button
+            type="button"
+            class="w-11 h-11 p-0 flex items-center justify-center transition-all gallery-dot"
+            aria-label={content.ariaGoToImage.replace("{n}", String(i + 1)).replace("{total}", String(product.images.length))}
+            data-index={i}
+          >
+            <span
+              class:list={[
+                "w-2 h-2 rounded-full transition-all",
+                i === 0 ? "w-5 opacity-100" : "opacity-30",
+              ]}
+              style="background: var(--clr-primary)"
+            />
+          </button>
+        ))}
+      </div>
+      <div class="hidden sm:flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+        {product.images.map((img, i) => (
+          <button
+            type="button"
+            class:list={[
+              "shrink-0 w-20 h-20 rounded-2xl overflow-hidden border-2 transition-all gallery-thumb active:scale-90",
+              i === 0 ? "border-[var(--clr-primary)] shadow-md" : "border-transparent opacity-60 hover:opacity-100",
+            ]}
+            data-index={i}
+          >
+            <Image
+              src={img.src}
+              alt={img.altText ?? `${i + 1}`}
+              width={80}
+              height={80}
+              loading={i < 4 ? "eager" : "lazy"}
+              decoding="async"
+              format="webp"
+              quality={80}
+              class="w-full h-full object-cover"
+            />
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
+
+<style>
+  .gallery-track {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    background: var(--clr-surface);
+  }
+  .gallery-track::-webkit-scrollbar {
+    display: none;
+  }
+  .gallery-slide {
+    flex: 0 0 100%;
+    scroll-snap-align: start;
+    position: relative;
+  }
+</style>

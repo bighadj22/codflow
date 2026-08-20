@@ -1,0 +1,143 @@
+---
+import Select from "@/theme/components/ui/Select.astro";
+import { Icon } from "astro-icon/components";
+import { WILAYAS } from "@/core/data/wilayas";
+
+interface Props {
+  content: any;
+  fieldErrors: any;
+  isRTL: boolean;
+}
+
+const { content, fieldErrors, isRTL } = Astro.props;
+---
+
+<div class="space-y-5 pt-2">
+  <div class="flex items-center gap-3 py-2">
+    <div class="h-px flex-1 bg-black/[.05]"></div>
+    <span class="text-[0.6875rem] font-black uppercase tracking-[0.2em]" style="color: var(--clr-text)">{content.formDeliverySection}</span>
+    <div class="h-px flex-1 bg-black/[.05]"></div>
+  </div>
+
+  <!-- Name -->
+  <div>
+    <label for="f-name" class="form-label">
+      {content.formNameLabel} <span class="text-red-400">*</span>
+    </label>
+    <input
+      id="f-name" type="text" name="customerName"
+      required autocomplete="name"
+      placeholder={content.formNamePlaceholder}
+      class:list={["form-input", fieldErrors.customerName && "error"]}
+    />
+    {fieldErrors.customerName && (
+      <p class="text-[0.75rem] text-red-500 font-bold mt-2 ps-1">{fieldErrors.customerName[0]}</p>
+    )}
+  </div>
+
+  <!-- Phone -->
+  <div>
+    <label for="f-phone" class="form-label">
+      {content.formPhoneLabel} <span class="text-red-400">*</span>
+    </label>
+    <input
+      id="f-phone" type="tel" name="phone"
+      required autocomplete="tel" inputmode="tel"
+      placeholder={content.formPhonePlaceholder}
+      dir="ltr"
+      class:list={["form-input", fieldErrors.phone && "error"]}
+    />
+    {fieldErrors.phone && (
+      <p class="text-[0.75rem] text-red-500 font-bold mt-2 ps-1">{fieldErrors.phone[0]}</p>
+    )}
+  </div>
+
+  <!-- Wilaya - ALWAYS SHOWN -->
+  <div class="mb-1">
+    <Select
+      id="f-wilaya"
+      name="wilayaId"
+      label={content.formWilayaLabel}
+      placeholder={content.formWilayaPlaceholder}
+      searchPlaceholder={content.searchLabel}
+      noResultsText={content.noResultsLabel}
+      required={true}
+      error={fieldErrors.wilayaId?.[0]}
+      options={WILAYAS.map(w => ({
+        value: w.id,
+        label: `${w.id.toString().padStart(2, "0")} — ${isRTL ? w.nameAr : w.name}`
+      }))}
+    />
+    {fieldErrors.wilayaId && (
+      <p class="text-[0.75rem] text-red-500 font-bold mt-2 ps-1">{fieldErrors.wilayaId[0]}</p>
+    )}
+  </div>
+
+  <!-- Commune - ALWAYS SHOWN -->
+  <div class="mb-1">
+    <Select
+      id="f-commune"
+      name="communeId"
+      label={content.formCommuneLabel}
+      placeholder={content.formCommuneDisabled}
+      searchPlaceholder={content.searchLabel}
+      noResultsText={content.noResultsLabel}
+      required={true}
+      error={fieldErrors.communeId?.[0]}
+      options={[]}
+      dynamic={true}
+    />
+    {fieldErrors.communeId && (
+      <p class="text-[0.75rem] text-red-500 font-bold mt-2 ps-1">{fieldErrors.communeId[0]}</p>
+    )}
+  </div>
+
+  <!-- Delivery type -->
+  <div>
+    <fieldset>
+      <legend class="form-label">{content.formDeliveryLabel}</legend>
+      <div class="grid grid-cols-2 gap-3" id="delivery-type-group">
+        {[
+          { value: "home",      icon: "heroicons:home", label: content.formHomeDelivery },
+          { value: "stop_desk", icon: "heroicons:cube", label: content.formStopDesk },
+        ].map(({ value, icon, label }, i) => (
+          <label class="delivery-radio-label relative cursor-pointer group">
+            <input
+              type="radio" name="deliveryType" value={value}
+              checked={i === 0} class="sr-only delivery-radio-input"
+            />
+            <div class:list={[
+              "h-14 rounded-2xl border-2 flex items-center justify-center gap-2.5 font-black text-[0.875rem] transition-all select-none active:scale-95",
+              i === 0
+                ? "border-[var(--clr-primary)] text-[var(--clr-primary)] bg-[var(--clr-primary)]/5 shadow-sm"
+                : "border-[var(--clr-border)] text-[var(--clr-text-2)] bg-[var(--clr-surface-alt)]"
+            ]}>
+              <Icon name={icon} class="w-5 h-5" /><span>{label}</span>
+            </div>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  </div>
+
+  <!-- Address - CONDITIONAL: Only shown for home delivery -->
+  <div id="address-field-container">
+    <label for="f-address" class="form-label">{content.formAddressLabel}</label>
+    <input
+      id="f-address" type="text" name="address"
+      autocomplete="street-address"
+      placeholder={content.formAddressPlaceholder}
+      class="form-input"
+    />
+  </div>
+
+  <!-- Notes -->
+  <div>
+    <label for="f-notes" class="form-label">{content.formNotesLabel}</label>
+    <textarea
+      id="f-notes" name="notes" rows="2"
+      placeholder={content.formNotesPlaceholder}
+      class="form-input"
+    ></textarea>
+  </div>
+</div>

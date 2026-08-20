@@ -1,0 +1,57 @@
+---
+// ── STREAMING COMPONENT ──
+// Best sellers product grid (featured products)
+import ProductCard from "@/theme/components/product/ProductCard.astro";
+import { Icon } from "astro-icon/components";
+import { fetchProductsRaw } from "@/core/api/client";
+import type { StoreFrontContent } from "@/theme/config/content";
+
+interface Props {
+  currencySymbol: string;
+  content: StoreFrontContent;
+}
+
+const { currencySymbol, content } = Astro.props;
+
+const allProducts = await fetchProductsRaw();
+const featured = allProducts.filter((p: any) => p.storeFeatured);
+const products = featured.length ? featured.slice(0, 8) : allProducts.slice(0, 8);
+const showViewAll = allProducts.length > 8;
+---
+
+{products.length > 0 && (
+  <section id="best-sellers" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+      <div>
+        <h2 class="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tighter" style="color: var(--clr-text)">
+          {content.bestSellersSection}
+        </h2>
+        <p class="text-sm sm:text-base font-bold mt-3 opacity-60" style="color: var(--clr-text)">
+          {content.bestSellersSub}
+        </p>
+      </div>
+      {showViewAll && (
+        <a
+          href="/products"
+          class="inline-flex items-center gap-2 text-[1rem] font-black transition-all hover:text-primary group"
+          style="color: var(--clr-text)"
+          aria-label={`${content.viewAllCta} - ${content.bestSellersSection}`}
+        >
+          {content.viewAllCta}
+          <Icon name="heroicons:arrow-right" class="w-5 h-5 transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" />
+        </a>
+      )}
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+      {products.map((p: any, i: number) => (
+        <ProductCard
+          product={p}
+          currencySymbol={currencySymbol}
+          content={content}
+          eager={i < 4}
+        />
+      ))}
+    </div>
+  </section>
+)}

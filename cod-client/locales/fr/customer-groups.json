@@ -1,0 +1,58 @@
+{
+  "page_title": "Groupes de clients",
+  "groups_count": "groupes",
+  "search_placeholder": "Rechercher des groupes...",
+  "new_group": "Nouveau groupe",
+  "create_group": "Créer un groupe",
+  "success_deleted": "Groupe supprimé",
+  "error_delete_failed": "Échec de la suppression du groupe",
+  "actions": {
+    "view": "Voir",
+    "edit": "Modifier",
+    "delete": "Supprimer"
+  },
+  "empty_state": {
+    "title": "Aucun groupe pour le moment",
+    "description": "Créez des groupes pour segmenter et organiser votre base de clients en fonction de leur comportement et de leurs préférences.",
+    "action": "Créer votre premier groupe"
+  },
+  "table": {
+    "name": "Nom",
+    "description": "Description",
+    "members": "Membres",
+    "created": "Créé le"
+  },
+  "detail": {
+    "members": "Membres",
+    "no_members": "Aucun membre dans ce groupe",
+    "add_member": "Ajouter un client",
+    "remove_member": "Retirer du groupe",
+    "member_added": "Client ajouté au groupe",
+    "member_removed": "Client retiré du groupe",
+    "search_add": "Rechercher un client...",
+    "no_available": "Aucun client disponible à ajouter",
+    "search_members": "Rechercher des membres...",
+    "orders_label": "commandes"
+  },
+  "form": {
+    "title_add": "Ajouter un groupe",
+    "title_edit": "Modifier le groupe",
+    "name_label": "Nom du groupe",
+    "name_placeholder": "ex: VIP, Grossiste, Inactif...",
+    "description_label": "Description (facultatif)",
+    "description_placeholder": "Courte description du groupe",
+    "color_label": "Couleur",
+    "cancel": "Annuler",
+    "save": "Enregistrer le groupe",
+    "saving": "Enregistrement...",
+    "success_add": "Groupe créé",
+    "success_edit": "Groupe mis à jour",
+    "error_required": "Veuillez remplir tous les champs obligatoires"
+  },
+  "tags": {
+    "label": "Étiquettes",
+    "placeholder": "Ajouter une étiquette...",
+    "add": "Ajouter",
+    "empty": "Aucune étiquette"
+  }
+}

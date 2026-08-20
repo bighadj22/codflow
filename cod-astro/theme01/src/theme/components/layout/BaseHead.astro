@@ -1,0 +1,128 @@
+---
+// View transitions removed — ClientRouter caused dynamic module scripts
+// fetches on soft navigation to be served with empty Content-Type by the
+// SSR worker, breaking strict-MIME-checked module loading. After that
+// failure, product.ts never executed and every interactive element
+// (variant pills, offers, dropdowns, qty stepper) appeared "blocked".
+// We don't actually navigate between pages on the storefront — full page
+// loads are fine and removed the regression entirely.
+
+interface Props {
+  title: string;
+  description: string;
+  ogImage: string;
+  noindex?: boolean;
+  config: any;
+  primary: string;
+  fontHref: string;
+  font: string;
+  bg: string;
+  accent: string;
+}
+
+const { title, description, ogImage, noindex, config, primary, fontHref, font, bg, accent } = Astro.props;
+---
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="generator" content={Astro.generator} />
+  <meta name="theme-color" content={primary} />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  {noindex && <meta name="robots" content="noindex,nofollow" />}
+
+  <!-- SEO -->
+  <link rel="canonical" href={Astro.url.href} />
+  <meta name="author" content={config.name} />
+
+  <!-- OG -->
+  <meta property="og:title" content={title} />
+  <meta property="og:site_name" content={config.name} />
+  <meta property="og:url" content={Astro.url.href} />
+  <meta property="og:description" content={description} />
+  {ogImage && <meta property="og:image" content={ogImage} />}
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content={config.lang === "ar" ? "ar_DZ" : "en_US"} />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={description} />
+  {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href={fontHref} rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href={fontHref} rel="stylesheet" /></noscript>
+
+  <!-- Meta Pixel — deferred after window.load so fbevents.js (101 KiB) does
+       not compete with the LCP image for bandwidth. A lightweight queue stub
+       captures all fbq() calls made before the library arrives; they are
+       replayed in order once fbevents.js is ready.
+
+       Why delete window.fbq before injecting the script: fbevents.js opens
+       with `if(f.fbq)return;` — it bails if a fbq already exists. Clearing
+       our stub lets it initialise properly, then we replay the saved queue. -->
+  {config.pixelId && (
+    <Fragment>
+      <script type="text/javascript" set:html={`
+(function(w,d){
+  function q(){q.queue=q.queue||[];q.queue.push([].slice.call(arguments));}
+  q.queue=[];q.version='2.0';
+  if(!w.fbq){w.fbq=q;w._fbq=q;}
+  function loadPixel(){
+    var saved=w.fbq&&w.fbq.queue?w.fbq.queue.slice():[];
+    delete w.fbq;delete w._fbq;
+    var s=d.createElement('script');s.async=true;
+    s.src='https://connect.facebook.net/en_US/fbevents.js';
+    s.onload=function(){
+      for(var i=0;i<saved.length;i++){try{w.fbq.apply(null,saved[i]);}catch(e){}}
+    };
+    d.head.appendChild(s);
+  }
+  if(d.readyState==='complete'){loadPixel();}
+  else{w.addEventListener('load',loadPixel,{once:true});}
+})(window,document);
+fbq('init','${config.pixelId}');
+fbq('track','PageView');
+      `} />
+      <noscript>
+        <img height="1" width="1" style="display:none"
+          src={`https://www.facebook.com/tr?id=${config.pixelId}&ev=PageView&noscript=1`}
+          alt=""
+        />
+      </noscript>
+    </Fragment>
+  )}
+
+  <!-- Dynamic theme tokens + Critical CSS -->
+  <style set:html={`
+    :root {
+      --clr-primary: ${primary};
+      --clr-accent:  ${accent};
+      --clr-bg:      ${bg};
+      --font-body:   ${font};
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    /* Critical above-the-fold styles */
+    *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { scroll-behavior: smooth; height: -webkit-fill-available; }
+    body {
+      font-family: var(--font-body), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+      background: var(--clr-bg);
+      color: var(--clr-text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      min-height: 100vh;
+      line-height: 1.5;
+      overflow-x: hidden;
+      margin: 0;
+    }
+  `} />
+</head>

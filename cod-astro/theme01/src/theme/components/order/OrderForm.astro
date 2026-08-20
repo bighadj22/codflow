@@ -1,0 +1,116 @@
+---
+import { actions } from "astro:actions";
+import type { Product, ProductVariant, Offer } from "@/core/api/types";
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+
+import VariantSelector from "./VariantSelector.astro";
+import OfferTiers from "./OfferTiers.astro";
+import CustomerFields from "./CustomerFields.astro";
+import OrderSummary from "./OrderSummary.astro";
+
+interface Props {
+  product: Product;
+  content: StoreFrontContent;
+  fieldErrors: Record<string, string[] | undefined>;
+  serverError: string | null;
+  basePrice: number;
+  defaultVariant: ProductVariant | null;
+  cur: string;
+  isRTL: boolean;
+  offers: Offer[];
+  defaultVariantId: string | null;
+  isOutOfStock?: boolean;
+}
+
+const { product, content, fieldErrors, serverError, basePrice, defaultVariant, cur, isRTL, offers, defaultVariantId, isOutOfStock = false } = Astro.props;
+
+const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ?? null;
+---
+
+<!-- Order form card -->
+<div class="card !border-none !shadow-lg sm:!border sm:!shadow-md" id="order-section">
+  <!-- Card header -->
+  <div
+    class="px-6 py-5 border-b border-black/[.03]"
+    style="background: color-mix(in srgb, var(--clr-primary) 4%, white)"
+  >
+    <div class="flex items-center gap-3">
+       <div class="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm" style="background: var(--clr-surface); color: var(--clr-primary)">
+          <Icon name="heroicons:shopping-bag" class="w-5 h-5" />
+       </div>
+       <div>
+          <h2 class="font-black text-[1rem] leading-tight" style="color: var(--clr-text)">
+            {content.formTitle}
+          </h2>
+          <p class="text-[0.75rem] font-bold uppercase tracking-widest mt-0.5" style="color: var(--clr-text-2)">{content.orderCtaSubtext}</p>
+       </div>
+    </div>
+  </div>
+
+  {serverError && (
+    <div class="mx-6 mt-6 p-4 bg-red-50 border border-red-100 rounded-[1.25rem] text-[0.875rem] font-bold text-red-600 flex items-start gap-3">
+      <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 shrink-0" />
+      <p>{serverError}</p>
+    </div>
+  )}
+
+  <form method="POST" action={actions.placeOrder} class="p-6 space-y-6">
+    <!-- Hidden product fields -->
+    <input type="hidden" name="productId"          value={product.id} />
+    <!-- Meta Pixel tracking (populated by JS at submit time) -->
+    <input type="hidden" name="fbc" id="fbc-input" value="" />
+    <input type="hidden" name="fbp" id="fbp-input" value="" />
+    <input type="hidden" name="productName"        value={product.name} />
+    <input type="hidden" name="pricePerUnit"       value={basePrice} id="price-input" />
+    <input type="hidden" name="variantId"          value={defaultVariant?.id ?? ""} id="variant-id-input" />
+    <input type="hidden" name="variantLabel"       value="" id="variant-label-input" />
+    <input type="hidden" name="offerId"            value="" id="offer-id-input" />
+    <input type="hidden" name="variantSelections"  value="[]" id="variant-selections-input" />
+
+    {/* Standalone variant selector only when no offers — otherwise it lives inside the tier cards */}
+    {offers.length === 0 && <VariantSelector product={product} />}
+
+    <OfferTiers
+      product={product}
+      offers={offers}
+      basePrice={basePrice}
+      comparePrice={comparePrice}
+      cur={cur}
+      isRTL={isRTL}
+      content={content}
+      defaultVariantId={defaultVariantId}
+    />
+
+    <CustomerFields
+      content={content}
+      fieldErrors={fieldErrors}
+      isRTL={isRTL}
+    />
+
+    <OrderSummary
+      product={product}
+      basePrice={basePrice}
+      cur={cur}
+      offers={offers}
+      content={content}
+    />
+
+    <!-- Submit -->
+    <button
+      type="submit"
+      class:list={[
+        "btn-primary !h-[4rem] !text-[1.125rem]",
+        isOutOfStock && "!bg-[var(--clr-disabled)] cursor-not-allowed"
+      ]}
+      id="submit-btn"
+      disabled={isOutOfStock || undefined}
+    >
+      {isOutOfStock ? content.outOfStock : content.formSubmit}
+    </button>
+
+    <p class="text-center text-[0.8125rem] font-bold px-4" style="color: var(--clr-text-2)">
+      {content.formConfirmNote}
+    </p>
+  </form>
+</div>

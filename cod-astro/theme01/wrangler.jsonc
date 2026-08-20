@@ -1,0 +1,21 @@
+{
+  "name": "cod-astro-theme01",
+  "main": "./dist/_worker.js/index.js",
+  "compatibility_date": "2026-04-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "none"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // Replace with your own values before deploying:
+  //   COD_SERVER_URL → your cod-server Worker's public URL (e.g. https://api.yourdomain.com)
+  //   STORE_API_KEY  → a secret — set it via `wrangler secret put STORE_API_KEY`
+  //                     (do NOT put the real key here). Local dev reads both from .dev.vars.
+  "vars": {
+    "COD_SERVER_URL": "http://localhost:8787"
+  }
+}
