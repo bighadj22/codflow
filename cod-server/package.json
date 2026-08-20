@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241127.0",
-    "@hono/zod-openapi": "^1.2.3",
+    "@hono/zod-openapi": "^1.6.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.5.0",
     "@vitest/coverage-v8": "^2.1.9",
