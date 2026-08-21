@@ -17,6 +17,7 @@ database schema + query logic via `cod-shared`.
 - **Framework:** Hono
 - **Database:** Cloudflare D1 (SQLite) via Drizzle ORM
 - **Validation:** Zod
+- **API docs:** [@hono/zod-openapi](https://github.com/honojs/middleware) — the OpenAPI 3.1 spec generates from the route definitions themselves
 - **Language:** TypeScript
 
 ## Getting Started
@@ -139,7 +140,7 @@ cod-server/
 │   ├── mcp/                   # MCP remote server (Durable Object agent + scope-gated tool registry)
 │   ├── workflows/             # Durable Cloudflare Workflows (CodCapiWorkflow)
 │   ├── cron/                  # Scheduled handlers (abandoned-order sweep)
-│   ├── openapi/               # OpenAPI spec generation (served at /api/openapi.json)
+│   ├── openapi/               # OpenAPI assembly: security schemes, Swagger UI, shared Zod schemas — the served spec generates from route definitions
 │   ├── rbac/                  # Scope-based authorization middleware
 │   └── test-utils/            # Shared test helpers
 ├── scripts/                   # dev utilities (seed, R2 CORS, migration validation)
@@ -150,11 +151,16 @@ cod-server/
 
 ## API Overview
 
-REST API is mounted under `/api/*` and documented by the OpenAPI JSON spec at
-`/api/openapi.json` (no Swagger UI is served). Public routes: `/`, `/health`,
-`/images`, `/api` (OpenAPI spec), `/webhooks/*` (delivery-carrier callbacks),
-`/store/*` (storefront read + order placement), `/.well-known/*`, and `/mcp`
-(MCP protocol). All other `/api/*` routes require a session or bearer token.
+REST API is mounted under `/api/*`. It is fully documented by an OpenAPI 3.1
+spec that is **generated from the route definitions** (`@hono/zod-openapi`):
+
+- Machine-readable spec: `/api/openapi.json`
+- Interactive Swagger UI: `/api/docs`
+
+Public routes: `/`, `/health`, `/images`, `/api` (OpenAPI spec + docs),
+`/webhooks/*` (delivery-carrier callbacks, signature-verified), `/store/*`
+(storefront read + order placement, `X-Store-API-Key`), `/.well-known/*`, and
+`/mcp` (MCP protocol). All other `/api/*` routes require a session or bearer token.
 
 - `/api/orders` — orders, status lifecycle, driver assignment, stats
 - `/api/customers`, `/api/customer-groups`, `/api/customer-tags`
@@ -189,7 +195,11 @@ An hourly cron sweeps pending orders older than 30 minutes to `abandoned`.
 ## Contributing
 
 - One endpoint = one folder in `src/endpoints/`, following the
-  `routes.ts` / `handlers.ts` / `validation.ts` / `openapi.ts` split.
+  `routes.ts` / `handlers.ts` / `validation.ts` split.
+- Define routes with `@hono/zod-openapi` (`createRoute` on an `OpenAPIHono`
+  router): the route definition is the single source of truth for both request
+  validation and the OpenAPI spec — there are no hand-written spec files to
+  keep in sync. Reuse shared response schemas from `src/openapi/schemas.ts`.
 - Shared schema and read queries live in `cod-shared` — do not duplicate them
   in `cod-server/src/db`.
 - Keep `wrangler.toml` free of real credentials; if you add an env var, declare
