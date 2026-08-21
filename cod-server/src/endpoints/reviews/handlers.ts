@@ -19,14 +19,15 @@ const patchSchema = z.object({
 
 export async function listReviews(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const filters = filtersSchema.parse({
+  const query: any = (c.req as any).valid?.("query");
+  const filters = query ?? filtersSchema.parse({
     status: c.req.query("status"),
     productId: c.req.query("productId"),
     limit: c.req.query("limit"),
     offset: c.req.query("offset"),
   });
   const { rows, total, pendingCount } = await queries.getAllReviews(db, filters);
-  return c.json({ success: true, data: rows, count: rows.length, total, pendingCount });
+  return c.json({ success: true, data: rows, count: rows.length, total, pendingCount }, 200);
 }
 
 export async function updateReview(c: Context<AppContext>) {
@@ -36,10 +37,11 @@ export async function updateReview(c: Context<AppContext>) {
   const existing = await queries.getReviewById(db, id);
   if (!existing) throw new NotFoundError("Review", id);
 
-  const body = await c.req.json();
-  const data = patchSchema.parse(body);
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const data = jsonBody ?? patchSchema.parse(await c.req.json());
 
   const updated = await queries.updateReviewStatus(db, id, data.status);
+  if (!updated) throw new NotFoundError("Review", id);
 
   const actor = c.get("user");
   const action = data.status === "approved" ? ACTIONS.REVIEW_APPROVED : ACTIONS.REVIEW_REJECTED;
@@ -49,7 +51,7 @@ export async function updateReview(c: Context<AppContext>) {
     label: existing.customerName,
   }, { rating: existing.rating, orderNumber: existing.orderNumber });
 
-  return c.json({ success: true, data: updated });
+  return c.json({ success: true, data: updated }, 200);
 }
 
 export async function deleteReview(c: Context<AppContext>) {
@@ -68,5 +70,5 @@ export async function deleteReview(c: Context<AppContext>) {
     label: existing.customerName,
   }, { rating: existing.rating, orderNumber: existing.orderNumber });
 
-  return c.json({ success: true });
+  return c.json({ success: true }, 200);
 }

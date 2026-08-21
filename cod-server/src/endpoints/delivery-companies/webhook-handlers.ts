@@ -13,6 +13,7 @@ import { getDb } from "@/db";
 import { eq } from "drizzle-orm";
 import { deliveryCompanies } from "@/db/schema";
 import { getDeliveryCompanyRaw } from "./queries";
+import { NotFoundError, ValidationError, ExternalApiError } from "@/lib/errors/classes";
 
 const ZR_BASE_URL = "https://api.zrexpress.app";
 
@@ -36,18 +37,18 @@ const VALID_OUR_STATUSES = new Set([
  */
 export async function registerZrWebhook(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const id = c.req.param("id")!;
+  const { id } = (c.req as any).valid?.("param") ?? { id: c.req.param("id")! };
 
   const company = await getDeliveryCompanyRaw(db, id);
-  if (!company) return c.json({ error: "Delivery company not found" }, 404);
+  if (!company) throw new NotFoundError("Delivery company", id);
   if (company.code !== "zr_express") {
-    return c.json({ error: "Webhook registration is only supported for ZR Express" }, 400);
+    throw new ValidationError("Webhook registration is only supported for ZR Express", "OPERATION_NOT_SUPPORTED", { companyId: id });
   }
   if (!company.apiToken) {
-    return c.json({ error: "ZR Express API token not configured" }, 400);
+    throw new ValidationError("ZR Express API token not configured", "MISSING_API_CREDENTIALS", { companyId: id });
   }
   if (!company.apiUserGuid) {
-    return c.json({ error: "ZR Express tenant ID (apiUserGuid) not configured" }, 400);
+    throw new ValidationError("ZR Express tenant ID (apiUserGuid) not configured", "MISSING_API_CREDENTIALS", { companyId: id });
   }
 
   // Build the webhook URL from the incoming request host
@@ -97,20 +98,13 @@ export async function registerZrWebhook(c: Context<AppContext>) {
   if (!registerRes.ok) {
     const errorBody = await registerRes.text().catch(() => "");
     console.error("[webhook][zr] Endpoint registration failed:", registerRes.status, errorBody);
-    return c.json(
-      {
-        error: "ZR Express webhook registration failed",
-        detail: errorBody,
-        hint: "Ensure your ZR API token has supplier admin permissions",
-      },
-      400
-    );
+    throw new ExternalApiError("ZR Express", `Webhook registration failed: ${errorBody}`, { companyId: id, hint: "Ensure your ZR API token has supplier admin permissions" });
   }
 
   const registerData = (await registerRes.json()) as { id?: string };
   const endpointId = registerData.id;
   if (!endpointId) {
-    return c.json({ error: "ZR Express did not return an endpoint ID" }, 500);
+    throw new ExternalApiError("ZR Express", "Did not return an endpoint ID", { companyId: id });
   }
 
   // Fetch the signing secret for this endpoint
@@ -133,7 +127,7 @@ export async function registerZrWebhook(c: Context<AppContext>) {
       webhookUrl,
       endpointId,
       warning: "Endpoint registered but secret could not be fetched — signature verification will be skipped",
-    });
+    }, 200);
   }
 
   const secretData = (await secretRes.json()) as { secret?: string };
@@ -148,7 +142,7 @@ export async function registerZrWebhook(c: Context<AppContext>) {
     })
     .where(eq(deliveryCompanies.id, id));
 
-  return c.json({ success: true, webhookUrl, endpointId });
+  return c.json({ success: true, webhookUrl, endpointId }, 200);
 }
 
 // ─── ZR Express — Unregister ──────────────────────────────────────────────────
@@ -161,21 +155,21 @@ export async function registerZrWebhook(c: Context<AppContext>) {
  */
 export async function unregisterZrWebhook(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const id = c.req.param("id")!;
+  const { id } = (c.req as any).valid?.("param") ?? { id: c.req.param("id")! };
 
   const company = await getDeliveryCompanyRaw(db, id);
-  if (!company) return c.json({ error: "Delivery company not found" }, 404);
+  if (!company) throw new NotFoundError("Delivery company", id);
   if (company.code !== "zr_express") {
-    return c.json({ error: "Only supported for ZR Express" }, 400);
+    throw new ValidationError("Only supported for ZR Express", "OPERATION_NOT_SUPPORTED", { companyId: id });
   }
   if (!company.webhookEndpointId) {
-    return c.json({ error: "No webhook endpoint is registered for this company" }, 400);
+    throw new ValidationError("No webhook endpoint is registered for this company", "OPERATION_NOT_SUPPORTED", { companyId: id });
   }
   if (!company.apiToken) {
-    return c.json({ error: "ZR Express API token not configured" }, 400);
+    throw new ValidationError("ZR Express API token not configured", "MISSING_API_CREDENTIALS", { companyId: id });
   }
   if (!company.apiUserGuid) {
-    return c.json({ error: "ZR Express tenant ID (apiUserGuid) not configured" }, 400);
+    throw new ValidationError("ZR Express tenant ID (apiUserGuid) not configured", "MISSING_API_CREDENTIALS", { companyId: id });
   }
 
   const deleteRes = await fetch(
@@ -192,7 +186,7 @@ export async function unregisterZrWebhook(c: Context<AppContext>) {
   if (!deleteRes.ok && deleteRes.status !== 404) {
     const errorBody = await deleteRes.text().catch(() => "");
     console.error("[webhook][zr] Endpoint deletion failed:", deleteRes.status, errorBody);
-    return c.json({ error: "Failed to delete ZR Express webhook endpoint", detail: errorBody }, 400);
+    throw new ExternalApiError("ZR Express", `Failed to delete webhook endpoint: ${errorBody}`, { companyId: id });
   }
 
   await db
@@ -204,7 +198,7 @@ export async function unregisterZrWebhook(c: Context<AppContext>) {
     })
     .where(eq(deliveryCompanies.id, id));
 
-  return c.json({ success: true });
+  return c.json({ success: true }, 200);
 }
 
 // ─── Yalidine — Save Secret ───────────────────────────────────────────────────
@@ -217,23 +211,23 @@ export async function unregisterZrWebhook(c: Context<AppContext>) {
  */
 export async function saveYalidineSecret(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const id = c.req.param("id")!;
+  const { id } = (c.req as any).valid?.("param") ?? { id: c.req.param("id")! };
 
   const company = await getDeliveryCompanyRaw(db, id);
-  if (!company) return c.json({ error: "Delivery company not found" }, 404);
+  if (!company) throw new NotFoundError("Delivery company", id);
   if (company.code !== "yalidine") {
-    return c.json({ error: "This endpoint is only for Yalidine webhook secrets" }, 400);
+    throw new ValidationError("This endpoint is only for Yalidine webhook secrets", "OPERATION_NOT_SUPPORTED", { companyId: id });
   }
 
   let body: { secret?: string };
   try {
-    body = await c.req.json();
+    body = (c.req as any).valid?.("json") ?? await c.req.json();
   } catch {
-    return c.json({ error: "Invalid JSON body" }, 400);
+    throw new ValidationError("Invalid JSON body", "VALIDATION_FAILED");
   }
 
   if (typeof body.secret !== "string" || body.secret.trim().length === 0) {
-    return c.json({ error: "secret must be a non-empty string" }, 400);
+    throw new ValidationError("secret must be a non-empty string", "VALIDATION_FAILED");
   }
 
   await db
@@ -241,7 +235,7 @@ export async function saveYalidineSecret(c: Context<AppContext>) {
     .set({ webhookSecret: body.secret.trim(), updatedAt: new Date().toISOString() })
     .where(eq(deliveryCompanies.id, id));
 
-  return c.json({ success: true });
+  return c.json({ success: true }, 200);
 }
 
 // ─── ZR Express — Save Custom Mapping ────────────────────────────────────────
@@ -255,35 +249,36 @@ export async function saveYalidineSecret(c: Context<AppContext>) {
  */
 export async function saveZrStatusMapping(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const id = c.req.param("id")!;
+  const { id } = (c.req as any).valid?.("param") ?? { id: c.req.param("id")! };
 
   const company = await getDeliveryCompanyRaw(db, id);
-  if (!company) return c.json({ error: "Delivery company not found" }, 404);
+  if (!company) throw new NotFoundError("Delivery company", id);
   if (company.code !== "zr_express") {
-    return c.json({ error: "Status mapping is only supported for ZR Express" }, 400);
+    throw new ValidationError("Status mapping is only supported for ZR Express", "OPERATION_NOT_SUPPORTED", { companyId: id });
   }
 
   let body: { mapping?: unknown };
   try {
-    body = await c.req.json();
+    body = (c.req as any).valid?.("json") ?? await c.req.json();
   } catch {
-    return c.json({ error: "Invalid JSON body" }, 400);
+    throw new ValidationError("Invalid JSON body", "VALIDATION_FAILED");
   }
 
   const mapping = body.mapping;
   if (typeof mapping !== "object" || mapping === null || Array.isArray(mapping)) {
-    return c.json({ error: "mapping must be a non-null object" }, 400);
+    throw new ValidationError("mapping must be a non-null object", "VALIDATION_FAILED");
   }
 
   // Validate keys are valid our-status strings and values are string arrays
   for (const [key, value] of Object.entries(mapping as Record<string, unknown>)) {
     if (!VALID_OUR_STATUSES.has(key)) {
-      return c.json({
-        error: `Invalid status key: "${key}". Valid keys: ${[...VALID_OUR_STATUSES].join(", ")}`,
-      }, 400);
+      throw new ValidationError(
+        `Invalid status key: "${key}". Valid keys: ${[...VALID_OUR_STATUSES].join(", ")}`,
+        "VALIDATION_FAILED"
+      );
     }
     if (!Array.isArray(value) || !value.every((v) => typeof v === "string")) {
-      return c.json({ error: `Value for key "${key}" must be an array of strings` }, 400);
+      throw new ValidationError(`Value for key "${key}" must be an array of strings`, "VALIDATION_FAILED");
     }
   }
 
@@ -295,5 +290,5 @@ export async function saveZrStatusMapping(c: Context<AppContext>) {
     })
     .where(eq(deliveryCompanies.id, id));
 
-  return c.json({ success: true });
+  return c.json({ success: true }, 200);
 }

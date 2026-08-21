@@ -22,7 +22,7 @@ export async function listWilayas(c: Context<AppContext>) {
     search: c.req.query("search"),
   });
   const data = await queries.getAllWilayas(db, filters);
-  return c.json({ success: true, data, count: data.length });
+  return c.json({ success: true, data, count: data.length }, 200);
 }
 
 /**
@@ -47,5 +47,5 @@ export async function listCommunes(c: Context<AppContext>) {
   }
 
   const data = await queries.getCommunesByWilaya(db, wilayaId);
-  return c.json({ success: true, data, count: data.length });
+  return c.json({ success: true, data, count: data.length }, 200);
 }
