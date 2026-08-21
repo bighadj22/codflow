@@ -11,7 +11,6 @@ import type { DrizzleD1Database } from "drizzle-orm/d1";
 import * as schema from "@/db/schema";
 import { ACTIONS, logActivity } from "@/lib/activity";
 import { listActivityLogs, getUserActivityLogs } from "./handlers";
-import { ValidationError } from "@/lib/errors/classes";
 
 // ─── Shared mock D1 ────────────────────────────────────────────────────────
 
@@ -309,142 +308,11 @@ describe("getUserActivityLogs query layer", () => {
 });
 
 
-// ─── Error Scenario Tests ─────────────────────────────────────────────────
+// ─── Validation Tests ──────────────────────────────────────────────────────
+// Validation error tests have been removed after migrating to @hono/zod-openapi.
+// The framework now validates requests at the route level before handlers run,
+// using the Zod schemas defined in routes.ts. Framework validation errors are
+// caught by the global openApiValidationHook and return the same error envelope
+// as before. Validation behavior is now tested via integration tests in
+// routes.test.ts (when created) or through the OpenAPI spec itself.
 
-describe("listActivityLogs error scenarios", () => {
-  it("throws ValidationError for invalid limit parameter (non-numeric)", async () => {
-    const c = createMockContext({ limit: "abc" });
-    
-    await expect(listActivityLogs(c)).rejects.toThrow(ValidationError);
-    await expect(listActivityLogs(c)).rejects.toThrow("Invalid limit parameter");
-  });
-
-  it("throws ValidationError for invalid limit parameter (negative)", async () => {
-    const c = createMockContext({ limit: "-5" });
-    
-    await expect(listActivityLogs(c)).rejects.toThrow(ValidationError);
-  });
-
-  it("throws ValidationError for invalid limit parameter (zero)", async () => {
-    const c = createMockContext({ limit: "0" });
-    
-    await expect(listActivityLogs(c)).rejects.toThrow(ValidationError);
-  });
-
-  it("throws ValidationError for invalid offset parameter (non-numeric)", async () => {
-    const c = createMockContext({ offset: "xyz" });
-    
-    await expect(listActivityLogs(c)).rejects.toThrow(ValidationError);
-    await expect(listActivityLogs(c)).rejects.toThrow("Invalid offset parameter");
-  });
-
-  it("throws ValidationError for invalid offset parameter (negative)", async () => {
-    const c = createMockContext({ offset: "-10" });
-    
-    await expect(listActivityLogs(c)).rejects.toThrow(ValidationError);
-  });
-
-  it("includes error context with field, value, and message", async () => {
-    const c = createMockContext({ limit: "invalid" });
-    
-    try {
-      await listActivityLogs(c);
-      expect.fail("Should have thrown ValidationError");
-    } catch (error) {
-      expect(error).toBeInstanceOf(ValidationError);
-      const validationError = error as ValidationError;
-      expect(validationError.code).toBe("VALIDATION_FAILED");
-      expect(validationError.category).toBe("VALIDATION");
-      expect(validationError.context).toEqual({
-        field: "limit",
-        value: "invalid",
-        message: "Limit must be a positive integer",
-      });
-    }
-  });
-
-  it("returns correct error response structure", async () => {
-    const c = createMockContext({ offset: "bad" });
-    
-    try {
-      await listActivityLogs(c);
-      expect.fail("Should have thrown ValidationError");
-    } catch (error) {
-      expect(error).toBeInstanceOf(ValidationError);
-      const validationError = error as ValidationError;
-      
-      // Verify error response structure matches specification
-      expect(validationError).toHaveProperty("message");
-      expect(validationError).toHaveProperty("code");
-      expect(validationError).toHaveProperty("category");
-      expect(validationError).toHaveProperty("context");
-      expect(validationError.statusCode).toBe(400);
-    }
-  });
-});
-
-describe("getUserActivityLogs error scenarios", () => {
-  it("throws ValidationError for invalid limit parameter (non-numeric)", async () => {
-    const c = createMockContext({ limit: "abc" }, { userId: "user_001" });
-    
-    await expect(getUserActivityLogs(c)).rejects.toThrow(ValidationError);
-    await expect(getUserActivityLogs(c)).rejects.toThrow("Invalid limit parameter");
-  });
-
-  it("throws ValidationError for invalid limit parameter (negative)", async () => {
-    const c = createMockContext({ limit: "-3" }, { userId: "user_001" });
-    
-    await expect(getUserActivityLogs(c)).rejects.toThrow(ValidationError);
-  });
-
-  it("throws ValidationError for invalid offset parameter (non-numeric)", async () => {
-    const c = createMockContext({ offset: "xyz" }, { userId: "user_001" });
-    
-    await expect(getUserActivityLogs(c)).rejects.toThrow(ValidationError);
-    await expect(getUserActivityLogs(c)).rejects.toThrow("Invalid offset parameter");
-  });
-
-  it("throws ValidationError for invalid offset parameter (negative)", async () => {
-    const c = createMockContext({ offset: "-1" }, { userId: "user_001" });
-    
-    await expect(getUserActivityLogs(c)).rejects.toThrow(ValidationError);
-  });
-
-  it("includes error context with field, value, and message", async () => {
-    const c = createMockContext({ offset: "not-a-number" }, { userId: "user_001" });
-    
-    try {
-      await getUserActivityLogs(c);
-      expect.fail("Should have thrown ValidationError");
-    } catch (error) {
-      expect(error).toBeInstanceOf(ValidationError);
-      const validationError = error as ValidationError;
-      expect(validationError.code).toBe("VALIDATION_FAILED");
-      expect(validationError.category).toBe("VALIDATION");
-      expect(validationError.context).toEqual({
-        field: "offset",
-        value: "not-a-number",
-        message: "Offset must be a non-negative integer",
-      });
-    }
-  });
-
-  it("returns correct error response structure", async () => {
-    const c = createMockContext({ limit: "0" }, { userId: "user_001" });
-    
-    try {
-      await getUserActivityLogs(c);
-      expect.fail("Should have thrown ValidationError");
-    } catch (error) {
-      expect(error).toBeInstanceOf(ValidationError);
-      const validationError = error as ValidationError;
-      
-      // Verify error response structure matches specification
-      expect(validationError).toHaveProperty("message");
-      expect(validationError).toHaveProperty("code");
-      expect(validationError).toHaveProperty("category");
-      expect(validationError).toHaveProperty("context");
-      expect(validationError.statusCode).toBe(400);
-    }
-  });
-});

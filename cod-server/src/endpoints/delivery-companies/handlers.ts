@@ -21,14 +21,15 @@ import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
  */
 export async function listDeliveryCompanies(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const filters = validation.deliveryCompanyFiltersSchema.parse({
+  const filters = (c.req as any).valid?.("query") ?? {
     active: c.req.query("active"),
     search: c.req.query("search"),
     limit: c.req.query("limit"),
     offset: c.req.query("offset"),
-  });
-  const data = await queries.getAllDeliveryCompanies(db, filters);
-  return c.json({ success: true, data, count: data.length });
+  };
+  const parsed = validation.deliveryCompanyFiltersSchema.parse(filters);
+  const data = await queries.getAllDeliveryCompanies(db, parsed);
+  return c.json({ success: true, data, count: data.length }, 200);
 }
 
 /**
@@ -37,14 +38,14 @@ export async function listDeliveryCompanies(c: Context<AppContext>) {
  */
 export async function getDeliveryCompany(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const id = c.req.param("id")!;
+  const { id } = (c.req as any).valid?.("param") ?? { id: c.req.param("id")! };
   const company = await queries.getDeliveryCompanyById(db, id);
   
   if (!company) {
     throw new NotFoundError("Delivery company", id);
   }
   
-  return c.json({ success: true, data: company });
+  return c.json({ success: true, data: company }, 200);
 }
 
 /**
@@ -53,15 +54,16 @@ export async function getDeliveryCompany(c: Context<AppContext>) {
  */
 export async function createDeliveryCompany(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const body = validation.createDeliveryCompanySchema.parse(await c.req.json());
+  const body = (c.req as any).valid?.("json") ?? await c.req.json();
+  const parsed = validation.createDeliveryCompanySchema.parse(body);
 
   // Ensure code is unique
-  const existing = await queries.getDeliveryCompanyByCode(db, body.code);
+  const existing = await queries.getDeliveryCompanyByCode(db, parsed.code);
   if (existing) {
     throw new ConflictError(
-      `A delivery company with code "${body.code}" already exists`,
+      `A delivery company with code "${parsed.code}" already exists`,
       ERROR_CODES.DUPLICATE_ENTITY,
-      { code: body.code, existingCompanyId: existing.id }
+      { code: parsed.code, existingCompanyId: existing.id }
     );
   }
 
@@ -69,10 +71,13 @@ export async function createDeliveryCompany(c: Context<AppContext>) {
   // EcoTrack-family carriers (Packers, etc.) lock orders at the carrier the moment
   // validate/order is called — the team would lose the ability to edit or delete
   // post-dispatch. Default to false there and true everywhere else.
-  const autoValidate = body.autoValidate ?? !isEcotrackCompany(body.code);
+  const autoValidate = parsed.autoValidate ?? !isEcotrackCompany(parsed.code);
 
-  const company = await queries.createDeliveryCompany(db, { ...body, autoValidate });
-  console.info(`[delivery-companies] created company=${company?.id} code=${body.code} autoValidate=${autoValidate}`);
+  const company = await queries.createDeliveryCompany(db, { ...parsed, autoValidate });
+  if (!company) {
+    throw new BusinessLogicError("Failed to create delivery company", ERROR_CODES.INTERNAL_SERVER_ERROR);
+  }
+  console.info(`[delivery-companies] created company=${company.id} code=${parsed.code} autoValidate=${autoValidate}`);
   return c.json({ success: true, data: company }, 201);
 }
 
@@ -82,29 +87,30 @@ export async function createDeliveryCompany(c: Context<AppContext>) {
  */
 export async function updateDeliveryCompany(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const id = c.req.param("id")!;
-  const body = validation.updateDeliveryCompanySchema.parse(await c.req.json());
+  const { id } = (c.req as any).valid?.("param") ?? { id: c.req.param("id")! };
+  const body = (c.req as any).valid?.("json") ?? await c.req.json();
+  const parsed = validation.updateDeliveryCompanySchema.parse(body);
 
   // If code is being changed, verify it's not taken by another company
-  if (body.code) {
-    const existing = await queries.getDeliveryCompanyByCode(db, body.code);
+  if (parsed.code) {
+    const existing = await queries.getDeliveryCompanyByCode(db, parsed.code);
     if (existing && existing.id !== id) {
       throw new ConflictError(
-        `A delivery company with code "${body.code}" already exists`,
+        `A delivery company with code "${parsed.code}" already exists`,
         ERROR_CODES.DUPLICATE_ENTITY,
-        { code: body.code, existingCompanyId: existing.id }
+        { code: parsed.code, existingCompanyId: existing.id }
       );
     }
   }
 
-  const company = await queries.updateDeliveryCompany(db, id, body);
+  const company = await queries.updateDeliveryCompany(db, id, parsed);
   
   if (!company) {
     throw new NotFoundError("Delivery company", id);
   }
 
   console.info(`[delivery-companies] updated company=${id}`);
-  return c.json({ success: true, data: company });
+  return c.json({ success: true, data: company }, 200);
 }
 
 /**
@@ -114,7 +120,7 @@ export async function updateDeliveryCompany(c: Context<AppContext>) {
  */
 export async function syncCompanyStopDesks(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const id = c.req.param("id")!;
+  const { id } = (c.req as any).valid?.("param") ?? { id: c.req.param("id")! };
 
   const company = await queries.getDeliveryCompanyRaw(db, id);
   if (!company) throw new NotFoundError("Delivery company", id);
@@ -240,7 +246,7 @@ export async function syncCompanyStopDesks(c: Context<AppContext>) {
     return c.json({
       success: true,
       data: { total: desks.length, removed: removedCount, syncedAt: now },
-    });
+    }, 200);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to fetch stop desks from provider API";
     console.error(`[sync-stop-desks] failed company=${id}:`, msg);
@@ -256,13 +262,17 @@ export async function syncCompanyStopDesks(c: Context<AppContext>) {
  */
 export async function fetchCompanyStopDesks(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const id = c.req.param("id")!;
+  const { id } = (c.req as any).valid?.("param") ?? { id: c.req.param("id")! };
+  const query = (c.req as any).valid?.("query") ?? {
+    wilayaId: c.req.query("wilayaId"),
+    activeOnly: c.req.query("activeOnly") ?? "true",
+  };
 
   const company = await queries.getDeliveryCompanyById(db, id);
   if (!company) throw new NotFoundError("Delivery company", id);
 
-  const wilayaIdParam = c.req.query("wilayaId");
-  const activeOnly = c.req.query("activeOnly") !== "false"; // default true
+  const wilayaIdParam = query.wilayaId;
+  const activeOnly = query.activeOnly !== "false"; // default true
 
   const conditions = [eq(companyStopDesks.companyId, id)];
 
@@ -293,7 +303,7 @@ export async function fetchCompanyStopDesks(c: Context<AppContext>) {
       total: desks.length,
       company: { id: company.id, name: company.name, code: company.code },
     },
-  });
+  }, 200);
 }
 
 /**
@@ -304,8 +314,9 @@ export async function fetchCompanyStopDesks(c: Context<AppContext>) {
  */
 export async function toggleCompanyStopDesk(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const companyId = c.req.param("id")!;
-  const code = c.req.param("code")!;
+  const params = (c.req as any).valid?.("param") ?? { id: c.req.param("id")!, code: c.req.param("code")! };
+  const companyId = params.id;
+  const code = params.code;
 
   const existing = await db
     .select({ id: companyStopDesks.id, active: companyStopDesks.active })
@@ -328,7 +339,7 @@ export async function toggleCompanyStopDesk(c: Context<AppContext>) {
     .set({ active: newActive })
     .where(eq(companyStopDesks.id, existing.id));
 
-  return c.json({ success: true, data: { code, active: newActive } });
+  return c.json({ success: true, data: { code, active: newActive } }, 200);
 }
 
 /**
@@ -337,7 +348,7 @@ export async function toggleCompanyStopDesk(c: Context<AppContext>) {
  */
 export async function deleteDeliveryCompany(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const id = c.req.param("id")!;
+  const { id } = (c.req as any).valid?.("param") ?? { id: c.req.param("id")! };
 
   const existing = await queries.getDeliveryCompanyById(db, id);
   
@@ -356,5 +367,5 @@ export async function deleteDeliveryCompany(c: Context<AppContext>) {
   }
 
   console.info(`[delivery-companies] deleted company=${id}`);
-  return c.json({ success: true });
+  return c.json({ success: true }, 200);
 }

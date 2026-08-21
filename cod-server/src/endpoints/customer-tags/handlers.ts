@@ -6,50 +6,55 @@ import { eq } from "drizzle-orm";
 import * as queries from "./queries";
 import * as validation from "./validation";
 import { logActivity, ACTIONS } from "@/lib/activity";
-import { NotFoundError, BusinessLogicError, ConflictError } from "@/lib/errors/classes";
+import { NotFoundError, BusinessLogicError, ConflictError, SystemError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 
 export async function listTags(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const filters = validation.customerTagFiltersSchema.parse({
+  const query: any = (c.req as any).valid?.("query");
+  const filters = query ?? validation.customerTagFiltersSchema.parse({
     search: c.req.query("search"),
     limit: c.req.query("limit"),
     offset: c.req.query("offset"),
   });
   const tags = await queries.getAllTags(db, filters);
-  return c.json({ success: true, data: tags, count: tags.length });
+  return c.json({ success: true, data: tags, count: tags.length }, 200);
 }
 
 export async function getTag(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
+  const query: any = (c.req as any).valid?.("query");
   const tagId = c.req.param("id")!;
-  const withCustomers = c.req.query("customers") === "true";
+  const withCustomers = (query?.customers ?? c.req.query("customers")) === "true";
   const tag = withCustomers
     ? await queries.getTagWithCustomers(db, tagId)
     : await queries.getTagById(db, tagId);
   if (!tag) {
     throw new NotFoundError("customer_tag", tagId);
   }
-  return c.json({ success: true, data: tag });
+  return c.json({ success: true, data: tag }, 200);
 }
 
 export async function createTag(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const validated = validation.createCustomerTagSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const validated = jsonBody ?? validation.createCustomerTagSchema.parse(await c.req.json());
   const tag = await queries.createTag(db, validated);
-  const actor = c.get("user");
-  if (tag) {
-    await logActivity(db, actor, ACTIONS.CUSTOMER_TAG_CREATED, {
-      type: "customer_tag", id: tag.id, label: tag.name,
-    });
+  if (!tag) {
+    throw new SystemError("Failed to create customer tag");
   }
+  const actor = c.get("user");
+  await logActivity(db, actor, ACTIONS.CUSTOMER_TAG_CREATED, {
+    type: "customer_tag", id: tag.id, label: tag.name,
+  });
   return c.json({ success: true, data: tag, message: "Tag created" }, 201);
 }
 
 export async function updateTag(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const tagId = c.req.param("id")!;
-  const validated = validation.updateCustomerTagSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const validated = jsonBody ?? validation.updateCustomerTagSchema.parse(await c.req.json());
   const tag = await queries.updateTag(db, tagId, validated);
   if (!tag) {
     throw new NotFoundError("customer_tag", tagId);
@@ -58,7 +63,7 @@ export async function updateTag(c: Context<AppContext>) {
   await logActivity(db, actor, ACTIONS.CUSTOMER_TAG_UPDATED, {
     type: "customer_tag", id: tagId, label: tag.name,
   });
-  return c.json({ success: true, data: tag });
+  return c.json({ success: true, data: tag }, 200);
 }
 
 export async function deleteTag(c: Context<AppContext>) {
@@ -87,13 +92,14 @@ export async function deleteTag(c: Context<AppContext>) {
   await logActivity(db, actor, ACTIONS.CUSTOMER_TAG_DELETED, {
     type: "customer_tag", id: tagId, label: tag.name,
   });
-  return c.json({ success: true, message: "Tag deleted" });
+  return c.json({ success: true, message: "Tag deleted" }, 200);
 }
 
 export async function assignTag(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const tagId = c.req.param("id")!;
-  const { customerId } = validation.assignTagSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const { customerId } = jsonBody ?? validation.assignTagSchema.parse(await c.req.json());
 
   const tag = await queries.getTagById(db, tagId);
   if (!tag) {
@@ -110,7 +116,7 @@ export async function assignTag(c: Context<AppContext>) {
   await logActivity(db, actor, ACTIONS.CUSTOMER_TAG_ASSIGNED, {
     type: "customer_tag", id: tagId, label: tag.name,
   }, { customerId });
-  return c.json({ success: true, message: "Tag assigned" });
+  return c.json({ success: true, message: "Tag assigned" }, 200);
 }
 
 export async function unassignTag(c: Context<AppContext>) {
@@ -128,5 +134,6 @@ export async function unassignTag(c: Context<AppContext>) {
   await logActivity(db, actor, ACTIONS.CUSTOMER_TAG_UNASSIGNED, {
     type: "customer_tag", id: tagId, label: tag.name,
   }, { customerId });
-  return c.json({ success: true, message: "Tag unassigned" });
+  return c.json({ success: true, message: "Tag unassigned" }, 200);
 }
+

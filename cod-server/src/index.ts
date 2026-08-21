@@ -4,7 +4,7 @@
  * Main entry point for the backend API.
  */
 
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import type { AppContext, Env } from "@/types";
 import { corsMiddleware } from "@/middleware/cors";
 import { authMiddleware } from "@/middleware/auth";
@@ -32,7 +32,8 @@ import storesRoutes from "@/endpoints/stores/routes";
 import reviewsRoutes from "@/endpoints/reviews/routes";
 import offersRoutes from "@/endpoints/offers/routes";
 import { stockRouter, productStockRouter } from "@/endpoints/stock/routes";
-import openapiRoutes from "@/openapi/routes";
+import { registerSpecEndpoint } from "@/openapi/serve";
+import { openApiValidationHook } from "@/openapi/validation-hook";
 import mcpManagementRoutes from "@/endpoints/mcp/routes";
 import analyticsRoutes from "@/endpoints/analytics/routes";
 import abandonedOrdersRoutes from "@/endpoints/abandoned-orders/routes";
@@ -52,8 +53,11 @@ export { CodMcpAgent };
 // CodCapiWorkflow — MUST be re-exported so Cloudflare can bind it via wrangler.toml [[workflows]].
 export { CodCapiWorkflow } from "@/workflows/capi";
 
-// Create Hono app
-const app = new Hono<AppContext>();
+// OpenAPIHono extends Hono: existing routes/middleware keep working, and
+// routes registered via app.openapi() validate requests and feed the
+// generated spec. The default hook keeps framework validation errors in
+// the platform error envelope.
+const app = new OpenAPIHono<AppContext>({ defaultHook: openApiValidationHook });
 
 // Global middleware
 app.use("*", corsMiddleware);
@@ -63,7 +67,8 @@ app.onError(errorHandler);
 app.route("/images", serveRouter);
 
 // OpenAPI documentation — no auth required (public)
-app.route("/api", openapiRoutes);
+// Must be mounted BEFORE app.use("/api/*", authMiddleware)
+registerSpecEndpoint(app);
 
 // Webhook receivers — public, no auth, signature-verified internally
 // MUST be mounted BEFORE app.use("/api/*", authMiddleware)

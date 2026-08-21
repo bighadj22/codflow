@@ -43,3 +43,7 @@ Thumbs.db
 
 # Internal documentation (not for repository)
 GITHUB-GUIDE.md
+cod-server/MIGRATION_STATUS.md
+cod-server/MIGRATION_COMPLETED.md
+cod-server/OPENAPI_MIGRATION.md
+cod-server/NEXT_ENDPOINT.md
