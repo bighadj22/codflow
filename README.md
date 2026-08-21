@@ -1,5 +1,7 @@
 # CodFlow
 
+![CodFlow Banner](./imgs/codflow-banner.png)
+
 > **v0.1.0** — CodFlow is released and production-ready for self-hosting. See
 > [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
 
