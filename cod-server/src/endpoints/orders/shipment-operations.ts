@@ -80,7 +80,8 @@ export async function updateShipmentInfo(c: Context<AppContext>) {
     ? await db.select({ name: communes.name }).from(communes).where(eq(communes.id, order.communeId)).get()
     : null;
 
-  const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+  const bodyData: any = (c.req as any).valid?.("json");
+  const body = bodyData ?? (await c.req.json().catch(() => ({})) as Record<string, unknown>);
 
   // Packers requires ALL of these fields on every update call — even if only one field changes.
   // We pre-fill from the order record and let the body override individual fields.
@@ -151,7 +152,7 @@ export async function updateShipmentInfo(c: Context<AppContext>) {
       type: "order", id: orderId, label: order.orderNumber,
     }, { action: "update_shipment", trackingNumber: order.trackingNumber });
 
-    return c.json({ success: true, message: "Shipment updated successfully" });
+    return c.json({ success: true, message: "Shipment updated successfully" }, 200);
   } catch (err) {
     const durationMs = Date.now() - startMs;
     const errorMessage = err instanceof Error ? err.message : String(err);
@@ -246,7 +247,7 @@ export async function cancelShipment(c: Context<AppContext>) {
     }, { action: "cancel_shipment", trackingNumber: order.trackingNumber });
 
     console.info(`[shipment] cancelled order=${orderId} tracking=${order.trackingNumber} via ${company.code}`);
-    return c.json({ success: true, message: "Shipment cancelled — order reset to ready" });
+    return c.json({ success: true, message: "Shipment cancelled — order reset to ready" }, 200);
   } catch (err) {
     const durationMs = Date.now() - startMs;
     const errorMessage = err instanceof Error ? err.message : String(err);
@@ -301,7 +302,8 @@ export async function addShipmentRemark(c: Context<AppContext>) {
     );
   }
 
-  const body = await c.req.json().catch(() => ({})) as { content?: string };
+  const bodyData: any = (c.req as any).valid?.("json");
+  const body = bodyData ?? (await c.req.json().catch(() => ({})) as { content?: string });
   if (!body.content?.trim()) {
     throw new ValidationError("Remark content is required", ERROR_CODES.REQUIRED_FIELD_MISSING);
   }
@@ -323,7 +325,7 @@ export async function addShipmentRemark(c: Context<AppContext>) {
       durationMs,
     });
 
-    return c.json({ success: true, message: "Remark added" });
+    return c.json({ success: true, message: "Remark added" }, 200);
   } catch (err) {
     const durationMs = Date.now() - startMs;
     const errorMessage = err instanceof Error ? err.message : String(err);
@@ -379,7 +381,7 @@ export async function getShipmentRemarks(c: Context<AppContext>) {
   }
 
   const remarks = await provider.getRemarks(order.trackingNumber);
-  return c.json({ success: true, data: remarks });
+  return c.json({ success: true, data: remarks }, 200);
 }
 
 /**
@@ -420,7 +422,7 @@ export async function getShipmentTracking(c: Context<AppContext>) {
   }
 
   const events = await provider.getTrackingInfo(order.trackingNumber);
-  return c.json({ success: true, data: events });
+  return c.json({ success: true, data: events }, 200);
 }
 
 /**

@@ -25,11 +25,18 @@ import {
   updateOrderStatusWebhook,
   incrementDeliveryAttempts,
 } from "@/endpoints/orders/queries";
+import { ORDER_STATUSES } from "../orders/validation";
+import type { OrderStatus } from "../../../../cod-shared/db/schema";
 import { verifySvixSignature } from "./svix-verify";
 import { mapZrStateName, parseCustomMapping } from "./zr-status-mapper";
 import { mapYalidineStatus } from "./yalidine-status-mapper";
 import { ValidationError, ExternalApiError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
+
+/** Guard: carrier mappers return admin-configured strings — verify before use. */
+function isOrderStatus(value: string): value is (typeof ORDER_STATUSES)[number] {
+  return (ORDER_STATUSES as readonly string[]).includes(value);
+}
 import { shouldTriggerCapiPurchase } from "@/workflows/capi-helpers";
 
 // ─── ZR Express ───────────────────────────────────────────────────────────────
@@ -129,7 +136,7 @@ export async function handleZrWebhook(c: Context<AppContext>) {
   }
 
   try {
-    let newStatus: string | null = null;
+    let newStatus: OrderStatus | null = null;
 
     if (eventType === "parcel.isReturn.updated") {
       // isReturn=true is the only 100% reliable ZR terminal signal — hardcoded, no mapping needed
@@ -148,9 +155,9 @@ export async function handleZrWebhook(c: Context<AppContext>) {
       const state = data.state as Record<string, unknown> | undefined;
       const stateName = (state?.name as string | undefined) ?? null;
       const customMap = parseCustomMapping(company.webhookStatusMapping ?? null);
-      newStatus = mapZrStateName(stateName, customMap);
-
-      if (newStatus === null) {
+      const mappedZr = mapZrStateName(stateName, customMap);
+      if (mappedZr === null || !isOrderStatus(mappedZr)) {
+        newStatus = null;
         await updateWebhookEvent(db, webhookEventId, {
           result: "unmapped",
           reason: stateName ?? undefined,
@@ -158,6 +165,7 @@ export async function handleZrWebhook(c: Context<AppContext>) {
         });
         return c.json({ received: true }, 200);
       }
+      newStatus = mappedZr;
     } else {
       // Unknown event type — log and ignore
       await updateWebhookEvent(db, webhookEventId, {
@@ -337,7 +345,7 @@ export async function handleYalidineWebhook(c: Context<AppContext>) {
       const reason = (eventData.reason as string | null | undefined) ?? null;
       const { status: mappedStatus, incrementAttempts } = mapYalidineStatus(statusStr);
 
-      if (mappedStatus === null) {
+      if (mappedStatus === null || !isOrderStatus(mappedStatus)) {
         await updateWebhookEvent(db, webhookEventId, {
           result: "unmapped",
           reason: statusStr ?? undefined,
@@ -345,6 +353,7 @@ export async function handleYalidineWebhook(c: Context<AppContext>) {
         });
         continue;
       }
+      const nextStatus: OrderStatus = mappedStatus;
 
       // "Tentative échouée" — stays out_for_delivery, only increments attempts
       if (incrementAttempts) {
@@ -390,24 +399,24 @@ export async function handleYalidineWebhook(c: Context<AppContext>) {
       const { updated } = await updateOrderStatusWebhook(
         db,
         order.id,
-        mappedStatus,
+        nextStatus,
         "webhook:yalidine"
       );
 
-      if (updated && shouldTriggerCapiPurchase(mappedStatus, order.wilayaId)) {
+      if (updated && shouldTriggerCapiPurchase(nextStatus, order.wilayaId)) {
         if (!c.env.CAPI_WORKFLOW) {
           console.error("[capi-workflow] CAPI_WORKFLOW binding is undefined — worker needs re-provision");
         } else {
           void c.env.CAPI_WORKFLOW.create({
             id: `capi-${order.id}-Purchase`,
-            params: { orderId: order.id, eventName: "Purchase", triggeredAt: Math.floor(Date.now() / 1000), triggerStatus: mappedStatus },
+            params: { orderId: order.id, eventName: "Purchase", triggeredAt: Math.floor(Date.now() / 1000), triggerStatus: nextStatus },
           }).catch((err: unknown) => console.error("[capi-workflow] yalidine trigger failed:", (err as Error)?.message));
         }
       }
 
       await updateWebhookEvent(db, webhookEventId, {
         result: updated ? "ok" : "ignored",
-        newStatus: updated ? mappedStatus : undefined,
+        newStatus: updated ? nextStatus : undefined,
         reason: reason ?? undefined,
         orderId: order.id,
         processedAt: now,
