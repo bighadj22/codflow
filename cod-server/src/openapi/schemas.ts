@@ -1205,6 +1205,72 @@ export const OrderSchema = z
   })
   .openapi("Order");
 
+// ─── Abandoned Orders ─────────────────────────────────────────────────────────
+
+export const AbandonedOrderStatusEnum = z.enum([
+  "pending",
+  "abandoned",
+  "contacted",
+  "converted",
+]);
+
+export const AbandonedOrderSchema = z
+  .object({
+    id: z.string().openapi({ example: "ab_abc123" }),
+    sessionId: z.string().openapi({
+      description: "Storefront session ID — unique per abandoned checkout",
+    }),
+    customerName: z.string().openapi({ example: "Ahmed Benali" }),
+    phone: z.string().openapi({ example: "0551234567" }),
+    wilayaId: z.number().int().min(1).max(58).nullable().openapi({ example: 16 }),
+    communeId: z.string().nullable(),
+    wilayaName: z.string().nullable().openapi({ example: "الجزائر" }),
+    communeName: z.string().nullable(),
+    productId: z.string().nullable(),
+    productName: z.string().nullable().openapi({ example: "Samsung Galaxy A54" }),
+    variantId: z.string().nullable(),
+    variantLabel: z.string().nullable().openapi({ example: "أحمر / XL" }),
+    price: z.number().nullable().openapi({
+      description: "Cart value at abandonment",
+      example: 9000,
+    }),
+    deliveryType: z.enum(["home", "stop_desk"]).nullable(),
+    fbc: z.string().nullable().openapi({
+      description: "_fbc cookie captured at input — links recovery back to the ad click",
+    }),
+    fbp: z.string().nullable().openapi({ description: "_fbp browser identity cookie" }),
+    ipAddress: z.string().nullable(),
+    userAgent: z.string().nullable(),
+    status: AbandonedOrderStatusEnum,
+    convertedOrderId: z.string().nullable().openapi({
+      description: "Set when the customer completes an order after contact",
+    }),
+    convertedOrderNumber: z.string().nullable(),
+    recoveryAttempts: z.number().int().openapi({ example: 0 }),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .openapi("AbandonedOrder");
+
+export const AbandonedOrderStatsSchema = z
+  .object({
+    totalAbandoned: z.number().int().openapi({
+      description: "Orders currently in `abandoned` status",
+      example: 34,
+    }),
+    totalConverted: z.number().int().openapi({ example: 12 }),
+    conversionRate: z.number().int().openapi({
+      description: "Recovered percentage: converted / (abandoned + converted), rounded",
+      example: 26,
+    }),
+    estimatedLostRevenue: z.number().openapi({
+      description: "Sum of cart values still sitting in `abandoned` status, in DZD",
+      example: 306000,
+    }),
+  })
+  .openapi("AbandonedOrderStats");
+
+
 
 
 

@@ -27,12 +27,13 @@ notes live in `cod-server/MIGRATION_STATUS.md`.
 | `images` | 2+1 | Upload + presign generated (`products:manage`, multipart); public `/images/{key}` serve stays plain-Hono + legacy stub (regex param) — exception documented; completed 2026-08-21 |
 | `orders` | 17 | Full COD lifecycle CRUD + driver/company dispatch (single+bulk) + shipment ops; transition guard (`INVALID_STATUS_TRANSITION`); 11-status enum now typed in cod-shared; completed 2026-08-21 |
 | `webhooks` | 3 | Public receivers (Yalidine CRC/events, ZR Svix); no body validation — raw-byte signature contract documented; completed 2026-08-21 |
+| `abandoned-orders` | 6 | Dashboard recovery CRUD/stats + storefront upsert/convert (StoreAuth); previously undocumented entirely — now fully specified; completed 2026-08-21 |
 
 ## Pending migration (legacy openapi.ts present) ⏳
 
-`abandoned-orders`, `store`, `analytics`
+`store`, `analytics`
 
-Next up: **Abandoned Orders** (2 routes — smallest remaining) — see `cod-server/NEXT_ENDPOINT.md`.
+Next up: **Store** (5 public storefront routes behind store-auth) — see `cod-server/NEXT_ENDPOINT.md`.
 
 ## Special
 
@@ -40,4 +41,4 @@ Next up: **Abandoned Orders** (2 routes — smallest remaining) — see `cod-ser
 
 ## Progress
 
-**20/23 endpoints migrated (~87%)** · ~9,845 legacy lines removed
+**21/23 endpoints migrated (~91%)** · ~9,845 legacy lines removed · abandoned-orders was previously undocumented entirely

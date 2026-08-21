@@ -32,6 +32,8 @@ import driverPaymentsRouter from "@/endpoints/driver-payments/routes";
 import { uploadRouter } from "@/endpoints/images/routes";
 import ordersRouter from "@/endpoints/orders/routes";
 import webhooksRouter from "@/endpoints/webhooks/routes";
+import abandonedOrdersRouter from "@/endpoints/abandoned-orders/routes";
+import storeAbandonedRouter from "@/endpoints/abandoned-orders/store-routes";
 
 function buildApp() {
   const app = new OpenAPIHono<AppContext>();
@@ -56,6 +58,8 @@ function buildApp() {
   app.route("/api/images", uploadRouter);
   app.route("/api/orders", ordersRouter);
   app.route("/webhooks", webhooksRouter);
+  app.route("/api/abandoned-orders", abandonedOrdersRouter);
+  app.route("/store", storeAbandonedRouter);
   return app;
 }
 
@@ -782,6 +786,33 @@ describe("GET /api/openapi.json (merged spec)", () => {
     const zrHeaders = spec.paths["/webhooks/zr_express"]?.post?.parameters ?? [];
     expect(zrHeaders.some((h: any) => h.name === "svix-id")).toBe(true);
     expect(zrHeaders.some((h: any) => h.name === "svix-signature")).toBe(true);
+  });
+
+  it("documents the migrated abandoned-orders endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const list = spec.paths["/api/abandoned-orders"]?.get;
+    expect(list).toBeDefined();
+    expect(list.summary).toBe("List abandoned orders");
+    expect(list.tags).toEqual(["Abandoned Orders"]);
+    expect(list.operationId).toBe("listAbandonedOrders");
+    expect(list.security).toEqual([{ ApiKeyAuth: [] }]);
+
+    expect(spec.paths["/api/abandoned-orders/stats"]?.get?.operationId).toBe("getAbandonedOrderStats");
+    expect(spec.paths["/api/abandoned-orders/{id}/status"]?.patch?.operationId).toBe("updateAbandonedOrderStatus");
+    expect(spec.paths["/api/abandoned-orders/{id}"]?.delete?.operationId).toBe("deleteAbandonedOrder");
+
+    // Storefront receivers — StoreAuth, previously undocumented entirely
+    const upsert = spec.paths["/store/abandoned"]?.post;
+    expect(upsert).toBeDefined();
+    expect(upsert.operationId).toBe("upsertAbandonedOrder");
+    expect(upsert.security).toEqual([{ StoreAuth: [] }]);
+    expect(spec.paths["/store/abandoned/{sessionId}/convert"]?.patch?.operationId).toBe("markAbandonedOrderConverted");
+
+    expect(spec.components.schemas.AbandonedOrder).toBeDefined();
+    expect(spec.components.schemas.AbandonedOrderStats).toBeDefined();
   });
 
   it("still documents un-migrated endpoints from the legacy spec", async () => {

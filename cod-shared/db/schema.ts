@@ -1301,14 +1301,16 @@ export const abandonedOrders = sqliteTable("abandoned_orders", {
   variantLabel:          text("variant_label"),
   price:                 real("price"),
 
-  deliveryType:          text("delivery_type"),
+  deliveryType: text("delivery_type", { enum: ["home", "stop_desk"] }),
 
   fbc:                   text("fbc"),
   fbp:                   text("fbp"),
   ipAddress:             text("ip_address"),
   userAgent:             text("user_agent"),
 
-  status:                text("status").notNull().default("pending"),
+  status: text("status", {
+    enum: ["pending", "abandoned", "contacted", "converted"],
+  }).notNull().default("pending"),
 
   convertedOrderId:      text("converted_order_id"),
   convertedOrderNumber:  text("converted_order_number"),
