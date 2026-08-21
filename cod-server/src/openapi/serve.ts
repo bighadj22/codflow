@@ -18,14 +18,10 @@ import type { AppContext } from "@/types";
 import { generateOpenAPISpec } from "./generator";
 import {
   orderPaths,
-  productPaths,
   imagePaths,
   driverPaymentPaths,
   storePaths,
-  stockPaths,
   webhookPaths,
-  offerPaths,
-  variantPaths,
 } from "./paths";
 
 function resolveBaseUrl(c: Context<AppContext>): string {
@@ -80,10 +76,6 @@ export function registerSpecEndpoint(app: OpenAPIHono<AppContext>): void {
     const legacy = generateOpenAPISpec(baseUrl);
     legacy.paths = {
       ...orderPaths,
-      ...productPaths,
-      ...variantPaths,
-      ...stockPaths,
-      ...offerPaths,
       ...driverPaymentPaths,
       ...storePaths,
       ...imagePaths,

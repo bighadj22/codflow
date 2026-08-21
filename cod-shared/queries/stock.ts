@@ -10,11 +10,24 @@ import type { AppDb } from "../db/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/** Movement types, single source of truth for API validation and row typing. */
+export const STOCK_MOVEMENT_TYPES = [
+  "PURCHASE",
+  "ADJUSTMENT_ADD",
+  "ADJUSTMENT_REMOVE",
+  "ORDER_DEDUCTED",
+  "ORDER_CANCELLED",
+  "ORDER_RETURNED",
+  "OFFLINE_SALE",
+] as const;
+
+export type StockMovementType = (typeof STOCK_MOVEMENT_TYPES)[number];
+
 export interface StockMovementRow {
   id: string;
   productId: string;
   variantId: string | null;
-  type: string;
+  type: StockMovementType;
   delta: number;
   qtyBefore: number;
   qtyAfter: number;

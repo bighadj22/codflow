@@ -1,18 +1,12 @@
 import { z } from "zod";
+import { STOCK_MOVEMENT_TYPES } from "../../../../cod-shared/queries/stock";
 
 // ─── Movement Type ────────────────────────────────────────────────────────────
 
-export const MOVEMENT_TYPES = [
-  "PURCHASE",
-  "ADJUSTMENT_ADD",
-  "ADJUSTMENT_REMOVE",
-  "ORDER_DEDUCTED",
-  "ORDER_CANCELLED",
-  "ORDER_RETURNED",
-  "OFFLINE_SALE",
-] as const;
+/** Re-exported so downstream consumers (ai-tools, MCP server) keep their import path. */
+export const MOVEMENT_TYPES = STOCK_MOVEMENT_TYPES;
 
-export type StockMovementType = (typeof MOVEMENT_TYPES)[number];
+export type StockMovementType = (typeof STOCK_MOVEMENT_TYPES)[number];
 
 /** Types that require a reason note from the user. */
 const REASON_REQUIRED_TYPES: StockMovementType[] = [
