@@ -26,12 +26,13 @@ notes live in `cod-server/MIGRATION_STATUS.md`.
 | `driver-payments` | 3 | Payment create + history + pending settlement; `422 ORDER_NOT_FOUND` / `PAYMENT_ALREADY_SETTLED`; completed 2026-08-21 |
 | `images` | 2+1 | Upload + presign generated (`products:manage`, multipart); public `/images/{key}` serve stays plain-Hono + legacy stub (regex param) — exception documented; completed 2026-08-21 |
 | `orders` | 17 | Full COD lifecycle CRUD + driver/company dispatch (single+bulk) + shipment ops; transition guard (`INVALID_STATUS_TRANSITION`); 11-status enum now typed in cod-shared; completed 2026-08-21 |
+| `webhooks` | 3 | Public receivers (Yalidine CRC/events, ZR Svix); no body validation — raw-byte signature contract documented; completed 2026-08-21 |
 
 ## Pending migration (legacy openapi.ts present) ⏳
 
-`webhooks`, `abandoned-orders`, `store`, `analytics`
+`abandoned-orders`, `store`, `analytics`
 
-Next up: **Webhooks** (signature-authenticated carrier callbacks) — see `cod-server/NEXT_ENDPOINT.md`.
+Next up: **Abandoned Orders** (2 routes — smallest remaining) — see `cod-server/NEXT_ENDPOINT.md`.
 
 ## Special
 
@@ -39,4 +40,4 @@ Next up: **Webhooks** (signature-authenticated carrier callbacks) — see `cod-s
 
 ## Progress
 
-**19/23 endpoints migrated (~83%)** · ~9,487 legacy lines removed
+**20/23 endpoints migrated (~87%)** · ~9,845 legacy lines removed

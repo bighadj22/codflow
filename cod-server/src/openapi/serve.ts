@@ -19,7 +19,6 @@ import { generateOpenAPISpec } from "./generator";
 import {
   imagePaths,
   storePaths,
-  webhookPaths,
 } from "./paths";
 
 function resolveBaseUrl(c: Context<AppContext>): string {
@@ -75,7 +74,6 @@ export function registerSpecEndpoint(app: OpenAPIHono<AppContext>): void {
     legacy.paths = {
       ...storePaths,
       ...imagePaths,
-      ...webhookPaths,
     };
 
     const generated = app.getOpenAPI31Document({
