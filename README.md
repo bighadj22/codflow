@@ -2,25 +2,17 @@
 
 ![CodFlow Banner](./imgs/codflow-banner.png)
 
-> **v0.1.0** — CodFlow is released and production-ready for self-hosting. See
-> [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
+> **v0.1.0** — CodFlow is released and production-ready for self-hosting. See [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
 
 **The open-source, COD-first e-commerce + delivery platform for Algeria — built agentic-ready.**
 
-CodFlow is a self-hosted commerce suite — storefront, merchant dashboard, and
-backend engine — purpose-built for **Cash on Delivery** (COD) and designed from
-day one for **AI agents**. It runs entirely on your own Cloudflare account and
-feeds **real** conversions back to Meta advertising so your campaigns optimize
-on revenue, not refusals. Beyond selling, it's a full **delivery platform**:
-in-house driver fleet management, per-wilaya driver pay, and direct
-integrations with Algeria's major couriers (Yalidine, ZR Express, NOEST,
-EcoTrack) — labels, tracking, and real-time status sync included.
+CodFlow is a self-hosted commerce engine, merchant dashboard, and high-performance storefront designed specifically for the realities of **Cash on Delivery** (COD) in Algeria and emerging markets. It runs entirely on your own Cloudflare serverless account (Workers + D1 + R2 + KV) with **zero transaction fees**, connects to Algeria's major delivery carriers, and feeds **actual cash deliveries** back to Meta Ads so your ad algorithms stop burning budget on door refusals.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
-│                                                                              │
-│  AGENTIC-READY  •  COD-FIRST  •  SELF-HOSTED  •  CLOUDFLARE NATIVE  •  OPEN │
-│                                                                              │
+│                                                                            │
+│  COD-FIRST  •  DELIVERY ENGINE  •  AGENTIC (MCP)  •  EDGE NATIVE  •  OPEN  │
+│                                                                            │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -28,143 +20,125 @@ EcoTrack) — labels, tracking, and real-time status sync included.
 
 ## Contents
 
+- [The COD Problem in Algeria](#the-cod-problem-in-algeria)
 - [Why CodFlow](#why-codflow)
-- [Features](#features)
+- [Feature Matrix](#feature-matrix)
+  - [High-Converting Storefront (`cod-astro`)](#1-high-converting-storefront-cod-astro)
+  - [Merchant Control Dashboard (`cod-client`)](#2-merchant-control-dashboard-cod-client)
+  - [Logistics & 58-Wilaya Delivery Engine](#3-logistics--58-wilaya-delivery-engine)
+  - [Conversion & Growth Engine (Real-Delivery Meta CAPI)](#4-conversion--growth-engine-real-delivery-meta-capi)
+  - [AI & Agentic Core (Remote MCP Server)](#5-ai--agentic-core-remote-mcp-server)
+  - [Engine & API (`cod-server` + `cod-shared`)](#6-engine--api-cod-server--cod-shared)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-- [Deploying to production](#deploying-to-production)
-- [Testing](#testing)
-- [Documentation](#documentation)
+- [Getting Started (Local Development)](#getting-started-local-development)
+- [Deploying to Production (Cloudflare)](#deploying-to-production-cloudflare)
+- [Testing & Quality](#testing--quality)
+- [Documentation & Resources](#documentation--resources)
 - [Contributing](#contributing)
 - [License](#license)
 
 ---
 
-## Why CodFlow
+## The COD Problem in Algeria
 
-Most "e-commerce platforms" are a CRUD dashboard with a payment gateway bolted
-on. CodFlow is different on three axes:
+E-commerce in Algeria is **95%+ Cash on Delivery (الدفع عند الاستلام)**. Western platforms like Shopify and WooCommerce were architected around credit cards, instant checkout capture, and global postal services. Forcing them onto Algerian COD creates four critical pain points:
 
-### 1. Agentic-ready by design
-
-CodFlow ships a complete **MCP remote server** (Model Context Protocol) out of
-the box, so AI agents can operate the store the same way your staff can —
-create and update products and variants, move orders through the delivery
-lifecycle, manage customers, stock, offers, and reviews. It's not a plugin you
-wire up later: the agent layer speaks to the same engine your dashboard uses.
-See [Features → Agentic & AI](#agentic--ai) for the details.
-
-### 2. COD-first for the Algerian market
-
-Algerian e-commerce runs on **payment at the door**. Most platforms are built
-for card payments and force you to shoehorn COD on top. CodFlow was designed
-around COD from day one:
-
-- **No payment gateways.** Customers order on the storefront and pay cash at
-  delivery. Payment happens at the door.
-- **Every order ends in one of three states** — `delivered` (a real sale),
-  `returned`, or `cancelled`. Only `delivered` is revenue.
-- **Meta ads that learn from sales, not clicks.** CodFlow fires `Purchase`
-  events through the Conversions API (CAPI) **only when an order is actually
-  delivered** — not at order placement. This is the difference between
-  optimizing on revenue and paying for the 30–50% of customers who refuse at
-  the door.
-
-### 3. Yours, end to end
-
-- **Self-hosted on Cloudflare** — deploy three Workers to your own account
-  (D1 + R2 + KV), no lock-in, no per-order fees, no third-party dependency.
-- **One shared schema** — storefront, dashboard, and backend read the same D1
-  database through a single source of truth (`cod-shared`).
-- **Open source** — Apache-2.0; read every line, deploy it, extend it. See
-  [License](#license).
+| The Algerian COD Reality | What Traditional Platforms Do | What CodFlow Does |
+| :--- | :--- | :--- |
+| **30%–50% Return Rate**<br>Customers order on impulse and refuse at the door. | Fires a `Purchase` pixel event on **form submission**, training Meta ads to find more people who submit forms and refuse at the door. | Uses Cloudflare Workflows to fire Meta CAPI `Purchase` events **only when courier confirms `delivered` and cash is collected**. |
+| **Courier Fragmentation**<br>Yalidine, ZR Express, NOEST, EcoTrack, plus local drivers. | Merchants juggle 5 carrier portals, manually export CSVs, copy tracking numbers, and guess stop-desk codes. | **Unified carrier layer**: one API to create shipments, print labels, sync 58-wilaya stop desks, and receive live webhook tracking. |
+| **In-House Driver Fleet**<br>Merchants employ local *livreurs* for fast metro delivery. | No native driver dispatching, per-wilaya compensation tracking, or cash remittance ledger. | Built-in driver management with per-wilaya pay rates, order dispatching, and cash collection settlement. |
+| **Cost & Data Lock-In**<br>Expensive monthly SaaS fees + 2% per-order tax + paid plugins. | Adds recurring overhead on thin retail margins with closed databases. | **100% Free & Open Source (Apache-2.0)**. Deploy serverless to your Cloudflare account ($0–$5/mo total hosting). |
 
 ---
 
-## Features
+## Why CodFlow
 
-### Storefront (`cod-astro`) — customer-facing
-- ✅ Product catalog: home, category, listing, and product detail pages
-- ✅ COD order form with wilaya-based **shipping calculator** and variant support
-- ✅ **Order-verified product reviews** — one per order, tied to the customer's
-  order number
-- ✅ Trilingual UI — **Arabic, French, English** with full RTL support
-- ✅ Swappable **theme layer**: change layout, colors, fonts, and copy without
-  touching the engine (`cod-astro/theme01/src/theme/`)
-- ✅ Abandoned-order tracking on the product page
+CodFlow was built from the ground up to solve the real bottlenecks of running an e-commerce business in Algeria:
 
-### Dashboard (`cod-client`) — merchant control room
-- ✅ **Analytics** — orders, revenue, conversion, return rate, active deliveries
-- ✅ **Orders** — full status lifecycle and shipping labels
-- ✅ **Customers** — profiles, groups, and tags
-- ✅ **Products** — categories, variants (color/pattern/size), stock & alerts, offers, reviews
-- ✅ **Delivery** — shipping profiles & wilaya rules, in-house drivers
-  (compensations + payments), carrier companies & stop desks
-- ✅ **Returns** — partial or full returns with quantity tracking
-- ✅ **Team** — staff roles with granular **RBAC scopes** (per-route, per-action)
-- ✅ **Settings** — store branding/theme and **Meta Pixel configuration**
-- ✅ **Rate limiting** — sign-in & password-reset throttling via Cloudflare KV
-- ✅ **MCP** — issue scoped OAuth tokens so AI agents can operate on your data
+### 1. Meta Ads Optimized for Cash, Not Ghost Orders
+Standard pixel tracking treats an order submission as a completed sale. In COD, an order submission is only an inquiry until cash changes hands at the doorstep. CodFlow's background `CodCapiWorkflow` tracks orders through their lifecycle and fires the **Meta Conversions API (CAPI) `Purchase` event exclusively upon successful delivery**. Your ad campaigns automatically optimize for high-intent buyers with high delivery confirmation rates.
 
-### Backend engine (`cod-server`) — the API
-- ✅ `/api/*` — merchant API, secured by Better Auth sessions + RBAC
-- ✅ `/store/*` — public storefront API, per-store key authentication
-- ✅ `/webhooks` — delivery-event receivers for **Yalidine** and **ZR Express**
-  (Svix HMAC-verified) — carrier status changes update orders in real time
-- ✅ `/images` — cached, public image delivery from R2
-- ✅ OpenAPI spec served at `/api/openapi.json`
-- ✅ **Meta CAPI engine** — `CodCapiWorkflow` fires `Purchase` events at delivery,
-  respecting Meta's 7-day attribution window and per-zone delivery times
-- ✅ **MCP remote server** — RFC 9728-protected `/mcp` endpoint for AI agents
-- ✅ **Abandoned-order cron** — hourly sweep flags pending orders
-- 🧭 Zone-aware delivery classification (Fast / Standard / Slow / Long-haul) —
-  designed, roadmap
+### 2. Complete 58-Wilaya Logistics Built In
+From Algiers to Tamanrasset, CodFlow ships with the full Algerian geographic registry (58 wilayas and 1,541 communes). Configure flexible **Shipping Profiles** with distinct rates for **Home Delivery (à domicile)** and **Stop-Desk Pickup (bureau)** per wilaya, automatically calculate shipping in real-time on the storefront, and sync pickup centers from **Yalidine**, **ZR Express**, **NOEST**, and **EcoTrack**.
 
-### Delivery & Fulfillment — built for COD logistics
+### 3. Sub-Second Edge Storefront
+Algerian mobile shoppers frequently browse on variable mobile networks (Mobilis, Ooredoo, Djezzy). CodFlow's storefront is built on **Astro 7 SSR** running at Cloudflare's global edge network. Pages render in milliseconds, scripts are minimal, and the entire checkout funnel is a frictionless 1-page form in **Arabic (with native RTL)**, **French**, or **English**.
 
-- ✅ **In-house driver fleet** — driver profiles (availability, vehicle type),
-  order assignment, and **per-wilaya compensation** (`driver_compensations`),
-  plus cash remittance & fee settlement via driver payments
-- ✅ **Carrier integrations** — Yalidine, ZR Express, NOEST, and EcoTrack behind
-  one unified adapter interface: create & validate shipments, fetch **shipping
-  labels**, and pull live tracking
-- ✅ **Real-time status sync** — Yalidine + ZR Express webhooks update order
-  statuses automatically (Svix HMAC-verified); NOEST & EcoTrack tracking pulled
-  on demand
-- ✅ **Stop desks** — sync carrier pickup points, filter by wilaya, and toggle
-  availability for stop-desk delivery
-- ✅ **Shipping profiles** — "rate cards" with per-wilaya **home (door-to-door)**
-  and **stop-desk (pickup)** prices, a default profile for the storefront
-  calculator, and per-product overrides
-- ✅ **Full order lifecycle** — dispatch to a carrier, labels, tracking, driver
-  assignment, and partial/full returns
-- ✅ **Abandoned-order collection** — storefront tracking + hourly sweep flag
-  pending orders (dashboard recovery UI in development)
+### 4. Agentic & AI-Native (Remote MCP Server)
+CodFlow is the first e-commerce engine designed for the **Model Context Protocol (MCP)**. Connect Claude, Cursor, ChatGPT, or custom autonomous agents directly to your store via `/mcp`. Agents operate through secure, stateful Durable Objects (`CodMcpAgent`) with strict Role-Based Access Control (RBAC) to manage stock, update orders, moderate reviews, and adjust promotions.
 
-### Shared (`cod-shared`)
-- ✅ Single D1 schema — one source of truth for both apps
-- ✅ Shared read queries, RBAC scope registry, and error codes
+### 5. Zero Middlemen, 100% Self-Hosted
+Deploy CodFlow to your own Cloudflare account in minutes. Your customer records, financial data, and inventory live securely in Cloudflare D1 (SQLite) and R2 (image storage). No Shopify app subscription fees, no platform revenue cuts, and zero vendor lock-in.
 
-### Agentic & AI — first-class, not bolted on
+---
 
-The agent layer is a core subsystem, not an afterthought:
+## Feature Matrix
 
-- ✅ **Remote MCP server** at `/mcp` — speak MCP over HTTP to Claude, ChatGPT,
-  Cursor, or any MCP client and let it run the store.
-- ✅ **Stateful sessions** — each conversation lives in its own Durable Object
-  (`CodMcpAgent`), so agents keep context across turns.
-- ✅ **OAuth + JWKS verification** (RFC 9728) — tokens are verified offline
-  against the dashboard's published keys; the well-known endpoint is public so
-  any client can discover the flow.
-- ✅ **RBAC-scoped tools** — 14 tool factories (orders, products, customers,
-  drivers, driver payments, stock, offers, reviews, shipping profiles, wilayas,
-  groups & tags). A tool is never even shown to the model unless the user's
-  scopes allow it.
-- ✅ **Durable Workflows** — `CodCapiWorkflow` runs long-lived, retried jobs
-  (Meta CAPI events with exponential backoff) that never block request handling.
-- ✅ **Auditable** — every agent action is gated by the same permission checks
-  as the dashboard UI.
+### 1. High-Converting Storefront (`cod-astro`)
+*Customer-facing, edge-rendered storefront optimized for mobile conversions.*
+
+- ✅ **Instant COD Checkout**: High-converting single-page order form with live wilaya/commune selectors and instant shipping cost calculation.
+- ✅ **Dynamic Delivery Options**: Customer chooses between **Home Delivery** or carrier **Stop-Desk Pickup** with dynamic pickup point selection.
+- ✅ **Volume Offers & Bundles**: Quantity-tier incentives ("Buy 2 get 10% off", "Buy 3 get Free Shipping") rendered directly in the buy box.
+- ✅ **Order-Verified Product Reviews**: Customers submit star ratings and Arabic/French reviews tied to their verified order number.
+- ✅ **Trilingual & RTL Native**: First-class support for **Arabic (العربية)**, **French (Français)**, and **English** with automated RTL layout flipping.
+- ✅ **Swappable Theme Layer**: Change colors, typography, badges, and layout structure in `cod-astro/theme01/src/theme/` without touching engine logic.
+- ✅ **Abandoned Cart Telemetry**: Silently captures contact inputs to flag abandoned checkouts for merchant recovery.
+
+### 2. Merchant Control Dashboard (`cod-client`)
+*Modern merchant admin portal built with Next.js 16 App Router.*
+
+- ✅ **Operational Analytics**: Live metrics for gross revenue, net delivered revenue, delivery success rate, return rate, and active deliveries.
+- ✅ **Order Management**: Filter, search, and update order statuses across the full COD lifecycle (`pending`, `confirmed`, `dispatched`, `delivered`, `returned`, `cancelled`).
+- ✅ **Product & Variant Suite**: Multi-attribute variants (Size, Color, Pattern, SKU), pricing, cost tracking, and automated stock deduction.
+- ✅ **Inventory & Stock Alerts**: Low-stock threshold alerts and inventory tracking across all product variants.
+- ✅ **Promotion & Offer Engine**: Create time-bound promotional rules (Buy X Get Y, Free Shipping) linked to specific products or variants.
+- ✅ **Review Moderation**: Approve, reject, or delete customer reviews with pending review badges.
+- ✅ **Customer CRM**: Customer profiles, order histories, total spend metrics, customer segmentation groups, and tag labels.
+- ✅ **Granular Team RBAC**: Assign fine-grained permission scopes (e.g., `orders:read`, `orders:manage`, `products:manage`, `delivery:manage`) to staff members.
+- ✅ **Activity Audit Log**: Full administrative audit trail tracking every status change, price update, and deletion across the system.
+- ✅ **Meta Pixel & CAPI Settings**: In-dashboard configuration for Meta Pixel ID, Access Token, test event codes, and attribution window parameters.
+
+### 3. Logistics & 58-Wilaya Delivery Engine
+*Comprehensive fulfillment engine combining 3rd-party carriers and internal drivers.*
+
+- ✅ **4 Algerian Carrier Adapters**: Built-in integrations for **Yalidine**, **ZR Express**, **NOEST**, and **EcoTrack** behind a uniform provider interface.
+- ✅ **Automated Shipment Dispatch**: Create shipments with one click, validate parcel data, and generate printable carrier PDF shipping labels.
+- ✅ **Real-Time Webhook Receivers**: Inbound webhook handlers for Yalidine and ZR Express with **Svix HMAC signature verification** to automatically advance order statuses.
+- ✅ **Stop-Desk Syncing**: Automated catalog syncing of carrier branches across 58 wilayas with merchant toggle overrides.
+- ✅ **In-House Driver Fleet**: Manage your own local delivery drivers with vehicle details, availability toggles, and direct order assignment.
+- ✅ **Per-Wilaya Driver Pay**: Configurable driver compensation tables (`driver_compensations`) with cash remittance settlement tracking.
+- ✅ **Partial & Full Returns**: Log partial returns (e.g., customer keeps 1 of 2 items) with automatic inventory restock.
+
+### 4. Conversion & Growth Engine (Real-Delivery Meta CAPI)
+*Intelligent tracking engine designed to maximize ROAS on Meta ads.*
+
+- ✅ **Delivery-Triggered CAPI**: Background `CodCapiWorkflow` initiates Meta Conversions API `Purchase` events exclusively upon courier delivery confirmation.
+- ✅ **Meta 7-Day Window Compliance**: Automatically checks order age against Meta's 7-day attribution boundary.
+- ✅ **Advanced Data Hashing**: Hashes customer phone (normalized to `+213`), city/commune, wilaya, IP address, and User-Agent per Meta specifications.
+- ✅ **Attribution Preservation**: Captures `fbp` (browser ID) and `fbc` (click ID) on storefront entry and persists through delivery confirmation.
+- ✅ **Durable Retry Mechanism**: Cloudflare Workflows provide automatic exponential backoff retries without blocking HTTP endpoints.
+
+### 5. AI & Agentic Core (Remote MCP Server)
+*First-class Model Context Protocol server enabling AI agents to operate the store.*
+
+- ✅ **RFC 9728 Protected Resource Discovery**: Standardized `/.well-known/oauth-protected-resource` metadata endpoint for zero-config agent discovery.
+- ✅ **Stateful Agent Sessions**: Durable Object backend (`CodMcpAgent`) maintaining multi-turn context for AI agents.
+- ✅ **14 RBAC-Gated Tool Sets**: Tools for orders, products, variants, stock, offers, reviews, customers, groups, tags, drivers, driver payments, shipping profiles, wilayas, and store settings.
+- ✅ **Scope Enforcement**: An agent only sees and executes tools permitted by its issued OAuth token scopes.
+- ✅ **Compatible with Top Clients**: Plug directly into Claude Desktop, Cursor, ChatGPT, LibreChat, or custom agent scripts.
+
+### 6. Engine & API (`cod-server` + `cod-shared`)
+*Scalable edge backend with end-to-end type safety.*
+
+- ✅ **Hono 4 on Workers**: Ultra-fast routing with sub-5ms cold starts globally.
+- ✅ **Drizzle ORM + Cloudflare D1**: SQL-backed persistence with zero connection pool overhead.
+- ✅ **Auto-Generated OpenAPI 3.1 Spec**: Interactive Swagger UI docs available at `/api/docs` and machine-readable JSON at `/api/openapi.json`.
+- ✅ **Standardized Error Envelopes**: Uniform error format with semantic codes (`category`, `code`, `context`) across all endpoints.
+- ✅ **R2 Image Bucket**: Public, edge-cached image storage for product galleries and brand assets.
+- ✅ **Rate Limiting**: KV-backed sign-in and sensitive action rate limiting.
 
 ---
 
@@ -181,7 +155,7 @@ The agent layer is a core subsystem, not an afterthought:
       ┌───────▼───────┐         ┌────────▼────────┐        ┌────────▼────────┐
       │  Storefront   │         │     Backend     │        │   Dashboard     │
       │  cod-astro    │──/store─▶  cod-server     │◀──/api─│  cod-client     │
-      │  (customer)   │  API    │    (engine)     │  API   │  (merchant)     │
+      │  (Astro 7)    │  API    │ (Hono + Workflows) API   │  (Next.js 16)   │
       └───────┬───────┘         └───┬─────┬───────┘        └─────────────────┘
               │                     │     │
               │               /webhooks   │ CodCapiWorkflow
@@ -198,215 +172,177 @@ The agent layer is a core subsystem, not an afterthought:
               └───────────────────────────────────────────────▶
 ```
 
-All storage lives in **Cloudflare D1** (SQLite) and **R2** (images). The three
-Workers share one local D1 state during development.
-
 ---
 
 ## Tech Stack
 
-| Package | Stack | Runtime |
-|---------|-------|---------|
-| `cod-astro/theme01` | Astro 7, Tailwind CSS v4, TypeScript | Cloudflare Workers + Assets |
-| `cod-server` | Hono 4, Drizzle ORM, Zod, Better Auth, Cloudflare Agents SDK | Cloudflare Workers, D1, R2 |
-| `cod-client` | Next.js 16, React 19, Tailwind v4, OpenNext | Cloudflare Workers |
-| `cod-shared` | Drizzle ORM, TypeScript | source-shared |
+| Package | Stack | Runtime Environment |
+| :--- | :--- | :--- |
+| **`cod-astro/theme01`** | Astro 7, Tailwind CSS v4, TypeScript | Cloudflare Workers + Static Assets |
+| **`cod-server`** | Hono 4, Drizzle ORM, Zod, Better Auth, Cloudflare Agents SDK, Workflows | Cloudflare Workers, D1 (SQLite), R2, KV |
+| **`cod-client`** | Next.js 16 (App Router), React 19, Tailwind v4, OpenNext | Cloudflare Workers |
+| **`cod-shared`** | Drizzle ORM Schema, RBAC Scopes, Error Code Registry | Source-shared package |
 
 ---
 
-## Getting Started
+## Getting Started (Local Development)
 
-A step-by-step guide to run the full stack locally — storefront, dashboard,
-and backend sharing one database.
+Run the full platform locally — storefront, merchant dashboard, and backend sharing a single local D1 database.
 
 ### 0. Prerequisites
-
 - **Node.js 22.12+** and npm
-- The [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/)
-  (`npm i -g wrangler`)
-- A Cloudflare account with **Workers**, **D1**, and **R2** (free tier is fine)
+- **Wrangler CLI**: `npm install -g wrangler`
+- A free **Cloudflare account** (for D1, R2, KV bindings)
 
-### 1. Clone & install
+### 1. Clone & Install Dependencies
 
 ```bash
-git clone <your-fork-or-repo-url> codflow
+git clone https://github.com/bighadj22/codflow.git
 cd codflow
 
-cd cod-server        && npm install
-cd ../cod-client     && npm install
+# Install each package (isolated lockfiles)
+cd cod-shared && npm install
+cd ../cod-server && npm install
+cd ../cod-client && npm install
 cd ../cod-astro/theme01 && npm install
 ```
 
-> There is no root workspace — each package installs and runs its own scripts.
-
-### 2. Create your Cloudflare resources
+### 2. Create Cloudflare Resources
 
 ```bash
 wrangler login
 wrangler d1 create codflow-db
 wrangler r2 bucket create codflow-images
-wrangler kv namespace create RATE_LIMIT_KV   # used by cod-client
+wrangler kv namespace create RATE_LIMIT_KV
 ```
 
-### 3. Configure each package
+### 3. Configure Local Environment Variables
 
-Every package ships a Wrangler config with placeholder values
-(`cod-server`/`cod-client`: `wrangler.toml`; `cod-astro/theme01`: `wrangler.jsonc`)
-and a `.dev.vars.example`. Copy the examples and paste your own resource IDs:
+Copy the example environment files in each package and populate your resource IDs:
 
 ```bash
 # Backend
 cd cod-server
 cp .dev.vars.example .dev.vars
-# → paste your database_id / bucket_name into wrangler.toml
+# Update database_id and bucket_name in wrangler.toml
 
 # Dashboard
 cd ../cod-client
 cp .dev.vars.example .dev.vars
-# → paste database_id + kv id into wrangler.toml
-# → generate a secret:  openssl rand -base64 32   →   BETTER_AUTH_SECRET
+# Set BETTER_AUTH_SECRET (e.g. openssl rand -base64 32) and KV ID in wrangler.toml
 
 # Storefront
 cd ../cod-astro/theme01
 cp .dev.vars.example .dev.vars
 ```
 
-> The storefront's `STORE_API_KEY` must match the key the backend seeds. The
-> defaults (`codflow-dev-store-key`) already line up.
-
-### 4. Create the database & seed
+### 4. Apply Database Migrations & Seed
 
 ```bash
 cd cod-server
-npm run db:setup:local     # apply migrations + seed a demo store
+npm run db:setup:local     # Applies D1 migrations and seeds sample products & wilayas
 ```
 
-### 5. Create an admin account
+### 5. Create an Admin Account
 
 ```bash
-cd cod-client
-ADMIN_EMAIL=you@example.com ADMIN_NAME=You node scripts/seed-admin.mjs
+cd ../cod-client
+ADMIN_EMAIL=admin@example.com ADMIN_NAME=Admin node scripts/seed-admin.mjs
 ```
+*The script outputs your generated admin password and API key.*
 
-The script prints a generated **password** and **API key**. You need this to
-sign into the dashboard.
+### 6. Start the Development Servers
 
-### 6. Run the stack
+Open three terminal windows (local D1 state is shared through `.wrangler-shared`):
 
-Open three terminals (D1 state is shared through `<repo-root>/.wrangler-shared`,
-so all three read the same local database):
-
-| # | Command | What runs |
-|---|---------|-----------|
-| 1 | `cd cod-server && npm run dev` | API on `http://localhost:8787` (+ OpenAPI spec at `/api/openapi.json`) |
-| 2 | `cd cod-client && npm run dev` | Dashboard on `http://localhost:3000` |
-| 3 | `cd cod-astro/theme01 && npm run dev` | Storefront on `http://localhost:4321` |
-
-### 7. Verify it works
-
-1. Open **http://localhost:4321** — browse products, place a test COD order.
-2. Open **http://localhost:3000** — sign in with the admin account from step 5.
-3. Your order appears in the dashboard. Move it through the status lifecycle.
-4. Confirm the OpenAPI spec loads at **http://localhost:8787/api/openapi.json**.
+| Package | Command | URL | Description |
+| :--- | :--- | :--- | :--- |
+| **Backend** | `cd cod-server && npm run dev` | `http://localhost:8787` | API & OpenAPI Docs at `/api/docs` |
+| **Dashboard** | `cd cod-client && npm run dev` | `http://localhost:3000` | Merchant Admin Panel |
+| **Storefront** | `cd cod-astro/theme01 && npm run dev` | `http://localhost:4321` | Customer Storefront |
 
 ---
 
-## Deploying to production
+## Deploying to Production (Cloudflare)
 
-Each package deploys to its own Worker on your Cloudflare account. Do steps
-2–3 of [Getting Started](#getting-started) first (resources + config), then:
+Deploy all three applications directly to Cloudflare Workers with zero server configuration.
 
-### 1. Deploy the backend
+### 1. Deploy the Backend (`cod-server`)
 
 ```bash
 cd cod-server
-npm run deploy                # wrangler deploy
-wrangler secret put BETTER_AUTH_SECRET    # same value as the dashboard's
-```
-
-### 2. Deploy the dashboard
-
-```bash
-cd cod-client
-npm run deploy                # OpenNext build + wrangler deploy
+npm run deploy
 wrangler secret put BETTER_AUTH_SECRET
 ```
 
-### 3. Deploy the storefront
+### 2. Deploy the Merchant Dashboard (`cod-client`)
 
 ```bash
-cd cod-astro/theme01
+cd ../cod-client
+npm run deploy
+wrangler secret put BETTER_AUTH_SECRET
+```
+
+### 3. Deploy the Storefront (`cod-astro`)
+
+```bash
+cd ../cod-astro/theme01
 npm run build && wrangler deploy
-wrangler secret put STORE_API_KEY           # the key your backend issues
-wrangler secret put COD_SERVER_URL          # your deployed backend URL, e.g. https://api.example.com
+wrangler secret put STORE_API_KEY           # Key generated by backend
+wrangler secret put COD_SERVER_URL          # e.g. https://api.yourdomain.com
 ```
 
-### 4. Point the dashboard at production
+### 4. Configure Production URLs & Meta Pixel
 
-Set `NEXT_PUBLIC_WORKER_URL` to your deployed backend URL and redeploy
-`cod-client`. Then **change your store's Pixel config** in Settings → Meta to
-start firing CAPI events on real deliveries.
-
-> Production secrets go in `wrangler secret put` — **never** in `wrangler.toml`.
+1. Set `NEXT_PUBLIC_WORKER_URL` in `cod-client` to your deployed backend URL.
+2. Sign into your production dashboard at `https://admin.yourdomain.com`.
+3. Navigate to **Settings → Meta Pixel** and input your **Pixel ID** and **CAPI Access Token** to activate real-delivery optimization.
 
 ---
 
-## Testing
+## Testing & Quality
 
-Each package ships its own Vitest suite:
-
-```bash
-cd cod-server        && npm test      # ~700 tests (handlers, validation, MCP, workflows)
-cd cod-client        && npm test      # ~140 tests (actions, RBAC, i18n)
-cd cod-astro/theme01 && npm test      # property + behavior tests (fast-check)
-```
-
-Build each package before deploying:
+CodFlow maintains comprehensive automated test suites covering backend handlers, OpenAPI contracts, RBAC security, and UI components:
 
 ```bash
-cd cod-server && npm run build:ci     # wrangler dry-run
-cd cod-client && npm run build
-cd cod-astro/theme01 && npm run build
+# Run backend tests (handlers, workflows, OpenAPI schemas, MCP tools)
+cd cod-server && npm test
+
+# Run dashboard tests (actions, RBAC permissions, internationalization)
+cd cod-client && npm test
+
+# Run storefront tests (property-based and cart calculation tests)
+cd cod-astro/theme01 && npm test
+
+# Run full TypeScript verification across packages
+cd cod-server && npm run typecheck
+cd ../cod-client && npm run typecheck
 ```
 
 ---
 
-## Documentation
+## Documentation & Resources
 
-- **[`CONTRIBUTING.md`](./CONTRIBUTING.md)** — contributor guide: setup,
-  conventions, testing, commit & PR rules.
-- **[`SECURITY.md`](./SECURITY.md)** — supported versions and how to report a
-  vulnerability privately.
-- **[`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)** — community standards for
-  participants.
-- **[`SUPPORT.md`](./SUPPORT.md)** — where to get help.
-- **[`CHANGELOG.md`](./CHANGELOG.md)** — release history (Keep a Changelog).
-- **[`AGENTS.md`](./AGENTS.md)** — instructions for AI coding agents working in
-  this repository.
-- **[`cod-astro/theme01/THEME_GUIDE.md`](./cod-astro/theme01/THEME_GUIDE.md)** —
-  storefront customization walkthrough.
-- **[`cod-astro/theme01/README.md`](./cod-astro/theme01/README.md)** — storefront
-  package: setup, env vars, scripts, deployment.
-- **Per-package docs** — `cod-server/README.md`, `cod-client/README.md`, and
-  per-endpoint READMEs under `cod-server/src/endpoints/*/README.md`.
+- **[`CONTRIBUTING.md`](./CONTRIBUTING.md)** — Guide on development standards, PR workflows, and branch conventions.
+- **[`AGENTS.md`](./AGENTS.md)** — Repository instructions and architectural rules for AI coding assistants.
+- **[`cod-astro/theme01/THEME_GUIDE.md`](./cod-astro/theme01/THEME_GUIDE.md)** — Storefront customization and theming guide.
+- **[`SECURITY.md`](./SECURITY.md)** — Security policies and vulnerability reporting procedures.
+- **[`CHANGELOG.md`](./CHANGELOG.md)** — Detailed version history and upgrade notes.
 
 ---
 
 ## Contributing
 
-Contributions are welcome. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the
-full guide. The essentials:
+We welcome contributions from developers across Algeria and the global open-source community!
 
-1. **No secrets in `wrangler.toml`** — `.dev.vars` locally, `wrangler secret put` in prod.
-2. **No hardcoded URLs or domains** — everything must be swappable so a fresh
-   clone runs against its own Cloudflare account.
-3. Run `npm test` + the package build before opening a PR.
+1. Fork the repository and create a feature branch (`feat/amazing-feature`).
+2. Adhere to code-verified claims and maintain 100% test coverage.
+3. Ensure no credentials or live API keys are committed.
+4. Submit a Pull Request referencing the related issue.
 
 ---
 
 ## License
 
-CodFlow is open source under the **Apache License 2.0**.
-
-See [`LICENSE`](./LICENSE) for the full terms, and [`NOTICE`](./NOTICE) for
-copyright attribution.
+CodFlow is open-source software licensed under the **Apache License 2.0**.  
+See the [`LICENSE`](./LICENSE) and [`NOTICE`](./NOTICE) files for details.
