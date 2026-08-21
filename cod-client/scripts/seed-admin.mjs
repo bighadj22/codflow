@@ -93,7 +93,7 @@ WHERE account_id = '${email}' AND provider_id = 'credential';
 
   try {
     console.log("\n=== Seeding admin (local) ===");
-    run(`npx wrangler d1 execute codflow-db --local --file "${tmpFile}"`);
+    run(`npx wrangler d1 execute codflow-db --local --persist-to ../.wrangler-shared --file "${tmpFile}"`);
 
     if (remote) {
       console.log("\n=== Seeding admin (remote) ===");
