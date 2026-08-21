@@ -1,14 +1,15 @@
 /**
- * Images OpenAPI Paths (legacy stub)
+ * Images OpenAPI Paths (documentation-only stub)
  *
  * Only `/images/{key}` lives here now: that route uses Hono's regex param
  * (`:key{.+}`) so R2 keys containing slashes match, which cannot be
  * expressed as a @hono/zod-openapi createRoute path. The serve router is
- * therefore kept on plain Hono and documented via this retained legacy
- * entry. Upload and presign are fully migrated to generated specs.
+ * therefore kept on plain Hono and documented via this retained entry,
+ * which src/openapi/serve.ts merges into the generated document.
+ * Upload and presign are fully migrated to generated specs.
  */
 
-const errorSchema = { $ref: "#/components/schemas/Error" };
+const errorSchema = { $ref: "#/components/schemas/ErrorResponse" };
 const json = (schema: object) => ({ "application/json": { schema } });
 
 export const imagePaths = {

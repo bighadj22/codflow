@@ -30,11 +30,17 @@ notes live in `cod-server/MIGRATION_STATUS.md`.
 | `abandoned-orders` | 6 | Dashboard recovery CRUD/stats + storefront upsert/convert (StoreAuth); previously undocumented entirely — now fully specified; completed 2026-08-21 |
 | `store` | 9 | Public storefront catalog/order/review surface behind X-Store-API-Key; list-vs-detail product shapes; completed 2026-08-21 |
 
-## Pending migration (legacy openapi.ts present) ⏳
+| `analytics` | 1 | Dashboard status-count stats (`dashboard:view`); previously undocumented — now specified; completed 2026-08-21 |
 
-`analytics`
+## Pending migration ⏳
 
-Next up: **Analytics** (last remaining domain) — see `cod-server/NEXT_ENDPOINT.md`.
+**None.** 🎉 The @hono/zod-openapi migration is complete (2026-08-21).
+Legacy `generator.ts` + `paths.ts` are retired; `/api/openapi.json` is purely
+generated from route definitions. The only hand-written entry left in the spec
+is the `/images/{key}` documentation stub (plain-Hono regex-param exception).
+
+Next up: nothing to migrate. New endpoints are born migrated — define routes
+with `@hono/zod-openapi` and their docs generate themselves.
 
 ## Special
 
@@ -42,4 +48,4 @@ Next up: **Analytics** (last remaining domain) — see `cod-server/NEXT_ENDPOINT
 
 ## Progress
 
-**22/23 endpoints migrated (~96%)** · ~10,705 legacy lines removed
+**23/23 endpoints migrated (100%)** · legacy generator + paths aggregation retired

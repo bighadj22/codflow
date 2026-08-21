@@ -35,6 +35,7 @@ import webhooksRouter from "@/endpoints/webhooks/routes";
 import abandonedOrdersRouter from "@/endpoints/abandoned-orders/routes";
 import storeAbandonedRouter from "@/endpoints/abandoned-orders/store-routes";
 import storeApiRouter from "@/endpoints/store/routes";
+import analyticsRouter from "@/endpoints/analytics/routes";
 
 function buildApp() {
   const app = new OpenAPIHono<AppContext>();
@@ -62,6 +63,7 @@ function buildApp() {
   app.route("/api/abandoned-orders", abandonedOrdersRouter);
   app.route("/store", storeAbandonedRouter);
   app.route("/store", storeApiRouter);
+  app.route("/api/analytics", analyticsRouter);
   return app;
 }
 
@@ -851,29 +853,60 @@ describe("GET /api/openapi.json (merged spec)", () => {
     );
   });
 
-  it("still documents un-migrated endpoints from the legacy spec", async () => {
+  it("documents the migrated analytics endpoint from Zod schemas", async () => {
     const app = buildApp();
     const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
     const spec: any = await res.json();
 
-    // All REST domains are migrated; only /images/{key} remains on the legacy stub
-    expect(spec.paths["/images/{key}"]).toBeDefined();
+    const stats = spec.paths["/api/analytics/dashboard-stats"]?.get;
+    expect(stats).toBeDefined();
+    expect(stats.summary).toBe("Order status statistics");
+    expect(stats.tags).toEqual(["Analytics"]);
+    expect(stats.operationId).toBe("getDashboardStats");
+    expect(stats.security).toEqual([{ ApiKeyAuth: [] }]);
   });
 
-  it("merges generated components and resolves the legacy ErrorResponse ref", async () => {
+  it("documents the plain-Hono /images/{key} route via its documentation-only stub", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    // The regex-param serving route cannot be a createRoute — it is the one
+    // hand-written path entry, merged into the generated document.
+    const serve = spec.paths["/images/{key}"]?.get;
+    expect(serve).toBeDefined();
+    expect(serve.operationId).toBe("serveImage");
+    expect(serve.security).toEqual([]);
+  });
+
+  it("serves a purely generated document with no dangling legacy components", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    // The generator's hand-written components (Order, Driver, Customer, Error,
+    // ValidationError, …) are gone — every component is registered from Zod.
+    expect(spec.components.schemas.Error).toBeUndefined();
+    expect(spec.components.schemas.ValidationError).toBeUndefined();
+    expect(spec.components.schemas.ErrorResponse).toBeDefined();
+    expect(spec.components.schemas.Order).toBeDefined();
+
+    // No path response may reference a component that no longer exists
+    const raw = JSON.stringify(spec);
+    for (const ref of raw.match(/"#\/components\/schemas\/[^"]+"/g) ?? []) {
+      const name = ref.split("/").pop()!.replace(/"$/, "");
+      expect(spec.components.schemas[name], `dangling ref: ${ref}`).toBeDefined();
+    }
+  });
+
+  it("registers both security schemes on the served document", async () => {
     const app = buildApp();
     const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
     const spec: any = await res.json();
 
     expect(spec.components.schemas.ErrorResponse).toBeDefined();
     expect(spec.components.schemas.ErrorResponse.properties.error.type).toBe("string");
-    expect(spec.components.schemas.Wilaya).toBeDefined();
-    expect(spec.components.schemas.Wilaya.properties.nameAr.type).toBe("string");
-    expect(spec.components.schemas.Commune).toBeDefined();
 
-    // Legacy path items reference #/components/schemas/ErrorResponse, which
-    // never existed in the hand-written generator — the generated component
-    // now makes those refs resolvable.
     expect(spec.components.securitySchemes.ApiKeyAuth).toMatchObject({
       type: "apiKey",
       in: "header",
