@@ -189,22 +189,38 @@ Deploy CodFlow to your own Cloudflare account in minutes. Your customer records,
 
 Run the full platform locally — storefront, merchant dashboard, and backend sharing a single local D1 database.
 
-### 0. Prerequisites
+### ⚡ Fast Track: Automated Setup (AI Agents & Developers)
+
+You can bootstrap the entire local environment in **one command**:
+
+```bash
+# Automated setup (installs deps, generates .dev.vars, runs migrations, seeds store & admin)
+node .agents/skills/codflow-setup/scripts/setup-local.mjs
+```
+
+> 🤖 **Using an AI Coding Assistant?** CodFlow includes an autonomous setup skill. Tell your agent: *"Set up CodFlow locally"* and it will follow the [`codflow-setup` runbook](./.agents/skills/codflow-setup/SKILL.md).
+
+---
+
+### Manual Step-by-Step Setup
+
+#### 0. Prerequisites
 - **Node.js 22.12+** and npm
 - **Wrangler CLI**: `npm install -g wrangler`
 - A free **Cloudflare account** (for D1, R2, KV bindings)
 
-### 1. Clone & Install Dependencies
+#### 1. Clone & Install Dependencies
 
 ```bash
 git clone https://github.com/bighadj22/codflow.git
 cd codflow
 
-# Install each package (isolated lockfiles)
+# Install each package (isolated lockfiles — cod-shared MUST be first)
 cd cod-shared && npm install
 cd ../cod-server && npm install
 cd ../cod-client && npm install
 cd ../cod-astro/theme01 && npm install
+cd ../..
 ```
 
 ### 2. Create Cloudflare Resources
@@ -325,6 +341,7 @@ cd ../cod-client && npm run typecheck
 
 - **[`CONTRIBUTING.md`](./CONTRIBUTING.md)** — Guide on development standards, PR workflows, and branch conventions.
 - **[`AGENTS.md`](./AGENTS.md)** — Repository instructions and architectural rules for AI coding assistants.
+- **[`codflow-setup` Skill](./.agents/skills/codflow-setup/SKILL.md)** — Autonomous setup and Cloudflare provisioning runbook for AI agents and developers.
 - **[`cod-astro/theme01/THEME_GUIDE.md`](./cod-astro/theme01/THEME_GUIDE.md)** — Storefront customization and theming guide.
 - **[`SECURITY.md`](./SECURITY.md)** — Security policies and vulnerability reporting procedures.
 - **[`CHANGELOG.md`](./CHANGELOG.md)** — Detailed version history and upgrade notes.
