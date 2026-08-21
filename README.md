@@ -87,6 +87,8 @@ Deploy CodFlow to your own Cloudflare account in minutes. Your customer records,
 - ✅ **Swappable Theme Layer**: Change colors, typography, badges, and layout structure in `cod-astro/theme01/src/theme/` without touching engine logic.
 - ✅ **Abandoned Cart Telemetry**: Silently captures contact inputs to flag abandoned checkouts for merchant recovery.
 
+![CodFlow Storefront](./imgs/codflow-banner-01.png)
+
 ### 2. Merchant Control Dashboard (`cod-client`)
 *Modern merchant admin portal built with Next.js 16 App Router.*
 
@@ -101,6 +103,8 @@ Deploy CodFlow to your own Cloudflare account in minutes. Your customer records,
 - ✅ **Activity Audit Log**: Full administrative audit trail tracking every status change, price update, and deletion across the system.
 - ✅ **Meta Pixel & CAPI Settings**: In-dashboard configuration for Meta Pixel ID, Access Token, test event codes, and attribution window parameters.
 
+![CodFlow Merchant Dashboard](./imgs/codflow-banner-02.png)
+
 ### 3. Logistics & 58-Wilaya Delivery Engine
 *Comprehensive fulfillment engine combining 3rd-party carriers and internal drivers.*
 
@@ -112,6 +116,8 @@ Deploy CodFlow to your own Cloudflare account in minutes. Your customer records,
 - ✅ **Per-Wilaya Driver Pay**: Configurable driver compensation tables (`driver_compensations`) with cash remittance settlement tracking.
 - ✅ **Partial & Full Returns**: Log partial returns (e.g., customer keeps 1 of 2 items) with automatic inventory restock.
 
+![CodFlow Logistics & Delivery Engine](./imgs/codflow-banner-03.png)
+
 ### 4. Conversion & Growth Engine (Real-Delivery Meta CAPI)
 *Intelligent tracking engine designed to maximize ROAS on Meta ads.*
 
@@ -121,6 +127,8 @@ Deploy CodFlow to your own Cloudflare account in minutes. Your customer records,
 - ✅ **Attribution Preservation**: Captures `fbp` (browser ID) and `fbc` (click ID) on storefront entry and persists through delivery confirmation.
 - ✅ **Durable Retry Mechanism**: Cloudflare Workflows provide automatic exponential backoff retries without blocking HTTP endpoints.
 
+![CodFlow Meta CAPI & Conversion Engine](./imgs/codflow-banner-04.png)
+
 ### 5. AI & Agentic Core (Remote MCP Server)
 *First-class Model Context Protocol server enabling AI agents to operate the store.*
 
@@ -129,6 +137,8 @@ Deploy CodFlow to your own Cloudflare account in minutes. Your customer records,
 - ✅ **14 RBAC-Gated Tool Sets**: Tools for orders, products, variants, stock, offers, reviews, customers, groups, tags, drivers, driver payments, shipping profiles, wilayas, and store settings.
 - ✅ **Scope Enforcement**: An agent only sees and executes tools permitted by its issued OAuth token scopes.
 - ✅ **Compatible with Top Clients**: Plug directly into Claude Desktop, Cursor, ChatGPT, LibreChat, or custom agent scripts.
+
+![CodFlow Model Context Protocol (MCP) Server](./imgs/codflow-banner-05.png)
 
 ### 6. Engine & API (`cod-server` + `cod-shared`)
 *Scalable edge backend with end-to-end type safety.*
