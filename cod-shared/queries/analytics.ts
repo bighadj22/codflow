@@ -7,11 +7,11 @@
  */
 
 import type { AppDb } from "../db/client";
-import { orders } from "../db/schema";
+import { orders, type OrderStatus } from "../db/schema";
 import { sql } from "drizzle-orm";
 
 export interface OrderStatusStat {
-  status: string;
+  status: OrderStatus;
   count: number;
 }
 

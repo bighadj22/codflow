@@ -32,6 +32,10 @@ import driverPaymentsRouter from "@/endpoints/driver-payments/routes";
 import { uploadRouter } from "@/endpoints/images/routes";
 import ordersRouter from "@/endpoints/orders/routes";
 import webhooksRouter from "@/endpoints/webhooks/routes";
+import abandonedOrdersRouter from "@/endpoints/abandoned-orders/routes";
+import storeAbandonedRouter from "@/endpoints/abandoned-orders/store-routes";
+import storeApiRouter from "@/endpoints/store/routes";
+import analyticsRouter from "@/endpoints/analytics/routes";
 
 function buildApp() {
   const app = new OpenAPIHono<AppContext>();
@@ -56,6 +60,10 @@ function buildApp() {
   app.route("/api/images", uploadRouter);
   app.route("/api/orders", ordersRouter);
   app.route("/webhooks", webhooksRouter);
+  app.route("/api/abandoned-orders", abandonedOrdersRouter);
+  app.route("/store", storeAbandonedRouter);
+  app.route("/store", storeApiRouter);
+  app.route("/api/analytics", analyticsRouter);
   return app;
 }
 
@@ -784,29 +792,121 @@ describe("GET /api/openapi.json (merged spec)", () => {
     expect(zrHeaders.some((h: any) => h.name === "svix-signature")).toBe(true);
   });
 
-  it("still documents un-migrated endpoints from the legacy spec", async () => {
+  it("documents the migrated abandoned-orders endpoints from Zod schemas", async () => {
     const app = buildApp();
     const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
     const spec: any = await res.json();
 
-    expect(spec.paths["/api/orders"]).toBeDefined();
-    expect(spec.paths["/store/products"]).toBeDefined();
+    const list = spec.paths["/api/abandoned-orders"]?.get;
+    expect(list).toBeDefined();
+    expect(list.summary).toBe("List abandoned orders");
+    expect(list.tags).toEqual(["Abandoned Orders"]);
+    expect(list.operationId).toBe("listAbandonedOrders");
+    expect(list.security).toEqual([{ ApiKeyAuth: [] }]);
+
+    expect(spec.paths["/api/abandoned-orders/stats"]?.get?.operationId).toBe("getAbandonedOrderStats");
+    expect(spec.paths["/api/abandoned-orders/{id}/status"]?.patch?.operationId).toBe("updateAbandonedOrderStatus");
+    expect(spec.paths["/api/abandoned-orders/{id}"]?.delete?.operationId).toBe("deleteAbandonedOrder");
+
+    // Storefront receivers — StoreAuth, previously undocumented entirely
+    const upsert = spec.paths["/store/abandoned"]?.post;
+    expect(upsert).toBeDefined();
+    expect(upsert.operationId).toBe("upsertAbandonedOrder");
+    expect(upsert.security).toEqual([{ StoreAuth: [] }]);
+    expect(spec.paths["/store/abandoned/{sessionId}/convert"]?.patch?.operationId).toBe("markAbandonedOrderConverted");
+
+    expect(spec.components.schemas.AbandonedOrder).toBeDefined();
+    expect(spec.components.schemas.AbandonedOrderStats).toBeDefined();
   });
 
-  it("merges generated components and resolves the legacy ErrorResponse ref", async () => {
+  it("documents the migrated store API endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const config = spec.paths["/store/config"]?.get;
+    expect(config).toBeDefined();
+    expect(config.summary).toBe("Get store configuration");
+    expect(config.tags).toEqual(["Store API"]);
+    expect(config.operationId).toBe("getStoreConfig");
+    expect(config.security).toEqual([{ StoreAuth: [] }]);
+
+    expect(spec.paths["/store/products"]?.get?.operationId).toBe("listStoreProducts");
+    expect(spec.paths["/store/products/{handle}"]?.get?.operationId).toBe("getStoreProduct");
+    expect(spec.paths["/store/categories"]?.get?.operationId).toBe("listStoreCategories");
+    expect(spec.paths["/store/shipping-rates"]?.get?.operationId).toBe("getShippingRates");
+    expect(spec.paths["/store/communes/{wilayaId}"]?.get?.operationId).toBe("listStoreCommunes");
+    expect(spec.paths["/store/orders"]?.post?.operationId).toBe("createStoreOrder");
+    expect(spec.paths["/store/reviews"]?.get?.operationId).toBe("listStoreReviews");
+    expect(spec.paths["/store/reviews"]?.post?.operationId).toBe("submitStoreReview");
+
+    // StoreAuth (X-Store-API-Key), NOT the dashboard ApiKeyAuth
+    expect(spec.paths["/store/orders"]?.post?.security).toEqual([{ StoreAuth: [] }]);
+
+    expect(spec.components.schemas.StoreProductList).toBeDefined();
+    expect(spec.components.schemas.StoreProductDetail).toBeDefined();
+    expect(spec.components.schemas.StoreConfig).toBeDefined();
+
+    // Detail is strictly richer than list — parsed variantOptions/tags + category/variants/images/offers
+    expect(Object.keys(spec.components.schemas.StoreProductDetail.properties).length).toBeGreaterThan(
+      Object.keys(spec.components.schemas.StoreProductList.properties).length
+    );
+  });
+
+  it("documents the migrated analytics endpoint from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const stats = spec.paths["/api/analytics/dashboard-stats"]?.get;
+    expect(stats).toBeDefined();
+    expect(stats.summary).toBe("Order status statistics");
+    expect(stats.tags).toEqual(["Analytics"]);
+    expect(stats.operationId).toBe("getDashboardStats");
+    expect(stats.security).toEqual([{ ApiKeyAuth: [] }]);
+  });
+
+  it("documents the plain-Hono /images/{key} route via its documentation-only stub", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    // The regex-param serving route cannot be a createRoute — it is the one
+    // hand-written path entry, merged into the generated document.
+    const serve = spec.paths["/images/{key}"]?.get;
+    expect(serve).toBeDefined();
+    expect(serve.operationId).toBe("serveImage");
+    expect(serve.security).toEqual([]);
+  });
+
+  it("serves a purely generated document with no dangling legacy components", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    // The generator's hand-written components (Order, Driver, Customer, Error,
+    // ValidationError, …) are gone — every component is registered from Zod.
+    expect(spec.components.schemas.Error).toBeUndefined();
+    expect(spec.components.schemas.ValidationError).toBeUndefined();
+    expect(spec.components.schemas.ErrorResponse).toBeDefined();
+    expect(spec.components.schemas.Order).toBeDefined();
+
+    // No path response may reference a component that no longer exists
+    const raw = JSON.stringify(spec);
+    for (const ref of raw.match(/"#\/components\/schemas\/[^"]+"/g) ?? []) {
+      const name = ref.split("/").pop()!.replace(/"$/, "");
+      expect(spec.components.schemas[name], `dangling ref: ${ref}`).toBeDefined();
+    }
+  });
+
+  it("registers both security schemes on the served document", async () => {
     const app = buildApp();
     const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
     const spec: any = await res.json();
 
     expect(spec.components.schemas.ErrorResponse).toBeDefined();
     expect(spec.components.schemas.ErrorResponse.properties.error.type).toBe("string");
-    expect(spec.components.schemas.Wilaya).toBeDefined();
-    expect(spec.components.schemas.Wilaya.properties.nameAr.type).toBe("string");
-    expect(spec.components.schemas.Commune).toBeDefined();
 
-    // Legacy path items reference #/components/schemas/ErrorResponse, which
-    // never existed in the hand-written generator — the generated component
-    // now makes those refs resolvable.
     expect(spec.components.securitySchemes.ApiKeyAuth).toMatchObject({
       type: "apiKey",
       in: "header",

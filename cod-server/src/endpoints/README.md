@@ -27,12 +27,20 @@ notes live in `cod-server/MIGRATION_STATUS.md`.
 | `images` | 2+1 | Upload + presign generated (`products:manage`, multipart); public `/images/{key}` serve stays plain-Hono + legacy stub (regex param) — exception documented; completed 2026-08-21 |
 | `orders` | 17 | Full COD lifecycle CRUD + driver/company dispatch (single+bulk) + shipment ops; transition guard (`INVALID_STATUS_TRANSITION`); 11-status enum now typed in cod-shared; completed 2026-08-21 |
 | `webhooks` | 3 | Public receivers (Yalidine CRC/events, ZR Svix); no body validation — raw-byte signature contract documented; completed 2026-08-21 |
+| `abandoned-orders` | 6 | Dashboard recovery CRUD/stats + storefront upsert/convert (StoreAuth); previously undocumented entirely — now fully specified; completed 2026-08-21 |
+| `store` | 9 | Public storefront catalog/order/review surface behind X-Store-API-Key; list-vs-detail product shapes; completed 2026-08-21 |
 
-## Pending migration (legacy openapi.ts present) ⏳
+| `analytics` | 1 | Dashboard status-count stats (`dashboard:view`); previously undocumented — now specified; completed 2026-08-21 |
 
-`abandoned-orders`, `store`, `analytics`
+## Pending migration ⏳
 
-Next up: **Abandoned Orders** (2 routes — smallest remaining) — see `cod-server/NEXT_ENDPOINT.md`.
+**None.** 🎉 The @hono/zod-openapi migration is complete (2026-08-21).
+Legacy `generator.ts` + `paths.ts` are retired; `/api/openapi.json` is purely
+generated from route definitions. The only hand-written entry left in the spec
+is the `/images/{key}` documentation stub (plain-Hono regex-param exception).
+
+Next up: nothing to migrate. New endpoints are born migrated — define routes
+with `@hono/zod-openapi` and their docs generate themselves.
 
 ## Special
 
@@ -40,4 +48,4 @@ Next up: **Abandoned Orders** (2 routes — smallest remaining) — see `cod-ser
 
 ## Progress
 
-**20/23 endpoints migrated (~87%)** · ~9,845 legacy lines removed
+**23/23 endpoints migrated (100%)** · legacy generator + paths aggregation retired

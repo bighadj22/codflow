@@ -36,16 +36,18 @@ export async function getStoreConfig(c: Context<AppContext>) {
   if (!store) {
     throw new NotFoundError("Store", storeId);
   }
-  return c.json({ success: true, data: store });
+  return c.json({ success: true, data: store }, 200);
 }
 
 export async function listStoreProducts(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const featured = c.req.query("featured") === "true";
-  const categoryId = c.req.query("categoryId") ?? undefined;
-  const limit = Math.min(parseInt(c.req.query("limit") ?? "24"), 100);
+  const queryData: any = (c.req as any).valid?.("query");
+  const rawFeatured = queryData?.featured ?? c.req.query("featured");
+  const featured = rawFeatured === "true";
+  const categoryId = queryData?.categoryId ?? c.req.query("categoryId") ?? undefined;
+  const limit = Math.min(parseInt(String(queryData?.limit ?? c.req.query("limit") ?? "24")), 100);
   const data = await queries.getStoreProducts(db, { featured, categoryId, limit });
-  return c.json({ success: true, data, count: data.length });
+  return c.json({ success: true, data, count: data.length }, 200);
 }
 
 export async function getStoreProduct(c: Context<AppContext>) {
@@ -55,19 +57,19 @@ export async function getStoreProduct(c: Context<AppContext>) {
   if (!data) {
     throw new NotFoundError("Product", handle);
   }
-  return c.json({ success: true, data });
+  return c.json({ success: true, data }, 200);
 }
 
 export async function listStoreCategories(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const data = await queries.getStoreCategories(db);
-  return c.json({ success: true, data, count: data.length });
+  return c.json({ success: true, data, count: data.length }, 200);
 }
 
 export async function getShippingRates(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const data = await queries.getShippingRates(db);
-  return c.json({ success: true, data });
+  return c.json({ success: true, data }, 200);
 }
 
 export async function listStoreCommunes(c: Context<AppContext>) {
@@ -81,13 +83,14 @@ export async function listStoreCommunes(c: Context<AppContext>) {
   }
   const db = getDb(c.env.DB);
   const data = await queries.getStoreCommunes(db, wilayaId);
-  return c.json({ success: true, data, count: data.length });
+  return c.json({ success: true, data, count: data.length }, 200);
 }
 
 export async function createStoreOrder(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const body = await c.req.json();
-  const data = storeOrderSchema.parse(body);
+  const bodyData: any = (c.req as any).valid?.("json");
+  const data: import("./validation").StoreOrderInput =
+    bodyData ?? storeOrderSchema.parse(await c.req.json());
 
   const skuMissing = await queries.validateOrderSkus(
     db,
@@ -167,7 +170,8 @@ export async function createStoreOrder(c: Context<AppContext>) {
 export async function listProductReviews(c: Context<AppContext>) {
   const storeId = c.get("storeId")!;
   const db = getDb(c.env.DB);
-  const productId = c.req.query("productId");
+  const queryData: any = (c.req as any).valid?.("query");
+  const productId = queryData?.productId ?? c.req.query("productId");
   if (!productId) {
     throw new ValidationError(
       "productId is required",
@@ -175,19 +179,20 @@ export async function listProductReviews(c: Context<AppContext>) {
       { field: "productId" }
     );
   }
-  const limit = Math.min(parseInt(c.req.query("limit") ?? "20"), 50);
-  const offset = Math.max(parseInt(c.req.query("offset") ?? "0"), 0);
+  const limit = Math.min(parseInt(String(queryData?.limit ?? c.req.query("limit") ?? "20")), 50);
+  const offset = Math.max(parseInt(String(queryData?.offset ?? c.req.query("offset") ?? "0")), 0);
   const { rows, total } = await queries.getApprovedProductReviews(db, storeId, productId, limit, offset);
-  return c.json({ success: true, data: rows, count: rows.length, total });
+  return c.json({ success: true, data: rows, count: rows.length, total }, 200);
 }
 
 export async function submitReview(c: Context<AppContext>) {
   const storeId = c.get("storeId")!;
   const db = getDb(c.env.DB);
-  const body = await c.req.json();
+  const bodyData: any = (c.req as any).valid?.("json");
 
   // Let Zod validation errors propagate to error middleware
-  const data = storeReviewSchema.parse(body);
+  const data: import("./validation").StoreReviewInput =
+    bodyData ?? storeReviewSchema.parse(await c.req.json());
 
   // Resolve customer-facing orderNumber → internal order record (scoped to
   // this store). The storefront only ever exposes the number, not the UUID.

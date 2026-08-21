@@ -1,14 +1,17 @@
 /**
  * Abandoned Orders — Store Endpoints
- * Public routes authenticated via X-Store-API-Key.
+ * Public routes authenticated via X-Store-API-Key (storeAuthMiddleware is
+ * applied to /store/* in src/index.ts before this router mounts).
  *
  * POST  /store/abandoned               → upsert (create or update) an abandoned record
  * PATCH /store/abandoned/:sessionId/convert → mark as converted after successful order
+ *
+ * Migrated to @hono/zod-openapi: route definitions are the single source of
+ * truth for validation and the OpenAPI spec. These endpoints were previously
+ * undocumented entirely.
  */
 
-import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { AppContext } from "@/types";
 import { getDb } from "@/db";
 import {
@@ -16,7 +19,9 @@ import {
   markAbandonedOrderConverted,
 } from "../../../../cod-shared/queries/abandoned-orders";
 
-const router = new Hono<AppContext>();
+const jsonContent = <T extends z.ZodType>(schema: T) => ({
+  "application/json": { schema },
+});
 
 const upsertSchema = z.object({
   sessionId: z.string().uuid(),
@@ -45,7 +50,63 @@ const convertSchema = z.object({
   orderNumber: z.string().min(1),
 });
 
-router.post("/abandoned", zValidator("json", upsertSchema), async (c) => {
+const upsertAbandonedRoute = createRoute({
+  method: "post",
+  path: "/abandoned",
+  tags: ["Storefront"],
+  summary: "Track an abandoned checkout",
+  description:
+    "Called silently by the storefront as the customer types contact details. Upserts the abandoned-checkout record keyed by sessionId and captures Meta attribution (_fbc/_fbp) plus client IP/User-Agent for CAPI recovery events.",
+  operationId: "upsertAbandonedOrder",
+  request: {
+    body: {
+      required: true,
+      content: jsonContent(upsertSchema),
+    },
+  },
+  responses: {
+    200: {
+      description: "Record stored (new or updated)",
+      content: jsonContent(
+        z.object({
+          success: z.boolean().openapi({ example: true }),
+          id: z.string().openapi({ description: "Abandoned order record ID" }),
+        })
+      ),
+    },
+  },
+  security: [{ StoreAuth: [] }],
+});
+
+const convertAbandonedRoute = createRoute({
+  method: "patch",
+  path: "/abandoned/{sessionId}/convert",
+  tags: ["Storefront"],
+  summary: "Mark abandoned checkout as converted",
+  description:
+    "Links a completed order back to the original abandoned session (recovery attribution). Intentionally returns 200 even if the session is unknown — conversion tracking is fire-and-forget and must never break checkout.",
+  operationId: "markAbandonedOrderConverted",
+  request: {
+    params: z.object({
+      sessionId: z.string().openapi({ description: "Storefront session ID from the upsert call" }),
+    }),
+    body: {
+      required: true,
+      content: jsonContent(convertSchema),
+    },
+  },
+  responses: {
+    200: {
+      description: "Conversion recorded (fire-and-forget)",
+      content: jsonContent(z.object({ success: z.boolean().openapi({ example: true }) })),
+    },
+  },
+  security: [{ StoreAuth: [] }],
+});
+
+const router = new OpenAPIHono<AppContext>();
+
+router.openapi(upsertAbandonedRoute, async (c) => {
   const db = getDb(c.env.DB);
   const data = c.req.valid("json");
 
@@ -61,24 +122,20 @@ router.post("/abandoned", zValidator("json", upsertSchema), async (c) => {
     userAgent,
   });
 
-  return c.json({ success: true, id });
+  return c.json({ success: true, id }, 200);
 });
 
-router.patch(
-  "/abandoned/:sessionId/convert",
-  zValidator("json", convertSchema),
-  async (c) => {
-    const db = getDb(c.env.DB);
-    const sessionId = c.req.param("sessionId");
-    const { orderId, orderNumber } = c.req.valid("json");
+router.openapi(convertAbandonedRoute, async (c) => {
+  const db = getDb(c.env.DB);
+  const sessionId = c.req.param("sessionId");
+  const { orderId, orderNumber } = c.req.valid("json");
 
-    // Intentionally returns 200 even if session not found — convert is fire-and-forget
-    await markAbandonedOrderConverted(db, sessionId, orderId, orderNumber).catch(
-      () => {}
-    );
+  // Intentionally returns 200 even if session not found — convert is fire-and-forget
+  await markAbandonedOrderConverted(db, sessionId, orderId, orderNumber).catch(
+    () => {}
+  );
 
-    return c.json({ success: true });
-  }
-);
+  return c.json({ success: true }, 200);
+});
 
 export default router;

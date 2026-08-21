@@ -16,5 +16,5 @@ import { getOrderStatusStats } from "../../../../cod-shared/queries/analytics";
 export async function getDashboardStats(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const data = await getOrderStatusStats(db);
-  return c.json({ success: true, data });
+  return c.json({ success: true, data }, 200);
 }

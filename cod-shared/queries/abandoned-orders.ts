@@ -19,7 +19,7 @@ export interface UpsertAbandonedOrderData {
   variantId?: string;
   variantLabel?: string;
   price?: number;
-  deliveryType?: string;
+  deliveryType?: (typeof abandonedOrders.$inferSelect)["deliveryType"];
   fbc?: string;
   fbp?: string;
   ipAddress?: string;
@@ -27,7 +27,7 @@ export interface UpsertAbandonedOrderData {
 }
 
 export interface AbandonedOrderFilters {
-  status?: string;
+  status?: (typeof abandonedOrders.$inferSelect)["status"];
   search?: string;
   limit?: number;
   offset?: number;
@@ -210,7 +210,7 @@ export async function getAbandonedOrderStats(db: AppDb) {
 export async function updateAbandonedOrderStatus(
   db: AppDb,
   id: string,
-  status: string
+  status: (typeof abandonedOrders.$inferSelect)["status"]
 ): Promise<void> {
   const now = new Date().toISOString();
   await db
