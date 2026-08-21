@@ -34,6 +34,7 @@ import ordersRouter from "@/endpoints/orders/routes";
 import webhooksRouter from "@/endpoints/webhooks/routes";
 import abandonedOrdersRouter from "@/endpoints/abandoned-orders/routes";
 import storeAbandonedRouter from "@/endpoints/abandoned-orders/store-routes";
+import storeApiRouter from "@/endpoints/store/routes";
 
 function buildApp() {
   const app = new OpenAPIHono<AppContext>();
@@ -60,6 +61,7 @@ function buildApp() {
   app.route("/webhooks", webhooksRouter);
   app.route("/api/abandoned-orders", abandonedOrdersRouter);
   app.route("/store", storeAbandonedRouter);
+  app.route("/store", storeApiRouter);
   return app;
 }
 
@@ -815,13 +817,47 @@ describe("GET /api/openapi.json (merged spec)", () => {
     expect(spec.components.schemas.AbandonedOrderStats).toBeDefined();
   });
 
+  it("documents the migrated store API endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const config = spec.paths["/store/config"]?.get;
+    expect(config).toBeDefined();
+    expect(config.summary).toBe("Get store configuration");
+    expect(config.tags).toEqual(["Store API"]);
+    expect(config.operationId).toBe("getStoreConfig");
+    expect(config.security).toEqual([{ StoreAuth: [] }]);
+
+    expect(spec.paths["/store/products"]?.get?.operationId).toBe("listStoreProducts");
+    expect(spec.paths["/store/products/{handle}"]?.get?.operationId).toBe("getStoreProduct");
+    expect(spec.paths["/store/categories"]?.get?.operationId).toBe("listStoreCategories");
+    expect(spec.paths["/store/shipping-rates"]?.get?.operationId).toBe("getShippingRates");
+    expect(spec.paths["/store/communes/{wilayaId}"]?.get?.operationId).toBe("listStoreCommunes");
+    expect(spec.paths["/store/orders"]?.post?.operationId).toBe("createStoreOrder");
+    expect(spec.paths["/store/reviews"]?.get?.operationId).toBe("listStoreReviews");
+    expect(spec.paths["/store/reviews"]?.post?.operationId).toBe("submitStoreReview");
+
+    // StoreAuth (X-Store-API-Key), NOT the dashboard ApiKeyAuth
+    expect(spec.paths["/store/orders"]?.post?.security).toEqual([{ StoreAuth: [] }]);
+
+    expect(spec.components.schemas.StoreProductList).toBeDefined();
+    expect(spec.components.schemas.StoreProductDetail).toBeDefined();
+    expect(spec.components.schemas.StoreConfig).toBeDefined();
+
+    // Detail is strictly richer than list — parsed variantOptions/tags + category/variants/images/offers
+    expect(Object.keys(spec.components.schemas.StoreProductDetail.properties).length).toBeGreaterThan(
+      Object.keys(spec.components.schemas.StoreProductList.properties).length
+    );
+  });
+
   it("still documents un-migrated endpoints from the legacy spec", async () => {
     const app = buildApp();
     const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
     const spec: any = await res.json();
 
-    expect(spec.paths["/api/orders"]).toBeDefined();
-    expect(spec.paths["/store/products"]).toBeDefined();
+    // All REST domains are migrated; only /images/{key} remains on the legacy stub
+    expect(spec.paths["/images/{key}"]).toBeDefined();
   });
 
   it("merges generated components and resolves the legacy ErrorResponse ref", async () => {
