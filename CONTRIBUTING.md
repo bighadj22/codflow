@@ -84,12 +84,31 @@ New here? Here's the shortest path to a merged change:
 > The repo's `.nvmrc` pins Node 24; CI runs Node 24. Astro 7 (the storefront)
 > requires Node 22.12+.
 
-### 1. Install
+### ⚡ Fast Track: Automated Setup (AI Agents & Contributors)
+
+You can bootstrap the entire local environment in **one command**:
 
 ```bash
-cd cod-server        && npm install
+# Automated setup (installs deps in order, generates .dev.vars, migrates D1, seeds store & admin)
+node .agents/skills/codflow-setup/scripts/setup-local.mjs
+```
+
+> 🤖 **Working with an AI Coding Assistant?** CodFlow includes an autonomous setup skill. Instruct your agent: *"Set up CodFlow locally"* and it will follow the [`codflow-setup` runbook](./.agents/skills/codflow-setup/SKILL.md).
+
+---
+
+### Manual Setup Step-by-Step
+
+#### 1. Install Dependencies (in order)
+
+`cod-shared` MUST be installed first because other packages resolve its dependencies:
+
+```bash
+cd cod-shared        && npm install
+cd ../cod-server     && npm install
 cd ../cod-client     && npm install
 cd ../cod-astro/theme01 && npm install
+cd ../..
 ```
 
 ### 2. Create Cloudflare resources
