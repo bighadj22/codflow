@@ -17,17 +17,11 @@ import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { AppContext } from "@/types";
 import { generateOpenAPISpec } from "./generator";
 import {
-  customerPaths,
   orderPaths,
   productPaths,
-  driverPaths,
-  userPaths,
   imagePaths,
-  productGroupPaths,
-  shippingProfilePaths,
   driverPaymentPaths,
   storePaths,
-  storeMgmtPaths,
   stockPaths,
   webhookPaths,
   offerPaths,
@@ -86,18 +80,12 @@ export function registerSpecEndpoint(app: OpenAPIHono<AppContext>): void {
     const legacy = generateOpenAPISpec(baseUrl);
     legacy.paths = {
       ...orderPaths,
-      ...customerPaths,
       ...productPaths,
       ...variantPaths,
       ...stockPaths,
       ...offerPaths,
-      ...shippingProfilePaths,
-      ...driverPaths,
       ...driverPaymentPaths,
-      ...productGroupPaths,
-      ...userPaths,
       ...storePaths,
-      ...storeMgmtPaths,
       ...imagePaths,
       ...webhookPaths,
     };

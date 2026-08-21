@@ -12,14 +12,19 @@ Cash remittance and fee settlements are handled separately via the [`/api/driver
 src/endpoints/drivers/
 ├── ai-tools.ts      # AI/MCP tool definitions for agentic driver management (6 tools)
 ├── drivers.test.ts  # Unit tests for Zod validation schemas and query logic
+├── routes.test.ts   # Route-level integration tests (OpenAPIHono router)
 ├── handlers.test.ts # Integration tests for HTTP route handlers & error responses
 ├── handlers.ts      # HTTP request controllers with activity logging
-├── openapi.ts       # OpenAPI 3.1 documentation paths, parameters, & response schemas
 ├── queries.ts       # Database operations (re-exports cod-shared + delete active order guard)
-├── routes.ts        # Hono router definitions with RBAC scope guards
+├── routes.ts        # OpenAPIHono route definitions (validation + spec) with RBAC scope guards
 ├── validation.ts    # Zod schemas for input validation, phone formatting, & filtering
 └── README.md        # Endpoint documentation (this file)
 ```
+
+Routes are defined with `@hono/zod-openapi` (`createRoute`), making `routes.ts`
+the single source of truth for request validation and the OpenAPI spec.
+Handlers read pre-validated data via `(c.req as any).valid?.(...)` and fall
+back to the Zod schemas in `validation.ts` when mounted standalone.
 
 ---
 

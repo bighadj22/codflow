@@ -3,7 +3,7 @@ import type { AppContext } from "@/types";
 import { getDb } from "@/db";
 import * as queries from "./queries";
 import { updateStoreSchema } from "./validation";
-import { NotFoundError } from "@/lib/errors/classes";
+import { NotFoundError, SystemError } from "@/lib/errors/classes";
 import { getPixelConfig as queryPixelConfig, upsertPixelConfig } from "../../../../cod-shared/queries/pixel-config";
 import { z } from "zod";
 
@@ -15,7 +15,7 @@ export async function getMyStore(c: Context<AppContext>) {
     throw new NotFoundError("Store");
   }
   
-  return c.json({ success: true, data: store });
+  return c.json({ success: true, data: store }, 200);
 }
 
 export async function updateMyStore(c: Context<AppContext>) {
@@ -26,10 +26,13 @@ export async function updateMyStore(c: Context<AppContext>) {
     throw new NotFoundError("Store");
   }
 
-  const body = await c.req.json();
-  const validated = updateStoreSchema.parse(body);
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const validated = jsonBody ?? updateStoreSchema.parse(await c.req.json());
   const updated = await queries.updateStore(db, store.id, validated);
-  return c.json({ success: true, data: updated });
+  if (!updated) {
+    throw new SystemError("Failed to update store");
+  }
+  return c.json({ success: true, data: updated }, 200);
 }
 
 const pixelConfigSchema = z.object({
@@ -44,15 +47,18 @@ export async function getPixelConfig(c: Context<AppContext>) {
   const store = await queries.getStore(db);
   if (!store) throw new NotFoundError("Store");
   const config = await queryPixelConfig(db, store.id);
-  return c.json({ success: true, data: config ?? null });
+  return c.json({ success: true, data: config ?? null }, 200);
 }
 
 export async function savePixelConfig(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const store = await queries.getStore(db);
   if (!store) throw new NotFoundError("Store");
-  const body = await c.req.json();
-  const validated = pixelConfigSchema.parse(body);
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const validated = jsonBody ?? pixelConfigSchema.parse(await c.req.json());
   const result = await upsertPixelConfig(db, store.id, validated);
-  return c.json({ success: true, data: result });
+  if (!result) {
+    throw new SystemError("Failed to save pixel config");
+  }
+  return c.json({ success: true, data: result }, 200);
 }

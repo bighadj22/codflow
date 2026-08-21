@@ -6,14 +6,20 @@ Complete API for managing system users, their roles, permissions (scopes), and A
 
 ```
 users/
-├── routes.ts       # Route definitions with RBAC protection
+├── routes.ts       # OpenAPIHono route definitions (validation + spec), admin-only
 ├── handlers.ts     # HTTP request handlers (controller logic)
-├── queries.ts      # Database operations (Drizzle)
-├── validation.ts   # Zod validation schemas
-├── openapi.ts      # OpenAPI documentation paths
+├── queries.ts      # Database operations (Drizzle; scope-cache writes stay server-side)
+├── validation.ts   # Zod validation schemas (handler-level fallback)
 ├── users.test.ts   # Unit tests for validation and logic
+├── routes.test.ts  # Route-level integration tests (OpenAPIHono router)
+├── handlers.test.ts # Integration/error-scenario tests for handlers
 └── README.md       # This file
 ```
+
+Routes are defined with `@hono/zod-openapi` (`createRoute`), making `routes.ts`
+the single source of truth for request validation and the OpenAPI spec.
+Handlers read pre-validated data via `(c.req as any).valid?.(...)` and fall
+back to the Zod schemas in `validation.ts` when mounted standalone.
 
 ## Core Concepts
 

@@ -10,7 +10,7 @@ import { getDb } from "@/db";
 import * as queries from "./queries";
 import * as validation from "./validation";
 import { logActivity, ACTIONS } from "@/lib/activity";
-import { NotFoundError, ValidationError, BusinessLogicError, ConflictError } from "@/lib/errors/classes";
+import { NotFoundError, ValidationError, BusinessLogicError, ConflictError, SystemError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 
 /**
@@ -19,9 +19,9 @@ import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
  */
 export async function listCustomers(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  
-  // Parse and validate query parameters
-  const filters = validation.customerFiltersSchema.parse({
+
+  const query: any = (c.req as any).valid?.("query");
+  const filters = query ?? validation.customerFiltersSchema.parse({
     wilayaId: c.req.query("wilayaId"),
     search: c.req.query("search"),
     groupId: c.req.query("groupId"),
@@ -36,7 +36,7 @@ export async function listCustomers(c: Context<AppContext>) {
     success: true,
     data: customers,
     count: customers.length,
-  });
+  }, 200);
 }
 
 /**
@@ -60,7 +60,7 @@ export async function getCustomer(c: Context<AppContext>) {
   return c.json({
     success: true,
     data: customer,
-  });
+  }, 200);
 }
 
 /**
@@ -69,10 +69,8 @@ export async function getCustomer(c: Context<AppContext>) {
  */
 export async function createCustomer(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const body = await c.req.json();
-  
-  // Validate request body
-  const validated = validation.createCustomerSchema.parse(body);
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const validated = jsonBody ?? validation.createCustomerSchema.parse(await c.req.json());
 
   // Check for duplicate phone number
   const existingCustomer = await queries.getCustomerByPhone(db, validated.phone);
@@ -86,12 +84,14 @@ export async function createCustomer(c: Context<AppContext>) {
 
   const customer = await queries.createCustomer(db, validated);
 
-  const actor = c.get("user");
-  if (customer) {
-    await logActivity(db, actor, ACTIONS.CUSTOMER_CREATED, {
-      type: "customer", id: customer.id, label: customer.name,
-    });
+  if (!customer) {
+    throw new SystemError("Failed to create customer");
   }
+
+  const actor = c.get("user");
+  await logActivity(db, actor, ACTIONS.CUSTOMER_CREATED, {
+    type: "customer", id: customer.id, label: customer.name,
+  });
 
   return c.json(
     {
@@ -116,9 +116,10 @@ export async function updateCustomer(c: Context<AppContext>) {
   }
   
   const body = await c.req.json();
-  
+
   // Validate request body
-  const validated = validation.updateCustomerSchema.parse(body);
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const validated = jsonBody ?? validation.updateCustomerSchema.parse(body);
 
   // Check if phone is being updated and if it's a duplicate
   if (validated.phone) {
@@ -147,7 +148,7 @@ export async function updateCustomer(c: Context<AppContext>) {
     success: true,
     data: customer,
     message: "Customer updated successfully",
-  });
+  }, 200);
 }
 
 /**
@@ -168,7 +169,7 @@ export async function listCustomerOrders(c: Context<AppContext>) {
     success: true,
     data: orders,
     count: orders.length,
-  });
+  }, 200);
 }
 
 /**
@@ -184,7 +185,7 @@ export async function listCustomerGroups(c: Context<AppContext>) {
   }
 
   const groups = await queries.getCustomerGroupMemberships(db, customerId);
-  return c.json({ success: true, data: groups });
+  return c.json({ success: true, data: groups }, 200);
 }
 
 /**
@@ -200,7 +201,7 @@ export async function listCustomerTags(c: Context<AppContext>) {
   }
 
   const tags = await queries.getCustomerTagMemberships(db, customerId);
-  return c.json({ success: true, data: tags });
+  return c.json({ success: true, data: tags }, 200);
 }
 
 /**
@@ -231,5 +232,5 @@ export async function deleteCustomer(c: Context<AppContext>) {
   return c.json({
     success: true,
     message: "Customer deleted successfully",
-  });
+  }, 200);
 }

@@ -197,6 +197,355 @@ export const CustomerGroupMemberSchema = z
   })
   .openapi("CustomerGroupMember");
 
+export const CustomerSchema = z
+  .object({
+    id: z.string().openapi({ example: "550e8400-e29b-41d4-a716-446655440000" }),
+    name: z.string().openapi({ example: "Ahmed Benali" }),
+    phone: z.string().openapi({
+      example: "0551234567",
+      description: "Algerian mobile number starting with 05, 06, or 07",
+    }),
+    phone2: z.string().nullable().openapi({ description: "Secondary phone number", example: null }),
+    wilayaId: z.number().int().min(1).max(58).nullable().openapi({
+      description: "Official wilaya number (1–58)",
+      example: 16,
+    }),
+    communeId: z.string().nullable().openapi({
+      description: "Commune UUID from reference table",
+      example: "550e8400-e29b-41d4-a716-446655440000",
+    }),
+    wilaya: z.string().openapi({
+      description: "Wilaya Arabic name — denormalized display value, derived from wilayaId",
+      example: "الجزائر",
+    }),
+    commune: z.string().nullable().openapi({
+      description: "Commune Arabic name — denormalized display value, derived from communeId",
+      example: "بئر مراد رايس",
+    }),
+    address: z.string().nullable(),
+    totalOrders: z.number().int().openapi({
+      example: 5,
+      description: "Denormalized count, incremented on each order created",
+    }),
+    totalSpent: z.number().openapi({ example: 25000 }),
+    createdAt: z.string().datetime(),
+    lastOrderAt: z.string().datetime().nullable(),
+    recentOrders: z
+      .array(z.record(z.string(), z.unknown()))
+      .optional()
+      .openapi({
+        description:
+          "Up to 10 most recent full order records (same shape as the Orders API), newest first. Included only in GET /api/customers/{id}; not present in list responses.",
+      }),
+  })
+  .openapi("Customer", {
+    description: "Customer profile with denormalized purchase statistics",
+  });
+
+export const CustomerOrderStatusSchema = z
+  .object({
+    id: z.string(),
+    orderId: z.string(),
+    status: z.string(),
+    timestamp: z.string().datetime(),
+    by: z.string().nullable(),
+  })
+  .openapi("CustomerOrderStatus");
+
+export const CustomerOrderSummarySchema = z
+  .object({
+    id: z.string(),
+    orderNumber: z.string().openapi({ example: "ORD-20260327-0042" }),
+    status: z.string().openapi({ example: "new" }),
+    price: z.number().openapi({ example: 9000 }),
+    createdAt: z.string().datetime(),
+    wilayaId: z.number().int().nullable(),
+    communeId: z.string().nullable(),
+    wilaya: z.string().nullable().openapi({
+      description: "Wilaya Arabic name, joined from reference table",
+      example: "الجزائر",
+    }),
+    commune: z.string().nullable().openapi({
+      description: "Commune Arabic name, joined from reference table",
+      example: "بئر مراد رايس",
+    }),
+    statusHistory: z.array(CustomerOrderStatusSchema),
+  })
+  .openapi("CustomerOrderSummary", {
+    description:
+      "Order summary returned by GET /api/customers/{id}/orders, each with its full statusHistory",
+  });
+
+export const ShippingRuleSchema = z
+  .object({
+    id: z.string().openapi({ example: "rule_abc123" }),
+    profileId: z.string().openapi({ example: "profile_123" }),
+    wilayaId: z.number().int().min(1).max(58).openapi({ example: 16 }),
+    wilayaName: z.string().openapi({
+      description: "Wilaya French/name — joined from reference table",
+      example: "Alger",
+    }),
+    wilayaNameAr: z.string().openapi({ example: "الجزائر" }),
+    homePrice: z.number().openapi({ example: 400 }),
+    stopDeskPrice: z.number().openapi({ example: 250 }),
+    homeEnabled: z.boolean().openapi({ example: true }),
+    stopDeskEnabled: z.boolean().openapi({ example: false }),
+    createdAt: z.string().datetime(),
+  })
+  .openapi("ShippingRule", {
+    description: "Per-wilaya customer delivery rate within a shipping profile",
+  });
+
+export const ShippingProfileWithRulesSchema = z
+  .object({
+    id: z.string().openapi({ example: "profile_123" }),
+    name: z.string().openapi({ example: "Standard Rates" }),
+    isDefault: z.boolean().openapi({
+      description:
+        "Exactly one profile is always the default; its rates auto-apply on order creation",
+      example: false,
+    }),
+    notes: z.string().nullable().openapi({ example: null }),
+    productCount: z.number().int().openapi({
+      description: "How many products are assigned to this profile",
+      example: 3,
+    }),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+    rules: z.array(ShippingRuleSchema),
+  })
+  .openapi("ShippingProfileWithRules", {
+    description: "Shipping profile with its full list of wilaya rules",
+  });
+
+export const ShippingProfileSchema = ShippingProfileWithRulesSchema.omit({
+  rules: true,
+}).extend({
+  ruleCount: z.number().int().openapi({
+    description: "Number of wilaya rules in this profile",
+    example: 58,
+  }),
+}).openapi("ShippingProfile", {
+  description:
+    "Shipping rate profile. List responses include ruleCount; detail responses include the rules array instead.",
+});
+
+export const CommuneOverrideSchema = z
+  .object({
+    communeId: z.string().openapi({ example: "550e8400-e29b-41d4-a716-446655440000" }),
+    communeName: z.string().openapi({ example: "Bab Ezzouar" }),
+    communeNameAr: z.string().openapi({ example: "باب الزوار" }),
+    postalCode: z.string().nullable(),
+    homeEnabled: z.boolean().nullable().openapi({
+      description: "null = inherited from wilaya rule",
+    }),
+    stopDeskEnabled: z.boolean().nullable().openapi({
+      description: "null = inherited from wilaya rule",
+    }),
+    homePrice: z.number().nullable().openapi({
+      description: "null = inherited from wilaya rule",
+    }),
+    stopDeskPrice: z.number().nullable().openapi({
+      description: "null = inherited from wilaya rule",
+    }),
+    effectiveHomeEnabled: z.boolean(),
+    effectiveStopDeskEnabled: z.boolean(),
+    effectiveHomePrice: z.number(),
+    effectiveStopDeskPrice: z.number(),
+    hasOverride: z.boolean(),
+  })
+  .openapi("CommuneOverride", {
+    description:
+      "A commune within a wilaya rule, showing both the raw override fields (null = inherited) and the effective values used at fee-resolution time.",
+  });
+
+export const DriverSchema = z
+  .object({
+    id: z.string().openapi({ example: "drv_123" }),
+    firstName: z.string().openapi({ example: "Mohamed" }),
+    lastName: z.string().openapi({ example: "Amiri" }),
+    phone: z.string().openapi({
+      description: "Algerian mobile number starting with 05, 06, or 07",
+      example: "0551234567",
+    }),
+    phone2: z.string().nullable().openapi({ description: "Optional secondary phone", example: null }),
+    vehicleType: z.enum(["motorcycle", "car", "van"]).nullable().openapi({
+      description: "Type of vehicle; null if unknown",
+      example: "van",
+    }),
+    status: z.enum(["available", "busy", "inactive"]).openapi({ example: "available" }),
+    totalDelivered: z.number().int().openapi({
+      description: "Cumulative deliveries completed (incremented on status → delivered)",
+      example: 50,
+    }),
+    totalEarnings: z.number().openapi({
+      description: "Cumulative delivery fees earned (incremented on status → delivered)",
+      example: 25000,
+    }),
+    pendingCash: z.number().openapi({
+      description: "COD cash collected by driver but not yet remitted to the business",
+      example: 5000,
+    }),
+    totalPaid: z.number().openapi({
+      description: "Total COD cash remitted to the business",
+      example: 20000,
+    }),
+    notes: z.string().nullable().openapi({
+      description: "Internal notes about the driver (not visible to customers)",
+    }),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+    compensationWilayaCount: z.number().int().openapi({
+      description:
+        "Number of wilayas with a configured per-delivery fee for this driver",
+      example: 12,
+    }),
+    recentOrders: z
+      .array(z.record(z.string(), z.unknown()))
+      .optional()
+      .openapi({
+        description:
+          "Up to 10 most recent orders assigned to this driver, newest first. Included only in detail/create/update responses; not present in list responses.",
+      }),
+  })
+  .openapi("Driver", {
+    description: "Delivery driver profile with denormalized earnings statistics",
+  });
+
+export const DriverCompensationRowSchema = z
+  .object({
+    wilayaId: z.number().int().min(1).max(58).openapi({ example: 16 }),
+    wilayaName: z.string().openapi({ example: "Alger" }),
+    wilayaNameAr: z.string().openapi({ example: "الجزائر" }),
+    feePerDelivery: z.number().nullable().openapi({
+      description: "DZD per delivery; `null` when not configured.",
+      example: 350,
+    }),
+  })
+  .openapi("DriverCompensationRow", {
+    description:
+      "Per-wilaya compensation entry. GET /{id}/compensations always returns all 58 wilayas; a null fee means no row is configured.",
+  });
+
+export const UserSchema = z
+  .object({
+    id: z.string().openapi({ example: "a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8" }),
+    name: z.string().openapi({ example: "Ahmed Benali" }),
+    email: z.string().email().openapi({ example: "staff@example.com" }),
+    emailVerified: z.boolean().openapi({ example: true }),
+    image: z.string().nullable().openapi({ description: "Avatar image URL", example: null }),
+    role: z.enum(["admin", "staff"]).openapi({ example: "staff" }),
+    status: z.enum(["active", "inactive"]).openapi({ example: "active" }),
+    language: z.string().openapi({
+      description: 'UI language preference for emails: "ar" | "en"',
+      example: "en",
+    }),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+    scopes: z.array(z.string()).openapi({
+      description:
+        'Permission scopes for this user. Always `["*"]` for admins. The `apiKey` field is never included in these responses — use POST /{id}/api-key/rotate for a one-time key reveal.',
+      example: ["orders:read", "customers:read"],
+    }),
+  })
+  .openapi("User", {
+    description: "Team member record with permission scopes",
+  });
+
+export const StoreSchema = z
+  .object({
+    id: z.string().openapi({ example: "store_01" }),
+    name: z.string().openapi({ example: "My Shop" }),
+    domain: z.string().nullable().openapi({ description: "Custom storefront domain", example: null }),
+    logoUrl: z.string().url().nullable().openapi({ example: "https://cdn.example.com/logo.png" }),
+    themeId: z.string().openapi({
+      description: 'Active theme slug: "theme01", "theme02", etc.',
+      example: "theme01",
+    }),
+    primaryColor: z.string().openapi({ description: "Primary CTA color (hex)", example: "#3b82f6" }),
+    accentColor: z.string().openapi({ description: "Accent / highlight color (hex)", example: "#f97316" }),
+    bgColor: z.string().openapi({ description: "Background color (hex)", example: "#ffffff" }),
+    fontFamily: z.string().openapi({ description: "CSS font-family string", example: "Cairo" }),
+    fontUrl: z.string().url().nullable().openapi({
+      description: "Google Fonts import URL (optional override)",
+      example: "https://fonts.googleapis.com/css2?family=Cairo",
+    }),
+    lang: z.enum(["ar", "en"]).openapi({ description: "Store UI language", example: "ar" }),
+    currency: z.string().openapi({ example: "DZD" }),
+    currencySymbol: z.string().openapi({ example: "دج" }),
+    contentJson: z.string().nullable().openapi({
+      description: "Serialized JSON of every text string shown in the storefront",
+    }),
+    metaTitle: z.string().nullable().openapi({ example: "My Shop — Best Products" }),
+    metaDescription: z.string().nullable().openapi({ example: "Find the best products at My Shop." }),
+    ogImage: z.string().url().nullable().openapi({ example: "https://cdn.example.com/og.png" }),
+    announcementBar: z.string().nullable().openapi({
+      description: "Top announcement bar text (null = hidden)",
+      example: "Free delivery on orders above 3000 دج",
+    }),
+    reviewsEnabled: z.boolean().openapi({
+      description: "When false, reviews are hidden on the storefront and submission is disabled",
+      example: true,
+    }),
+    status: z.enum(["active", "inactive"]).openapi({ example: "active" }),
+    storeApiKey: z.string().nullable().openapi({
+      description:
+        "Plaintext storefront API key — visible to the merchant in Store Settings. Not the dashboard API key.",
+    }),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .openapi("Store", {
+    description:
+      "Single-tenant store configuration: branding, theme, localization, SEO, and feature flags",
+  });
+
+export const StorePixelConfigSchema = z
+  .object({
+    id: z.string(),
+    storeId: z.string(),
+    pixelId: z.string().openapi({ example: "1234567890123456" }),
+    accessToken: z.string().openapi({ description: "Meta access token used for server-side events" }),
+    testEventCode: z.string().nullable().openapi({
+      description: "Meta test event code — used during integration testing only. Set to null in production.",
+    }),
+    enabled: z.boolean().openapi({ example: true }),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .openapi("StorePixelConfig", {
+    description: "Meta pixel tracking configuration for server-side conversion events",
+  });
+
+export const CustomerGroupMembershipSchema = z
+  .object({
+    id: z.string().openapi({ example: "grp_123" }),
+    name: z.string().openapi({ example: "Wholesale Customers" }),
+    color: z.string().openapi({ example: "#6366f1" }),
+    description: z.string().nullable(),
+    memberCount: z.number().int(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+    assignedAt: z.string().datetime().openapi({
+      description: "When the customer was added to this group",
+    }),
+  })
+  .openapi("CustomerGroupMembership");
+
+export const CustomerTagMembershipSchema = z
+  .object({
+    id: z.string().openapi({ example: "tag_123" }),
+    name: z.string().openapi({ example: "VIP" }),
+    color: z.string().openapi({ example: "#64748b" }),
+    assignmentCount: z.number().int(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+    assignedAt: z.string().datetime().openapi({
+      description: "When the tag was assigned to this customer",
+    }),
+  })
+  .openapi("CustomerTagMembership");
+
 export const CustomerGroupSchema = z
   .object({
     id: z.string().openapi({ example: "grp_123" }),
@@ -232,6 +581,51 @@ export const CustomerTagCustomerSchema = z
     assignedAt: z.string().datetime().openapi({ example: "2024-01-15T10:30:00.000Z" }),
   })
   .openapi("CustomerTagCustomer");
+
+const ProductCategoryRowSchema = z.object({
+  id: z.string().openapi({ example: "cat_123" }),
+  name: z.string().openapi({ example: "Electronics" }),
+  slug: z.string().openapi({
+    example: "electronics",
+    description: "Lowercase letters, numbers and hyphens; auto-generated from name with a unique suffix when omitted",
+  }),
+  description: z.string().nullable().openapi({ example: "Electronic products" }),
+  parentId: z.string().nullable().openapi({
+    description: "Parent group ID for nested hierarchies; null for top-level groups",
+    example: null,
+  }),
+  imageUrl: z.string().url().nullable().openapi({ example: "https://example.com/img.jpg" }),
+  metaTitle: z.string().nullable().openapi({
+    description: "SEO page title (max 60 chars)",
+    example: "Electronics | CodFlow",
+  }),
+  metaDescription: z.string().nullable().openapi({
+    description: "SEO description (max 160 chars)",
+    example: "Phones, laptops and accessories",
+  }),
+  metaKeywords: z.string().nullable().openapi({
+    description: "Comma-separated SEO keywords",
+    example: "electronics, gadgets",
+  }),
+  position: z.number().int().min(0).openapi({
+    example: 0,
+    description: "Display order; lower values come first",
+  }),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const ProductCategorySchema = ProductCategoryRowSchema.extend({
+  productsCount: z.number().int().openapi({
+    example: 5,
+    description: "Number of active (non-deleted) products assigned to this group",
+  }),
+  children: z.array(ProductCategoryRowSchema).optional().openapi({
+    description: "Immediate sub-categories. Included only in GET /api/product-groups/{id}.",
+  }),
+}).openapi("ProductCategory", {
+  description: "Product category/collection group in the catalog hierarchy",
+});
 
 export const CustomerTagSchema = z
   .object({
