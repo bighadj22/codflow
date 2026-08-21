@@ -21,14 +21,14 @@ notes live in `cod-server/MIGRATION_STATUS.md`.
 | `drivers` | 8 | Driver CRUD + status + per-wilaya compensations; delete guard (`409 DRIVER_HAS_ACTIVE_ORDERS`); completed 2026-08-21 |
 | `users` | 8 | Team management + scopes + API-key rotation; admin-only (`requireAdmin`); one-time key reveals; completed 2026-08-21 |
 | `stores` | 4 | Store settings + Meta pixel config; admin-only; completed 2026-08-21 |
+| `products` | 15 | Product CRUD + nested images (R2 association, full-set reorder) + variants; `409 DUPLICATE_SKU`, `422 PRODUCT_HAS_ORDERS`; SKU required for simple products; completed 2026-08-21 |
 
 ## Pending migration (legacy openapi.ts present) ⏳
 
-`products`,
-`variants`, `stock`, `offers`, `images`, `driver-payments`, `orders`,
+`driver-payments`, `images`, `orders`,
 `abandoned-orders`, `webhooks`, `store`, `analytics`
 
-Next up: **Products** (15 routes — CRUD + images + variants) — see `cod-server/NEXT_ENDPOINT.md`.
+Next up: **Driver Payments** (3 paths on `/api/driver-payments`) — see `cod-server/NEXT_ENDPOINT.md`.
 
 ## Special
 
@@ -36,4 +36,4 @@ Next up: **Products** (15 routes — CRUD + images + variants) — see `cod-serv
 
 ## Progress
 
-**12/23 endpoints migrated (~52%)** · ~4,445 legacy lines removed
+**16/23 endpoints migrated (~70%)** · ~6,790 legacy lines removed

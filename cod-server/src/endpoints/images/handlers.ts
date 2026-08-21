@@ -173,7 +173,7 @@ export async function listProductImages(c: Context<AppContext>) {
     .orderBy(productImages.position)
     .all();
 
-  return c.json({ success: true, data: images });
+  return c.json({ success: true, data: images }, 200);
 }
 
 /**
@@ -185,14 +185,15 @@ export async function saveProductImage(c: Context<AppContext>) {
   const productId = c.req.param("id")!;
   const db = getDb(c.env.DB);
 
-  const body = await c.req.json<{
+  const jsonData: any = (c.req as any).valid?.("json");
+  const body = jsonData ?? (await c.req.json<{
     key: string;
     src: string;
     altText?: string;
     position?: number;
-  }>();
+  }>());
 
-  if (!body.key || !body.src) {
+  if (!jsonData && (!body.key || !body.src)) {
     throw new ValidationError(
       "key and src are required",
       ERROR_CODES.REQUIRED_FIELD_MISSING,
@@ -248,7 +249,8 @@ export async function reorderProductImages(c: Context<AppContext>) {
   const productId = c.req.param("id")!;
   const db = getDb(c.env.DB);
 
-  const body = await c.req.json<{ imageIds?: unknown }>();
+  const jsonData: any = (c.req as any).valid?.("json");
+  const body = jsonData ?? (await c.req.json<{ imageIds?: unknown }>());
 
   if (!Array.isArray(body.imageIds) || body.imageIds.length === 0) {
     throw new ValidationError(
@@ -308,7 +310,7 @@ export async function reorderProductImages(c: Context<AppContext>) {
     .orderBy(asc(productImages.position))
     .all();
 
-  return c.json({ success: true, data: updated });
+  return c.json({ success: true, data: updated }, 200);
 }
 
 /**
@@ -347,5 +349,5 @@ export async function deleteProductImage(c: Context<AppContext>) {
 
   await db.delete(productImages).where(eq(productImages.id, imageId));
 
-  return c.json({ success: true });
+  return c.json({ success: true }, 200);
 }

@@ -4,12 +4,13 @@ import { getDb } from "@/db";
 import * as queries from "./queries";
 import * as validation from "./validation";
 import { logActivity, ACTIONS } from "@/lib/activity";
-import { NotFoundError, BusinessLogicError, ConflictError } from "@/lib/errors/classes";
+import { NotFoundError, BusinessLogicError, ConflictError, SystemError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 
 export async function listProducts(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const filters = validation.productFiltersSchema.parse({
+  const queryData: any = (c.req as any).valid?.("query");
+  const filters = queryData ?? validation.productFiltersSchema.parse({
     categoryId: c.req.query("categoryId"),
     status: c.req.query("status"),
     visibility: c.req.query("visibility"),
@@ -18,7 +19,7 @@ export async function listProducts(c: Context<AppContext>) {
     offset: c.req.query("offset"),
   });
   const data = await queries.getAllProducts(db, filters);
-  return c.json({ success: true, data, count: data.length });
+  return c.json({ success: true, data, count: data.length }, 200);
 }
 
 export async function getProduct(c: Context<AppContext>) {
@@ -28,13 +29,13 @@ export async function getProduct(c: Context<AppContext>) {
   if (!product) {
     throw new NotFoundError("Product", productId);
   }
-  return c.json({ success: true, data: product });
+  return c.json({ success: true, data: product }, 200);
 }
 
 export async function createProduct(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const body = await c.req.json();
-  const validated = validation.createProductSchema.parse(body);
+  const jsonData: any = (c.req as any).valid?.("json");
+  const validated = jsonData ?? validation.createProductSchema.parse(await c.req.json());
   
   // Check for duplicate SKU if provided
   if (validated.sku) {
@@ -53,20 +54,21 @@ export async function createProduct(c: Context<AppContext>) {
   }
   
   const product = await queries.createProduct(db, validated);
-  const actor = c.get("user");
-  if (product) {
-    await logActivity(db, actor, ACTIONS.PRODUCT_CREATED, {
-      type: "product", id: product.id, label: validated.name,
-    });
+  if (!product) {
+    throw new SystemError("Failed to create product");
   }
+  const actor = c.get("user");
+  await logActivity(db, actor, ACTIONS.PRODUCT_CREATED, {
+    type: "product", id: product.id, label: validated.name,
+  });
   return c.json({ success: true, data: product }, 201);
 }
 
 export async function updateProduct(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const productId = c.req.param("id")!;
-  const body = await c.req.json();
-  const validated = validation.updateProductSchema.parse(body);
+  const jsonData: any = (c.req as any).valid?.("json");
+  const validated = jsonData ?? validation.updateProductSchema.parse(await c.req.json());
   const product = await queries.updateProduct(db, productId, validated);
   if (!product) {
     throw new NotFoundError("Product", productId);
@@ -75,14 +77,14 @@ export async function updateProduct(c: Context<AppContext>) {
   await logActivity(db, actor, ACTIONS.PRODUCT_UPDATED, {
     type: "product", id: product.id, label: product.name,
   });
-  return c.json({ success: true, data: product });
+  return c.json({ success: true, data: product }, 200);
 }
 
 export async function updateProductStatus(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const productId = c.req.param("id")!;
-  const body = await c.req.json();
-  const { status } = validation.updateStatusSchema.parse(body);
+  const jsonData: any = (c.req as any).valid?.("json");
+  const { status } = jsonData ?? validation.updateStatusSchema.parse(await c.req.json());
   const product = await queries.updateProduct(db, productId, { status });
   if (!product) {
     throw new NotFoundError("Product", productId);
@@ -91,7 +93,7 @@ export async function updateProductStatus(c: Context<AppContext>) {
   await logActivity(db, actor, ACTIONS.PRODUCT_STATUS_CHANGED, {
     type: "product", id: product.id, label: product.name,
   }, { status });
-  return c.json({ success: true, data: product });
+  return c.json({ success: true, data: product }, 200);
 }
 
 export async function deleteProduct(c: Context<AppContext>) {
@@ -117,5 +119,5 @@ export async function deleteProduct(c: Context<AppContext>) {
   await queries.deleteProduct(db, id);
   const actor = c.get("user");
   await logActivity(db, actor, ACTIONS.PRODUCT_DELETED, { type: "product", id });
-  return c.json({ success: true, message: "Product deleted" });
+  return c.json({ success: true, message: "Product deleted" }, 200);
 }

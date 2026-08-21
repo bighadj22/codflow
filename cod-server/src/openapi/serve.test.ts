@@ -25,6 +25,9 @@ import shippingProfilesRouter from "@/endpoints/shipping-profiles/routes";
 import driversRouter from "@/endpoints/drivers/routes";
 import usersRouter from "@/endpoints/users/routes";
 import storesRouter from "@/endpoints/stores/routes";
+import productsRouter from "@/endpoints/products/routes";
+import { stockRouter, productStockRouter } from "@/endpoints/stock/routes";
+import offersRouter from "@/endpoints/offers/routes";
 
 function buildApp() {
   const app = new OpenAPIHono<AppContext>();
@@ -41,6 +44,10 @@ function buildApp() {
   app.route("/api/drivers", driversRouter);
   app.route("/api/users", usersRouter);
   app.route("/api/stores", storesRouter);
+  app.route("/api/products", productsRouter);
+  app.route("/api/stock", stockRouter);
+  app.route("/api/products", productStockRouter);
+  app.route("/api/offers", offersRouter);
   return app;
 }
 
@@ -571,13 +578,101 @@ describe("GET /api/openapi.json (merged spec)", () => {
     expect(spec.components.schemas.StorePixelConfig).toBeDefined();
   });
 
+  it("documents the migrated products endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const list = spec.paths["/api/products"]?.get;
+    expect(list).toBeDefined();
+    expect(list.summary).toBe("List products");
+    expect(list.tags).toEqual(["Products"]);
+    expect(list.operationId).toBe("listProducts");
+    expect(list.security).toEqual([{ ApiKeyAuth: [] }]);
+
+    const create = spec.paths["/api/products"]?.post;
+    expect(create).toBeDefined();
+    expect(create.operationId).toBe("createProduct");
+
+    const get = spec.paths["/api/products/{id}"]?.get;
+    expect(get).toBeDefined();
+    expect(get.operationId).toBe("getProduct");
+    expect(spec.paths["/api/products/{id}"]?.patch?.operationId).toBe("updateProduct");
+    expect(spec.paths["/api/products/{id}"]?.delete?.operationId).toBe("deleteProduct");
+    expect(spec.paths["/api/products/{id}/status"]?.patch?.operationId).toBe("updateProductStatus");
+
+    expect(spec.paths["/api/products/{id}/images"]?.get?.operationId).toBe("listProductImages");
+    expect(spec.paths["/api/products/{id}/images"]?.post?.operationId).toBe("saveProductImage");
+    expect(spec.paths["/api/products/{id}/images/reorder"]?.patch?.operationId).toBe("reorderProductImages");
+    expect(spec.paths["/api/products/{id}/images/{imageId}"]?.delete?.operationId).toBe("deleteProductImage");
+
+    expect(spec.paths["/api/products/{productId}/variants"]?.get?.operationId).toBe("listVariants");
+    expect(spec.paths["/api/products/{productId}/variants"]?.post?.operationId).toBe("createVariant");
+    expect(spec.paths["/api/products/{productId}/variants/{variantId}"]?.get?.operationId).toBe("getVariant");
+    expect(spec.paths["/api/products/{productId}/variants/{variantId}"]?.patch?.operationId).toBe("updateVariant");
+    expect(spec.paths["/api/products/{productId}/variants/{variantId}"]?.delete?.operationId).toBe("deleteVariant");
+
+    expect(spec.components.schemas.Product).toBeDefined();
+    expect(spec.components.schemas.ProductImage).toBeDefined();
+    expect(spec.components.schemas.ProductVariant).toBeDefined();
+  });
+
+  it("documents the migrated stock endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const overview = spec.paths["/api/stock/overview"]?.get;
+    expect(overview).toBeDefined();
+    expect(overview.summary).toBe("Stock overview");
+    expect(overview.tags).toEqual(["Stock"]);
+    expect(overview.operationId).toBe("getStockOverview");
+    expect(overview.security).toEqual([{ ApiKeyAuth: [] }]);
+
+    const alerts = spec.paths["/api/stock/alerts"]?.get;
+    expect(alerts).toBeDefined();
+    expect(alerts.operationId).toBe("getStockAlerts");
+
+    expect(spec.paths["/api/products/{id}/stock/adjust"]?.post?.operationId).toBe("adjustProductStock");
+    expect(spec.paths["/api/products/{id}/stock/history"]?.get?.operationId).toBe("getProductStockHistory");
+    expect(spec.paths["/api/products/{id}/stock/threshold"]?.patch?.operationId).toBe("updateProductThreshold");
+    expect(spec.paths["/api/products/{productId}/variants/{variantId}/stock/adjust"]?.post?.operationId).toBe("adjustVariantStock");
+    expect(spec.paths["/api/products/{productId}/variants/{variantId}/stock/threshold"]?.patch?.operationId).toBe("updateVariantThreshold");
+
+    expect(spec.components.schemas.StockMovement).toBeDefined();
+    expect(spec.components.schemas.StockAlertItem).toBeDefined();
+    expect(spec.components.schemas.StockOverview).toBeDefined();
+  });
+
+  it("documents the migrated offers endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const list = spec.paths["/api/offers"]?.get;
+    expect(list).toBeDefined();
+    expect(list.summary).toBe("List offers");
+    expect(list.tags).toEqual(["Offers"]);
+    expect(list.operationId).toBe("listOffers");
+    expect(list.security).toEqual([{ ApiKeyAuth: [] }]);
+
+    expect(spec.paths["/api/offers"]?.post?.operationId).toBe("createOffer");
+    expect(spec.paths["/api/offers/{id}"]?.get?.operationId).toBe("getOffer");
+    expect(spec.paths["/api/offers/{id}"]?.patch?.operationId).toBe("updateOffer");
+    expect(spec.paths["/api/offers/{id}"]?.delete?.operationId).toBe("deleteOffer");
+
+    const offer = spec.components.schemas.Offer;
+    expect(offer).toBeDefined();
+    expect(offer.properties.triggerProduct).toBeDefined();
+    expect(offer.properties.rewardVariant).toBeDefined();
+  });
+
   it("still documents un-migrated endpoints from the legacy spec", async () => {
     const app = buildApp();
     const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
     const spec: any = await res.json();
 
     expect(spec.paths["/api/orders"]).toBeDefined();
-    expect(spec.paths["/api/products"]).toBeDefined();
     expect(spec.paths["/store/products"]).toBeDefined();
   });
 
