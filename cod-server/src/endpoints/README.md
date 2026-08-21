@@ -23,12 +23,15 @@ notes live in `cod-server/MIGRATION_STATUS.md`.
 | `stores` | 4 | Store settings + Meta pixel config; admin-only; completed 2026-08-21 |
 | `products` | 15 | Product CRUD + nested images (R2 association, full-set reorder) + variants; `409 DUPLICATE_SKU`, `422 PRODUCT_HAS_ORDERS`; SKU required for simple products; completed 2026-08-21 |
 
+| `driver-payments` | 3 | Payment create + history + pending settlement; `422 ORDER_NOT_FOUND` / `PAYMENT_ALREADY_SETTLED`; completed 2026-08-21 |
+| `images` | 2+1 | Upload + presign generated (`products:manage`, multipart); public `/images/{key}` serve stays plain-Hono + legacy stub (regex param) — exception documented; completed 2026-08-21 |
+
 ## Pending migration (legacy openapi.ts present) ⏳
 
-`driver-payments`, `images`, `orders`,
-`abandoned-orders`, `webhooks`, `store`, `analytics`
+`orders` (13 routes — the big one), `webhooks`,
+`abandoned-orders`, `store`, `analytics`
 
-Next up: **Driver Payments** (3 paths on `/api/driver-payments`) — see `cod-server/NEXT_ENDPOINT.md`.
+Next up: **Orders** (~2,351 legacy lines — plan for multiple sessions) — see `cod-server/NEXT_ENDPOINT.md`.
 
 ## Special
 
@@ -36,4 +39,4 @@ Next up: **Driver Payments** (3 paths on `/api/driver-payments`) — see `cod-se
 
 ## Progress
 
-**16/23 endpoints migrated (~70%)** · ~6,790 legacy lines removed
+**18/23 endpoints migrated (~78%)** · ~7,137 legacy lines removed

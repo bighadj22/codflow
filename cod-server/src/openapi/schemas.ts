@@ -1001,5 +1001,68 @@ export const OfferSchema = z
   })
   .openapi("Offer");
 
+export const DriverPaymentSchema = z
+  .object({
+    id: z.string().openapi({ example: "pay_abc123" }),
+    driverId: z.string().openapi({ description: "UUID of the driver this payment is for" }),
+    type: z.enum(["cod_remittance", "fee_payment", "net_settlement"]).openapi({
+      description:
+        "`cod_remittance`: driver hands COD cash to business. `fee_payment`: business pays driver fees. `net_settlement`: both at once (driver hands COD − fees net amount).",
+      example: "cod_remittance",
+    }),
+    amount: z.number().openapi({
+      description:
+        "Settled amount, computed server-side from frozen order values: COD total (`cod_remittance`), fee total (`fee_payment`), or COD − fees (`net_settlement`).",
+      example: 95000,
+    }),
+    orderCount: z.number().int().openapi({
+      description: "Number of orders included in this payment batch.",
+      example: 3,
+    }),
+    notes: z.string().nullable().openapi({
+      description: "Optional internal note about this payment record.",
+      example: null,
+    }),
+    createdBy: z.string().openapi({
+      description: "User ID of the team member who recorded this payment.",
+    }),
+    createdByName: z.string().openapi({
+      description: "Denormalised display name for audit trail.",
+      example: "Ahmed Benali",
+    }),
+    createdAt: z.string().datetime(),
+  })
+  .openapi("DriverPayment");
+
+export const UploadedImageSchema = z
+  .object({
+    key: z.string().openapi({
+      description: "R2 object key — pass to POST /api/products/{id}/images as `key`",
+      example: "products/abc123def456.jpg",
+    }),
+    url: z.string().url().openapi({
+      description: "Public URL for the uploaded image",
+      example: "https://cdn.example.com/products/abc123def456.jpg",
+    }),
+  })
+  .openapi("UploadedImage");
+
+export const PresignedUploadSchema = z
+  .object({
+    presignedUrl: z.string().url().openapi({
+      description: "PUT this URL directly from the browser to upload the file",
+    }),
+    key: z.string().openapi({
+      description: "R2 object key — pass to POST /api/products/{id}/images as `key`",
+      example: "products/abc123def456.jpg",
+    }),
+    publicUrl: z.string().url().openapi({
+      description: "Permanent public URL served via custom domain",
+    }),
+  })
+  .openapi("PresignedUpload");
+
+
+
 
 

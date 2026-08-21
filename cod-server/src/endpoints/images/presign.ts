@@ -91,7 +91,7 @@ export async function presignUpload(c: Context<AppContext>) {
     const presignedUrl = await getSignedUrl(s3, command, { expiresIn: PRESIGN_EXPIRY_SECONDS });
     const publicUrl = `https://${MEDIA_DOMAIN}/${key}`;
 
-    return c.json({ success: true, data: { presignedUrl, key, publicUrl } });
+    return c.json({ success: true, data: { presignedUrl, key, publicUrl } }, 200);
   } catch (error) {
     throw new SystemError(
       "Failed to generate presigned URL",
