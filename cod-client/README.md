@@ -101,14 +101,14 @@ Each major directory has its own README with detailed documentation:
 
 ### Development
 - **Wrangler** - Cloudflare CLI
-- **ESLint** - Code linting
-- **Prettier** - Code formatting
+- **Vitest** - Unit, integration, property, and e2e testing
 
 ## 🎨 Features
 
 ### Core Features
 - ✅ Analytics dashboard (orders, revenue, conversion)
-- ✅ Order management: status lifecycle, abandoned-order recovery, shipping labels
+- ✅ Order management: status lifecycle, carrier dispatch, shipment tracking, shipping labels
+- 🚧 Abandoned-order recovery — backend collection exists; dashboard UI coming soon
 - ✅ Customer management with groups and tags
 - ✅ Product catalog: variants, stock, offers, reviews
 - ✅ Delivery system (in-house drivers + carrier integrations: Yalidine, ZR Express, NOEST, EcoTrack)
@@ -272,8 +272,7 @@ This app runs as a Cloudflare Worker via OpenNext (it is not a static Pages site
    ```
 2. Build + deploy:
    ```bash
-   npm run build
-   wrangler deploy
+   npm run deploy
    ```
 3. Run migrations against the remote database:
    ```bash

@@ -19,6 +19,12 @@ import deliveryCompaniesRouter from "@/endpoints/delivery-companies/routes";
 import reviewsRouter from "@/endpoints/reviews/routes";
 import customerGroupsRouter from "@/endpoints/customer-groups/routes";
 import customerTagsRouter from "@/endpoints/customer-tags/routes";
+import productGroupsRouter from "@/endpoints/product-groups/routes";
+import customersRouter from "@/endpoints/customers/routes";
+import shippingProfilesRouter from "@/endpoints/shipping-profiles/routes";
+import driversRouter from "@/endpoints/drivers/routes";
+import usersRouter from "@/endpoints/users/routes";
+import storesRouter from "@/endpoints/stores/routes";
 
 function buildApp() {
   const app = new OpenAPIHono<AppContext>();
@@ -29,6 +35,12 @@ function buildApp() {
   app.route("/api/reviews", reviewsRouter);
   app.route("/api/customer-groups", customerGroupsRouter);
   app.route("/api/customer-tags", customerTagsRouter);
+  app.route("/api/product-groups", productGroupsRouter);
+  app.route("/api/customers", customersRouter);
+  app.route("/api/shipping-profiles", shippingProfilesRouter);
+  app.route("/api/drivers", driversRouter);
+  app.route("/api/users", usersRouter);
+  app.route("/api/stores", storesRouter);
   return app;
 }
 
@@ -255,13 +267,317 @@ describe("GET /api/openapi.json (merged spec)", () => {
     expect(spec.components.schemas.CustomerTagCustomer).toBeDefined();
   });
 
+  it("documents the migrated product-groups endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const list = spec.paths["/api/product-groups"]?.get;
+    expect(list).toBeDefined();
+    expect(list.summary).toBe("List product groups");
+    expect(list.tags).toEqual(["Product Groups"]);
+    expect(list.operationId).toBe("listProductGroups");
+    expect(list.security).toEqual([{ ApiKeyAuth: [] }]);
+
+    const create = spec.paths["/api/product-groups"]?.post;
+    expect(create).toBeDefined();
+    expect(create.summary).toBe("Create product group");
+    expect(create.operationId).toBe("createProductGroup");
+
+    const get = spec.paths["/api/product-groups/{id}"]?.get;
+    expect(get).toBeDefined();
+    expect(get.summary).toBe("Get product group");
+    expect(get.operationId).toBe("getProductGroup");
+
+    const update = spec.paths["/api/product-groups/{id}"]?.patch;
+    expect(update).toBeDefined();
+    expect(update.summary).toBe("Update product group");
+    expect(update.operationId).toBe("updateProductGroup");
+
+    const del = spec.paths["/api/product-groups/{id}"]?.delete;
+    expect(del).toBeDefined();
+    expect(del.summary).toBe("Delete product group");
+    expect(del.operationId).toBe("deleteProductGroup");
+
+    expect(spec.components.schemas.ProductCategory).toBeDefined();
+    expect(spec.components.schemas.ProductCategory.properties.productsCount).toBeDefined();
+  });
+
+  it("documents the migrated customers endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const list = spec.paths["/api/customers"]?.get;
+    expect(list).toBeDefined();
+    expect(list.summary).toBe("List customers");
+    expect(list.tags).toEqual(["Customers"]);
+    expect(list.operationId).toBe("listCustomers");
+    expect(list.security).toEqual([{ ApiKeyAuth: [] }]);
+    const paramNames = list.parameters.map((p: any) => p.name);
+    for (const name of ["wilayaId", "search", "groupId", "tagId", "limit", "offset"]) {
+      expect(paramNames).toContain(name);
+    }
+
+    const create = spec.paths["/api/customers"]?.post;
+    expect(create).toBeDefined();
+    expect(create.summary).toBe("Create customer");
+    expect(create.operationId).toBe("createCustomer");
+
+    const get = spec.paths["/api/customers/{id}"]?.get;
+    expect(get).toBeDefined();
+    expect(get.summary).toBe("Get customer");
+    expect(get.operationId).toBe("getCustomer");
+
+    const update = spec.paths["/api/customers/{id}"]?.patch;
+    expect(update).toBeDefined();
+    expect(update.summary).toBe("Update customer");
+    expect(update.operationId).toBe("updateCustomer");
+
+    const del = spec.paths["/api/customers/{id}"]?.delete;
+    expect(del).toBeDefined();
+    expect(del.summary).toBe("Delete customer");
+    expect(del.operationId).toBe("deleteCustomer");
+
+    const orders = spec.paths["/api/customers/{id}/orders"]?.get;
+    expect(orders).toBeDefined();
+    expect(orders.operationId).toBe("getCustomerOrders");
+
+    const groups = spec.paths["/api/customers/{id}/groups"]?.get;
+    expect(groups).toBeDefined();
+    expect(groups.operationId).toBe("getCustomerGroups");
+
+    const tags = spec.paths["/api/customers/{id}/tags"]?.get;
+    expect(tags).toBeDefined();
+    expect(tags.operationId).toBe("getCustomerTags");
+
+    expect(spec.components.schemas.Customer).toBeDefined();
+    expect(spec.components.schemas.Customer.properties.recentOrders).toBeDefined();
+    expect(spec.components.schemas.CustomerOrderSummary).toBeDefined();
+    expect(spec.components.schemas.CustomerGroupMembership).toBeDefined();
+    expect(spec.components.schemas.CustomerTagMembership).toBeDefined();
+  });
+
+  it("documents the migrated shipping-profiles endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const list = spec.paths["/api/shipping-profiles"]?.get;
+    expect(list).toBeDefined();
+    expect(list.summary).toBe("List shipping profiles");
+    expect(list.tags).toEqual(["Shipping Profiles"]);
+    expect(list.operationId).toBe("listShippingProfiles");
+    expect(list.security).toEqual([{ ApiKeyAuth: [] }]);
+
+    const create = spec.paths["/api/shipping-profiles"]?.post;
+    expect(create).toBeDefined();
+    expect(create.summary).toBe("Create shipping profile");
+    expect(create.operationId).toBe("createShippingProfile");
+
+    const defaultRules = spec.paths["/api/shipping-profiles/default/rules"]?.get;
+    expect(defaultRules).toBeDefined();
+    expect(defaultRules.operationId).toBe("getDefaultRules");
+
+    const get = spec.paths["/api/shipping-profiles/{id}"]?.get;
+    expect(get).toBeDefined();
+    expect(get.summary).toBe("Get shipping profile");
+    expect(get.operationId).toBe("getShippingProfile");
+
+    const update = spec.paths["/api/shipping-profiles/{id}"]?.patch;
+    expect(update).toBeDefined();
+    expect(update.summary).toBe("Update shipping profile");
+    expect(update.operationId).toBe("updateShippingProfile");
+
+    const del = spec.paths["/api/shipping-profiles/{id}"]?.delete;
+    expect(del).toBeDefined();
+    expect(del.summary).toBe("Delete shipping profile");
+    expect(del.operationId).toBe("deleteShippingProfile");
+
+    const setRules = spec.paths["/api/shipping-profiles/{id}/rules"]?.put;
+    expect(setRules).toBeDefined();
+    expect(setRules.summary).toBe("Replace wilaya rules");
+    expect(setRules.operationId).toBe("setProfileRules");
+
+    const communes = spec.paths["/api/shipping-profiles/{id}/rules/{wilayaId}/communes"]?.get;
+    expect(communes).toBeDefined();
+    expect(communes.summary).toBe("List commune overrides");
+    expect(communes.operationId).toBe("listCommuneOverrides");
+
+    const setOverride =
+      spec.paths["/api/shipping-profiles/{id}/rules/{wilayaId}/communes/{communeId}"]?.put;
+    expect(setOverride).toBeDefined();
+    expect(setOverride.summary).toBe("Set or update commune override");
+    expect(setOverride.operationId).toBe("setCommuneOverride");
+
+    const delOverride =
+      spec.paths["/api/shipping-profiles/{id}/rules/{wilayaId}/communes/{communeId}"]?.delete;
+    expect(delOverride).toBeDefined();
+    expect(delOverride.summary).toBe("Remove commune override");
+    expect(delOverride.operationId).toBe("deleteCommuneOverride");
+
+    expect(spec.components.schemas.ShippingProfile).toBeDefined();
+    expect(spec.components.schemas.ShippingProfile.properties.ruleCount).toBeDefined();
+    expect(spec.components.schemas.ShippingProfileWithRules).toBeDefined();
+    expect(spec.components.schemas.ShippingRule).toBeDefined();
+    expect(spec.components.schemas.CommuneOverride).toBeDefined();
+  });
+
+  it("documents the migrated drivers endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const list = spec.paths["/api/drivers"]?.get;
+    expect(list).toBeDefined();
+    expect(list.summary).toBe("List drivers");
+    expect(list.tags).toEqual(["Drivers"]);
+    expect(list.operationId).toBe("listDrivers");
+    expect(list.security).toEqual([{ ApiKeyAuth: [] }]);
+    const paramNames = list.parameters.map((p: any) => p.name);
+    for (const name of ["wilayaId", "status", "vehicleType", "search", "limit", "offset"]) {
+      expect(paramNames).toContain(name);
+    }
+
+    const create = spec.paths["/api/drivers"]?.post;
+    expect(create).toBeDefined();
+    expect(create.summary).toBe("Create driver");
+    expect(create.operationId).toBe("createDriver");
+
+    const get = spec.paths["/api/drivers/{id}"]?.get;
+    expect(get).toBeDefined();
+    expect(get.summary).toBe("Get driver");
+    expect(get.operationId).toBe("getDriver");
+
+    const update = spec.paths["/api/drivers/{id}"]?.patch;
+    expect(update).toBeDefined();
+    expect(update.summary).toBe("Update driver");
+    expect(update.operationId).toBe("updateDriver");
+
+    const del = spec.paths["/api/drivers/{id}"]?.delete;
+    expect(del).toBeDefined();
+    expect(del.summary).toBe("Delete driver");
+    expect(del.operationId).toBe("deleteDriver");
+
+    const status = spec.paths["/api/drivers/{id}/status"]?.patch;
+    expect(status).toBeDefined();
+    expect(status.summary).toBe("Update driver status");
+    expect(status.operationId).toBe("updateDriverStatus");
+
+    const comps = spec.paths["/api/drivers/{id}/compensations"]?.get;
+    expect(comps).toBeDefined();
+    expect(comps.summary).toBe("List driver compensations");
+    expect(comps.operationId).toBe("listDriverCompensations");
+
+    const setComp = spec.paths["/api/drivers/{id}/compensations/{wilayaId}"]?.put;
+    expect(setComp).toBeDefined();
+    expect(setComp.summary).toBe("Upsert driver compensation for one wilaya");
+    expect(setComp.operationId).toBe("setDriverCompensation");
+
+    const delComp = spec.paths["/api/drivers/{id}/compensations/{wilayaId}"]?.delete;
+    expect(delComp).toBeDefined();
+    expect(delComp.summary).toBe("Remove driver compensation for one wilaya");
+    expect(delComp.operationId).toBe("deleteDriverCompensation");
+
+    expect(spec.components.schemas.Driver).toBeDefined();
+    expect(spec.components.schemas.Driver.properties.compensationWilayaCount).toBeDefined();
+    expect(spec.components.schemas.DriverCompensationRow).toBeDefined();
+  });
+
+  it("documents the migrated users endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const list = spec.paths["/api/users"]?.get;
+    expect(list).toBeDefined();
+    expect(list.summary).toBe("List users");
+    expect(list.tags).toEqual(["Users"]);
+    expect(list.operationId).toBe("listUsers");
+    expect(list.security).toEqual([{ ApiKeyAuth: [] }]);
+    const paramNames = list.parameters.map((p: any) => p.name);
+    for (const name of ["role", "status", "search", "limit", "offset"]) {
+      expect(paramNames).toContain(name);
+    }
+
+    const create = spec.paths["/api/users"]?.post;
+    expect(create).toBeDefined();
+    expect(create.summary).toBe("Create user");
+    expect(create.operationId).toBe("createUser");
+
+    const get = spec.paths["/api/users/{id}"]?.get;
+    expect(get).toBeDefined();
+    expect(get.summary).toBe("Get user");
+    expect(get.operationId).toBe("getUser");
+
+    const update = spec.paths["/api/users/{id}"]?.patch;
+    expect(update).toBeDefined();
+    expect(update.summary).toBe("Update user");
+    expect(update.operationId).toBe("updateUser");
+
+    const role = spec.paths["/api/users/{id}/role"]?.patch;
+    expect(role).toBeDefined();
+    expect(role.summary).toBe("Update user role");
+    expect(role.operationId).toBe("updateUserRole");
+
+    const grantScope = spec.paths["/api/users/{id}/scopes"]?.post;
+    expect(grantScope).toBeDefined();
+    expect(grantScope.summary).toBe("Grant scope to user");
+    expect(grantScope.operationId).toBe("grantScope");
+
+    const revokeScope = spec.paths["/api/users/{id}/scopes/{scope}"]?.delete;
+    expect(revokeScope).toBeDefined();
+    expect(revokeScope.summary).toBe("Revoke scope from user");
+    expect(revokeScope.operationId).toBe("revokeScope");
+
+    const rotate = spec.paths["/api/users/{id}/api-key/rotate"]?.post;
+    expect(rotate).toBeDefined();
+    expect(rotate.summary).toBe("Rotate API key");
+    expect(rotate.operationId).toBe("rotateApiKey");
+
+    expect(spec.components.schemas.User).toBeDefined();
+    expect(spec.components.schemas.User.properties.scopes).toBeDefined();
+  });
+
+  it("documents the migrated stores endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const getMe = spec.paths["/api/stores/me"]?.get;
+    expect(getMe).toBeDefined();
+    expect(getMe.summary).toBe("Get store configuration");
+    expect(getMe.tags).toEqual(["Store Settings"]);
+    expect(getMe.operationId).toBe("getMyStore");
+    expect(getMe.security).toEqual([{ ApiKeyAuth: [] }]);
+
+    const updateMe = spec.paths["/api/stores/me"]?.patch;
+    expect(updateMe).toBeDefined();
+    expect(updateMe.summary).toBe("Update store configuration");
+    expect(updateMe.operationId).toBe("updateMyStore");
+
+    const getPixel = spec.paths["/api/stores/pixel-config"]?.get;
+    expect(getPixel).toBeDefined();
+    expect(getPixel.summary).toBe("Get pixel configuration");
+    expect(getPixel.operationId).toBe("getPixelConfig");
+
+    const savePixel = spec.paths["/api/stores/pixel-config"]?.post;
+    expect(savePixel).toBeDefined();
+    expect(savePixel.summary).toBe("Save pixel configuration");
+    expect(savePixel.operationId).toBe("savePixelConfig");
+
+    expect(spec.components.schemas.Store).toBeDefined();
+    expect(spec.components.schemas.Store.properties.storeApiKey).toBeDefined();
+    expect(spec.components.schemas.StorePixelConfig).toBeDefined();
+  });
+
   it("still documents un-migrated endpoints from the legacy spec", async () => {
     const app = buildApp();
     const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
     const spec: any = await res.json();
 
     expect(spec.paths["/api/orders"]).toBeDefined();
-    expect(spec.paths["/api/customers"]).toBeDefined();
+    expect(spec.paths["/api/products"]).toBeDefined();
     expect(spec.paths["/store/products"]).toBeDefined();
   });
 

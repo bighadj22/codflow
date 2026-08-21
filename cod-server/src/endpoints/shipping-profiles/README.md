@@ -6,13 +6,26 @@ A robust configuration engine for managing multi-tier delivery pricing (Home & S
 
 ```
 shipping-profiles/
-├── routes.ts       # Route definitions for profile & bulk rule management
-├── handlers.ts     # Handlers for CRUD and bulk rule updates
-├── queries.ts      # Database operations (Drizzle)
-├── validation.ts   # Zod schemas for profiles and rules
-├── openapi.ts      # OpenAPI documentation paths
-└── README.md       # This file
+├── routes.ts                # OpenAPIHono route definitions (validation + spec) with RBAC
+├── handlers.ts              # Handlers for CRUD and bulk rule updates
+├── queries.ts               # Re-exports shared queries; updateProfile/setProfileRules live here
+├── validation.ts            # Zod schemas for profiles and rules (handler-level fallback)
+├── ai-tools.ts              # AI SDK tools for shipping profile management
+├── shipping-profiles.test.ts # Unit tests for validation and query logic
+├── routes.test.ts           # Route-level integration tests (OpenAPIHono router)
+├── handlers.test.ts         # Integration/error-scenario tests for handlers
+└── README.md                # This file
 ```
+
+Routes are defined with `@hono/zod-openapi` (`createRoute`), making `routes.ts`
+the single source of truth for request validation and the OpenAPI spec.
+Handlers read pre-validated data via `(c.req as any).valid?.(...)` and fall
+back to the Zod schemas in `validation.ts` when mounted standalone.
+
+`queries.ts` re-exports pure reads/writes from
+`cod-shared/queries/shipping-profiles`; `updateProfile` and
+`setProfileRules` stay in cod-server because they raise
+`BusinessLogicError` / `ValidationError`.
 
 ## Core Concepts
 

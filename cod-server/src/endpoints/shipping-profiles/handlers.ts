@@ -17,7 +17,7 @@ import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 export async function listProfiles(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const data = await queries.getAllProfiles(db);
-  return c.json({ success: true, data, count: data.length });
+  return c.json({ success: true, data, count: data.length }, 200);
 }
 
 /**
@@ -27,7 +27,7 @@ export async function listProfiles(c: Context<AppContext>) {
 export async function getDefaultRules(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const data = await queries.getDefaultProfileRules(db);
-  return c.json({ success: true, data });
+  return c.json({ success: true, data }, 200);
 }
 
 /**
@@ -40,7 +40,7 @@ export async function getProfile(c: Context<AppContext>) {
   if (!profile) {
     throw new NotFoundError("shipping_profile", c.req.param("id")!);
   }
-  return c.json({ success: true, data: profile });
+  return c.json({ success: true, data: profile }, 200);
 }
 
 /**
@@ -49,7 +49,8 @@ export async function getProfile(c: Context<AppContext>) {
  */
 export async function createProfile(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const body = validation.createProfileSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const body = jsonBody ?? validation.createProfileSchema.parse(await c.req.json());
   const profile = await queries.createProfile(db, body);
   return c.json({ success: true, data: profile }, 201);
 }
@@ -61,12 +62,13 @@ export async function createProfile(c: Context<AppContext>) {
 export async function updateProfile(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const id = c.req.param("id")!;
-  const body = validation.updateProfileSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const body = jsonBody ?? validation.updateProfileSchema.parse(await c.req.json());
   const profile = await queries.updateProfile(db, id, body);
   if (!profile) {
     throw new NotFoundError("shipping_profile", id);
   }
-  return c.json({ success: true, data: profile });
+  return c.json({ success: true, data: profile }, 200);
 }
 
 /**
@@ -106,7 +108,7 @@ export async function deleteProfile(c: Context<AppContext>) {
   }
   
   await queries.deleteProfile(db, id);
-  return c.json({ success: true });
+  return c.json({ success: true }, 200);
 }
 
 /**
@@ -116,12 +118,13 @@ export async function deleteProfile(c: Context<AppContext>) {
 export async function setProfileRules(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const id = c.req.param("id")!;
-  const body = validation.bulkRulesSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const body = jsonBody ?? validation.bulkRulesSchema.parse(await c.req.json());
   const profile = await queries.setProfileRules(db, id, body);
   if (!profile) {
     throw new NotFoundError("shipping_profile", id);
   }
-  return c.json({ success: true, data: profile });
+  return c.json({ success: true, data: profile }, 200);
 }
 
 /**
@@ -146,7 +149,7 @@ export async function listCommuneOverrides(c: Context<AppContext>) {
     stopDeskPrice: rule.stopDeskPrice ?? 0,
   });
 
-  return c.json({ success: true, data: communes });
+  return c.json({ success: true, data: communes }, 200);
 }
 
 /**
@@ -166,10 +169,12 @@ export async function setCommuneOverride(c: Context<AppContext>) {
     throw new NotFoundError("shipping_rule", `profile=${profileId} wilaya=${wilayaId}`);
   }
 
-  const body = validation.communeOverrideSchema.parse(await c.req.json());
+  const body = validation.communeOverrideSchema.parse(
+    (c.req as any).valid?.("json") ?? await c.req.json()
+  );
   await queries.setCommuneOverride(db, rule.id, communeId, body);
 
-  return c.json({ success: true });
+  return c.json({ success: true }, 200);
 }
 
 /**
@@ -192,5 +197,5 @@ export async function deleteCommuneOverride(c: Context<AppContext>) {
     throw new NotFoundError("commune_override", communeId);
   }
 
-  return c.json({ success: true });
+  return c.json({ success: true }, 200);
 }

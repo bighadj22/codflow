@@ -10,7 +10,7 @@ import { getDb } from "@/db";
 import * as queries from "./queries";
 import * as validation from "./validation";
 import { logActivity, ACTIONS } from "@/lib/activity";
-import { NotFoundError, ConflictError } from "@/lib/errors/classes";
+import { NotFoundError, ConflictError, SystemError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 import { scryptAsync } from "@noble/hashes/scrypt.js";
 import { bytesToHex, randomBytes } from "@noble/hashes/utils.js";
@@ -21,7 +21,8 @@ import { bytesToHex, randomBytes } from "@noble/hashes/utils.js";
  */
 export async function listUsers(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const filters = validation.userFiltersSchema.parse({
+  const query: any = (c.req as any).valid?.("query");
+  const filters = query ?? validation.userFiltersSchema.parse({
     role: c.req.query("role"),
     status: c.req.query("status"),
     search: c.req.query("search"),
@@ -29,7 +30,7 @@ export async function listUsers(c: Context<AppContext>) {
     offset: c.req.query("offset"),
   });
   const users = await queries.getAllUsers(db, filters);
-  return c.json({ success: true, data: users, count: users.length });
+  return c.json({ success: true, data: users, count: users.length }, 200);
 }
 
 /**
@@ -45,7 +46,7 @@ export async function getUser(c: Context<AppContext>) {
     throw new NotFoundError("User", userId);
   }
   
-  return c.json({ success: true, data: user });
+  return c.json({ success: true, data: user }, 200);
 }
 
 // Same scrypt params as @better-auth/utils/password — must stay in sync.
@@ -74,7 +75,8 @@ async function hashPassword(password: string): Promise<string> {
  */
 export async function createUser(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const validated = validation.createUserSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const validated = jsonBody ?? validation.createUserSchema.parse(await c.req.json());
   const actor = c.get("user");
 
   // 1. Generate a temporary password for the new staff member
@@ -107,6 +109,10 @@ export async function createUser(c: Context<AppContext>) {
     actor.id,
   );
 
+  if (!user) {
+    throw new SystemError("Failed to create user");
+  }
+
   await logActivity(db, actor, ACTIONS.USER_CREATED, {
     type: "user", id: userId, label: validated.name,
   }, { role: validated.role });
@@ -127,7 +133,8 @@ export async function createUser(c: Context<AppContext>) {
 export async function updateUser(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const id = c.req.param("id")!;
-  const validated = validation.updateUserSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const validated = jsonBody ?? validation.updateUserSchema.parse(await c.req.json());
   const user = await queries.updateUser(db, id, validated);
   
   if (!user) {
@@ -138,7 +145,7 @@ export async function updateUser(c: Context<AppContext>) {
   await logActivity(db, actor, ACTIONS.USER_UPDATED, {
     type: "user", id, label: user.name ?? undefined,
   });
-  return c.json({ success: true, data: user, message: "User updated successfully" });
+  return c.json({ success: true, data: user, message: "User updated successfully" }, 200);
 }
 
 /**
@@ -148,7 +155,9 @@ export async function updateUser(c: Context<AppContext>) {
 export async function updateUserRole(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const id = c.req.param("id")!;
-  const { role } = validation.updateUserRoleSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const body = jsonBody ?? validation.updateUserRoleSchema.parse(await c.req.json());
+  const { role } = body;
   const user = await queries.updateUser(db, id, { role });
   
   if (!user) {
@@ -159,7 +168,7 @@ export async function updateUserRole(c: Context<AppContext>) {
   await logActivity(db, actor, ACTIONS.USER_ROLE_CHANGED, {
     type: "user", id, label: user.name ?? undefined,
   }, { role });
-  return c.json({ success: true, data: user, message: "User role updated successfully" });
+  return c.json({ success: true, data: user, message: "User role updated successfully" }, 200);
 }
 
 /**
@@ -169,7 +178,8 @@ export async function updateUserRole(c: Context<AppContext>) {
 export async function grantScope(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const id = c.req.param("id")!;
-  const validated = validation.grantScopeSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const validated = jsonBody ?? validation.grantScopeSchema.parse(await c.req.json());
   const currentUser = c.get("user");
 
   const existing = await queries.getUserById(db, id);
@@ -179,12 +189,15 @@ export async function grantScope(c: Context<AppContext>) {
 
   try {
     const user = await queries.grantScope(db, id, validated.scope, currentUser?.id || "system");
+    if (!user) {
+      throw new SystemError("Failed to grant scope");
+    }
     if (currentUser) {
       await logActivity(db, currentUser, ACTIONS.USER_SCOPE_GRANTED, {
         type: "user", id,
       }, { scope: validated.scope });
     }
-    return c.json({ success: true, data: user, message: "Scope granted successfully" });
+    return c.json({ success: true, data: user, message: "Scope granted successfully" }, 200);
   } catch (err) {
     if (err instanceof Error && err.message === "Scope already granted to user") {
       throw new ConflictError(
@@ -217,9 +230,12 @@ export async function revokeScope(c: Context<AppContext>) {
   }
 
   const user = await queries.revokeScope(db, id, scope);
+  if (!user) {
+    throw new SystemError("Failed to revoke scope");
+  }
   const actor = c.get("user");
   await logActivity(db, actor, ACTIONS.USER_SCOPE_REVOKED, { type: "user", id }, { scope });
-  return c.json({ success: true, data: user, message: "Scope revoked successfully" });
+  return c.json({ success: true, data: user, message: "Scope revoked successfully" }, 200);
 }
 
 /**
@@ -237,6 +253,6 @@ export async function rotateApiKey(c: Context<AppContext>) {
   }
 
   const result = await queries.rotateApiKey(db, id);
-  return c.json({ success: true, data: result, message: "API key rotated successfully" });
+  return c.json({ success: true, data: result, message: "API key rotated successfully" }, 200);
 }
 

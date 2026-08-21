@@ -10,7 +10,7 @@ import { getDb } from "@/db";
 import * as queries from "./queries";
 import * as validation from "./validation";
 import { logActivity, ACTIONS } from "@/lib/activity";
-import { NotFoundError, ValidationError } from "@/lib/errors/classes";
+import { NotFoundError, ValidationError, SystemError, ConflictError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 
 /**
@@ -19,7 +19,8 @@ import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
  */
 export async function listDrivers(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const filters = validation.driverFiltersSchema.parse({
+  const query: any = (c.req as any).valid?.("query");
+  const filters = query ?? validation.driverFiltersSchema.parse({
     wilayaId: c.req.query("wilayaId"),
     status: c.req.query("status"),
     vehicleType: c.req.query("vehicleType"),
@@ -28,7 +29,7 @@ export async function listDrivers(c: Context<AppContext>) {
     offset: c.req.query("offset"),
   });
   const data = await queries.getAllDrivers(db, filters);
-  return c.json({ success: true, data, count: data.length });
+  return c.json({ success: true, data, count: data.length }, 200);
 }
 
 /**
@@ -49,7 +50,7 @@ export async function getDriver(c: Context<AppContext>) {
     throw new NotFoundError("Driver", driverId);
   }
 
-  return c.json({ success: true, data: driver });
+  return c.json({ success: true, data: driver }, 200);
 }
 
 /**
@@ -58,11 +59,15 @@ export async function getDriver(c: Context<AppContext>) {
  */
 export async function createDriver(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const body = validation.createDriverSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const body = jsonBody ?? validation.createDriverSchema.parse(await c.req.json());
   
   try {
     const driver = await queries.createDriver(db, body);
-    console.info(`[drivers] created driver=${driver?.id} name="${body.firstName} ${body.lastName}"`);
+    if (!driver) {
+      throw new SystemError("Failed to create driver");
+    }
+    console.info(`[drivers] created driver=${driver.id} name="${body.firstName} ${body.lastName}"`);
     const createActor = c.get("user");
     await logActivity(db, createActor, ACTIONS.DRIVER_CREATED, {
       type: "driver", id: driver!.id, label: `${body.firstName} ${body.lastName}`,
@@ -70,12 +75,7 @@ export async function createDriver(c: Context<AppContext>) {
     return c.json({ success: true, data: driver, message: "Driver created successfully" }, 201);
   } catch (error) {
     if (error instanceof Error && error.message.includes("already exists")) {
-      return c.json({
-        error: error.message,
-        code: "DUPLICATE_PHONE",
-        category: "BUSINESS_LOGIC",
-        context: { phone: body.phone }
-      }, 409);
+      throw new ConflictError(error.message, ERROR_CODES.DUPLICATE_PHONE, { phone: body.phone });
     }
     throw error;
   }
@@ -88,7 +88,8 @@ export async function createDriver(c: Context<AppContext>) {
 export async function updateDriver(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const id = c.req.param("id")!;
-  const body = validation.updateDriverSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const body = jsonBody ?? validation.updateDriverSchema.parse(await c.req.json());
   
   try {
     const driver = await queries.updateDriver(db, id, body);
@@ -102,15 +103,10 @@ export async function updateDriver(c: Context<AppContext>) {
     await logActivity(db, updateActor, ACTIONS.DRIVER_UPDATED, {
       type: "driver", id, label: `${driver.firstName} ${driver.lastName}`,
     });
-    return c.json({ success: true, data: driver, message: "Driver updated successfully" });
+    return c.json({ success: true, data: driver, message: "Driver updated successfully" }, 200);
   } catch (error) {
     if (error instanceof Error && error.message.includes("already exists")) {
-      return c.json({
-        error: error.message,
-        code: "DUPLICATE_PHONE",
-        category: "BUSINESS_LOGIC",
-        context: { phone: body.phone }
-      }, 409);
+      throw new ConflictError(error.message, ERROR_CODES.DUPLICATE_PHONE, { phone: body.phone });
     }
     throw error;
   }
@@ -123,7 +119,8 @@ export async function updateDriver(c: Context<AppContext>) {
 export async function updateDriverStatus(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const id = c.req.param("id")!;
-  const body = validation.updateDriverStatusSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const body = jsonBody ?? validation.updateDriverStatusSchema.parse(await c.req.json());
   const driver = await queries.updateDriverStatus(db, id, body.status);
 
   if (!driver) {
@@ -134,7 +131,7 @@ export async function updateDriverStatus(c: Context<AppContext>) {
   await logActivity(db, statusActor, ACTIONS.DRIVER_STATUS_CHANGED, {
     type: "driver", id, label: `${driver.firstName} ${driver.lastName}`,
   }, { status: body.status });
-  return c.json({ success: true, data: driver, message: "Driver status updated" });
+  return c.json({ success: true, data: driver, message: "Driver status updated" }, 200);
 }
 
 /**
@@ -156,7 +153,7 @@ export async function deleteDriver(c: Context<AppContext>) {
   const deleteActor = c.get("user");
   await logActivity(db, deleteActor, ACTIONS.DRIVER_DELETED, { type: "driver", id });
   console.info(`[drivers] deleted driver=${id}`);
-  return c.json({ success: true, message: "Driver deleted successfully" });
+  return c.json({ success: true, message: "Driver deleted successfully" }, 200);
 }
 
 // ─── Compensations ────────────────────────────────────────────────────────────
@@ -187,7 +184,7 @@ export async function listCompensations(c: Context<AppContext>) {
   }
 
   const data = await queries.getCompensationsForDriver(db, driverId);
-  return c.json({ success: true, data });
+  return c.json({ success: true, data }, 200);
 }
 
 /**
@@ -204,8 +201,12 @@ export async function setCompensation(c: Context<AppContext>) {
     throw new NotFoundError("Driver", driverId);
   }
 
-  const body = validation.setCompensationSchema.parse(await c.req.json());
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const body = jsonBody ?? validation.setCompensationSchema.parse(await c.req.json());
   const row = await queries.setCompensation(db, driverId, wilayaId, body.feePerDelivery);
+  if (!row) {
+    throw new SystemError("Failed to save compensation");
+  }
 
   const actor = c.get("user");
   await logActivity(
@@ -216,7 +217,7 @@ export async function setCompensation(c: Context<AppContext>) {
     { wilayaId, feePerDelivery: body.feePerDelivery }
   );
 
-  return c.json({ success: true, data: row, message: "Compensation saved" });
+  return c.json({ success: true, data: row, message: "Compensation saved" }, 200);
 }
 
 /**
@@ -248,5 +249,5 @@ export async function deleteCompensation(c: Context<AppContext>) {
     { wilayaId, removed: true }
   );
 
-  return c.json({ success: true, message: "Compensation removed" });
+  return c.json({ success: true, message: "Compensation removed" }, 200);
 }
