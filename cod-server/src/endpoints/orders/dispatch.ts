@@ -62,8 +62,10 @@ export async function dispatchToCompany(c: Context<AppContext>) {
     );
   }
 
-  // Optional body overrides — parse early so companyId can be used
-  const body = await c.req.json().catch(() => ({})) as Record<string, string>;
+  // Optional body overrides — parse early so companyId can be used.
+  // Route-level validation supplies parsed values when a body was sent.
+  const bodyData: any = (c.req as any).valid?.("json");
+  const body = bodyData ?? (await c.req.json().catch(() => ({})) as Record<string, string>);
   const bodyCompanyId = body.companyId?.trim() || null;
 
   // Use companyId from body if provided, otherwise fall back to order's existing value
@@ -360,7 +362,7 @@ export async function validateShipmentManually(c: Context<AppContext>) {
         type: "order", id: orderId, label: order.orderNumber,
       }, { companyName: company.name, trackingNumber: order.trackingNumber, action: "validated" });
 
-      return c.json({ success: true, message: "Shipment validated — order is now out for delivery" });
+      return c.json({ success: true, message: "Shipment validated — order is now out for delivery" }, 200);
     }
 
     return c.json({ success: false, message: "Validation returned false" }, 400);
@@ -403,8 +405,8 @@ export async function validateShipmentManually(c: Context<AppContext>) {
  */
 export async function bulkDispatch(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const body = await c.req.json();
-  const validated = validation.bulkDispatchSchema.parse(body);
+  const bodyData: any = (c.req as any).valid?.("json");
+  const validated = bodyData ?? validation.bulkDispatchSchema.parse(await c.req.json());
 
   // Load the company (with credentials)
   const company = await getDeliveryCompanyRaw(db, validated.companyId);

@@ -30,6 +30,8 @@ import { stockRouter, productStockRouter } from "@/endpoints/stock/routes";
 import offersRouter from "@/endpoints/offers/routes";
 import driverPaymentsRouter from "@/endpoints/driver-payments/routes";
 import { uploadRouter } from "@/endpoints/images/routes";
+import ordersRouter from "@/endpoints/orders/routes";
+import webhooksRouter from "@/endpoints/webhooks/routes";
 
 function buildApp() {
   const app = new OpenAPIHono<AppContext>();
@@ -52,6 +54,8 @@ function buildApp() {
   app.route("/api/offers", offersRouter);
   app.route("/api/driver-payments", driverPaymentsRouter);
   app.route("/api/images", uploadRouter);
+  app.route("/api/orders", ordersRouter);
+  app.route("/webhooks", webhooksRouter);
   return app;
 }
 
@@ -716,6 +720,68 @@ describe("GET /api/openapi.json (merged spec)", () => {
 
     expect(spec.components.schemas.UploadedImage).toBeDefined();
     expect(spec.components.schemas.PresignedUpload).toBeDefined();
+  });
+
+  it("documents the migrated orders endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const list = spec.paths["/api/orders"]?.get;
+    expect(list).toBeDefined();
+    expect(list.summary).toBe("List orders");
+    expect(list.tags).toEqual(["Orders"]);
+    expect(list.operationId).toBe("listOrders");
+    expect(list.security).toEqual([{ ApiKeyAuth: [] }]);
+
+    expect(spec.paths["/api/orders"]?.post?.operationId).toBe("createOrder");
+    expect(spec.paths["/api/orders/bulk-dispatch"]?.post?.operationId).toBe("bulkDispatch");
+    expect(spec.paths["/api/orders/{id}"]?.get?.operationId).toBe("getOrder");
+    expect(spec.paths["/api/orders/{id}"]?.delete?.operationId).toBe("deleteOrder");
+    expect(spec.paths["/api/orders/{id}/status"]?.patch?.operationId).toBe("updateOrderStatus");
+    expect(spec.paths["/api/orders/{id}/assign-driver"]?.patch?.operationId).toBe("assignDriver");
+    expect(spec.paths["/api/orders/{id}/unassign"]?.patch?.operationId).toBe("unassignDriver");
+    expect(spec.paths["/api/orders/{id}/products/{productLineId}/return"]?.patch?.operationId).toBe("returnOrderProduct");
+    expect(spec.paths["/api/orders/{id}/dispatch"]?.post?.operationId).toBe("dispatchToCompany");
+    expect(spec.paths["/api/orders/{id}/validate-shipment"]?.post?.operationId).toBe("validateShipmentManually");
+    expect(spec.paths["/api/orders/{id}/update-shipment"]?.patch?.operationId).toBe("updateShipmentInfo");
+    expect(spec.paths["/api/orders/{id}/cancel-shipment"]?.post?.operationId).toBe("cancelShipment");
+    expect(spec.paths["/api/orders/{id}/add-remark"]?.post?.operationId).toBe("addShipmentRemark");
+    expect(spec.paths["/api/orders/{id}/remarks"]?.get?.operationId).toBe("getShipmentRemarks");
+    expect(spec.paths["/api/orders/{id}/tracking-events"]?.get?.operationId).toBe("getShipmentTracking");
+    expect(spec.paths["/api/orders/{id}/label"]?.get?.operationId).toBe("proxyShipmentLabel");
+
+    expect(spec.components.schemas.Order).toBeDefined();
+    expect(spec.components.schemas.OrderProduct).toBeDefined();
+    expect(spec.components.schemas.StatusHistoryItem).toBeDefined();
+
+    // The generated Order component must be richer than a bare object —
+    // it now shadows the legacy one in the merged spec.
+    expect(Object.keys(spec.components.schemas.Order.properties).length).toBeGreaterThan(20);
+  });
+
+  it("documents the migrated webhook receiver endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const challenge = spec.paths["/webhooks/yalidine"]?.get;
+    expect(challenge).toBeDefined();
+    expect(challenge.summary).toBe("Yalidine CRC challenge");
+    expect(challenge.tags).toEqual(["Webhooks"]);
+    expect(challenge.operationId).toBe("yalidineChallenge");
+    // Receivers are public — no ApiKeyAuth
+    expect(challenge.security).toBeUndefined();
+    expect(challenge.responses["200"].content["text/plain"]).toBeDefined();
+
+    expect(spec.paths["/webhooks/yalidine"]?.post?.operationId).toBe("yalidineWebhook");
+    expect(spec.paths["/webhooks/zr_express"]?.post?.operationId).toBe("zrExpressWebhook");
+    expect(spec.paths["/webhooks/zr_express"]?.post?.security).toBeUndefined();
+
+    // Svix idempotency headers documented on the ZR receiver
+    const zrHeaders = spec.paths["/webhooks/zr_express"]?.post?.parameters ?? [];
+    expect(zrHeaders.some((h: any) => h.name === "svix-id")).toBe(true);
+    expect(zrHeaders.some((h: any) => h.name === "svix-signature")).toBe(true);
   });
 
   it("still documents un-migrated endpoints from the legacy spec", async () => {

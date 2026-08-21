@@ -354,7 +354,7 @@ describe("Customers routes (OpenAPIHono)", () => {
       const order = {
         id: "ord_1",
         orderNumber: "ORD-20260327-0042",
-        status: "new",
+        status: "new" as const,
         price: 9000,
         createdAt: NOW,
         wilayaId: 16,

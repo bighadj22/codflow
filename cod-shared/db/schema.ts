@@ -397,7 +397,21 @@ export const orders = sqliteTable("orders", {
   address: text("address"),
   price: real("price").notNull(),
   notes: text("notes"),
-  status: text("status").notNull().default("new"),
+  status: text("status", {
+    enum: [
+      "new",
+      "confirmed",
+      "unreachable",
+      "preparing",
+      "ready",
+      "assigned",
+      "dispatched",
+      "out_for_delivery",
+      "delivered",
+      "returned",
+      "cancelled",
+    ],
+  }).notNull().default("new"),
   orderType: text("order_type", { enum: ["online", "offline"] })
     .notNull()
     .default("online"),
@@ -512,7 +526,21 @@ export const orderStatusHistory = sqliteTable("order_status_history", {
   orderId: text("order_id")
     .notNull()
     .references(() => orders.id, { onDelete: "cascade" }),
-  status: text("status").notNull(),
+  status: text("status", {
+    enum: [
+      "new",
+      "confirmed",
+      "unreachable",
+      "preparing",
+      "ready",
+      "assigned",
+      "dispatched",
+      "out_for_delivery",
+      "delivered",
+      "returned",
+      "cancelled",
+    ],
+  }).notNull(),
   timestamp: text("timestamp").notNull(),
   by: text("by"),
 });
@@ -615,6 +643,9 @@ export const productImages = sqliteTable("product_images", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+/** Status lifecycle value for orders — derived from the column enum. */
+export type OrderStatus = (typeof orders.$inferSelect)["status"];
 
 export const orderProducts = sqliteTable("order_products", {
   id: text("id").primaryKey(),

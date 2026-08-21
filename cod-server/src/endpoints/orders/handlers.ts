@@ -25,9 +25,9 @@ import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 export async function listOrders(c: Context<AppContext>) {
   try {
     const db = getDb(c.env.DB);
-    
-    // Parse and validate query parameters
-    const filters = validation.orderFiltersSchema.parse({
+
+    const queryData: any = (c.req as any).valid?.("query");
+    const filters = queryData ?? validation.orderFiltersSchema.parse({
       status: c.req.query("status"),
       wilayaId: c.req.query("wilayaId"),
       search: c.req.query("search"),
@@ -41,7 +41,7 @@ export async function listOrders(c: Context<AppContext>) {
       success: true,
       data: orders,
       count: orders.length,
-    });
+    }, 200);
   } catch (error) {
     throw error;
   }
@@ -68,7 +68,7 @@ export async function getOrder(c: Context<AppContext>) {
   return c.json({
     success: true,
     data: order,
-  });
+  }, 200);
 }
 
 /**
@@ -78,10 +78,9 @@ export async function getOrder(c: Context<AppContext>) {
 export async function createOrder(c: Context<AppContext>) {
   try {
     const db = getDb(c.env.DB);
-    const body = await c.req.json();
-    
-    // Validate request body
-    const validated = validation.createOrderSchema.parse(body);
+    const bodyData: any = (c.req as any).valid?.("json");
+    const validated: validation.CreateOrderInput =
+      bodyData ?? validation.createOrderSchema.parse(await c.req.json());
 
     // Generate order number (format: ORD-YYYYMMDD-XXXX)
     const date = new Date();
@@ -174,7 +173,7 @@ export async function createOrder(c: Context<AppContext>) {
       address: validated.address || null,
       price: validated.price,
       notes: validated.notes || null,
-      status: "new",
+      status: "new" as const,
       orderType: validated.orderType,
       driverId: null,
       companyId: validated.companyId || null,
@@ -279,8 +278,9 @@ export async function returnOrderProduct(c: Context<AppContext>) {
     );
   }
 
-  const body = await c.req.json();
-  const validated = validation.returnOrderProductSchema.parse(body);
+  const bodyData: any = (c.req as any).valid?.("json");
+  const validated: validation.ReturnOrderProductInput =
+    bodyData ?? validation.returnOrderProductSchema.parse(await c.req.json());
 
   const user = c.get("user");
 
@@ -303,7 +303,7 @@ export async function returnOrderProduct(c: Context<AppContext>) {
     type: "order", id: orderId, label: order.orderNumber,
   }, { productLineId, returnedQuantity: result.returnedQuantity, status: result.status });
 
-  return c.json({ success: true, data: result, message: "Return recorded" });
+  return c.json({ success: true, data: result, message: "Return recorded" }, 200);
 }
 
 /**
@@ -334,5 +334,5 @@ export async function deleteOrder(c: Context<AppContext>) {
   return c.json({
     success: true,
     message: "Order deleted",
-  });
+  }, 200);
 }

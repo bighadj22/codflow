@@ -20,6 +20,7 @@ import {
   stockMovements,
   companyShipments,
 } from "../db/schema";
+import type { OrderStatus } from "../db/schema";
 import {
   eq,
   desc,
@@ -34,7 +35,7 @@ import {
 const driversAlias = aliasedTable(drivers, "d");
 
 export interface OrderFilters {
-  status?: string;
+  status?: (typeof orders.$inferSelect)["status"] | "all";
   wilayaId?: number;
   search?: string;
   limit?: number;
@@ -281,7 +282,7 @@ export async function createOrder(
 export async function updateOrderStatus(
   db: AppDb,
   orderId: string,
-  newStatus: string,
+  newStatus: OrderStatus,
   userId?: string,
   userName?: string,
 ) {
@@ -830,7 +831,7 @@ const STATUS_RANK: Record<string, number> = {
 export async function updateOrderStatusWebhook(
   db: AppDb,
   orderId: string,
-  newStatus: string,
+  newStatus: OrderStatus,
   source: string,
 ): Promise<{ updated: boolean }> {
   const now = new Date().toISOString();

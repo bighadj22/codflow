@@ -13,7 +13,7 @@ import * as queries from "./queries";
 import * as validation from "./validation";
 import { logActivity, ACTIONS } from "@/lib/activity";
 import { NotFoundError, BusinessLogicError, ValidationError } from "@/lib/errors/classes";
-import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
+import { ERROR_CODES, ERROR_CATEGORIES } from "../../../../cod-shared/errors/codes";
 import { shouldTriggerCapiPurchase } from "@/workflows/capi-helpers";
 
 /**
@@ -30,8 +30,10 @@ export async function updateStatus(c: Context<AppContext>) {
   
   const body = await c.req.json();
   
+  const bodyData: any = (c.req as any).valid?.("json");
+
   // Validate request body
-  const validated = validation.updateOrderStatusSchema.parse(body);
+  const validated = bodyData ?? validation.updateOrderStatusSchema.parse(body);
 
   // Check if order exists
   const order = await queries.getOrderById(db, orderId);
@@ -59,6 +61,7 @@ export async function updateStatus(c: Context<AppContext>) {
     return c.json({
       error: `Cannot transition from "${order.status}" to "${validated.status}"`,
       code: "INVALID_STATUS_TRANSITION",
+      category: ERROR_CATEGORIES.BUSINESS_LOGIC,
       context: {
         currentStatus:     order.status,
         targetStatus:      validated.status,
@@ -100,7 +103,7 @@ export async function updateStatus(c: Context<AppContext>) {
   return c.json({
     success: true,
     message: "Order status updated",
-  });
+  }, 200);
 }
 
 /**
@@ -149,8 +152,8 @@ export async function assignDriver(c: Context<AppContext>) {
     );
   }
 
-  const body = await c.req.json();
-  const validated = validation.assignDriverSchema.parse(body);
+  const bodyData: any = (c.req as any).valid?.("json");
+  const validated = bodyData ?? validation.assignDriverSchema.parse(await c.req.json());
 
   // Check if driver exists
   const driver = await db
@@ -170,7 +173,7 @@ export async function assignDriver(c: Context<AppContext>) {
     type: "order", id: orderId, label: order.orderNumber,
   }, { driverId: validated.driverId });
 
-  return c.json({ success: true, message: "Driver assigned successfully" });
+  return c.json({ success: true, message: "Driver assigned successfully" }, 200);
 }
 
 /**
@@ -226,5 +229,5 @@ export async function unassignDriver(c: Context<AppContext>) {
     type: "order", id: orderId, label: order.orderNumber,
   }, { driverId: null, previousDriverId });
 
-  return c.json({ success: true, message: "Driver unassigned" });
+  return c.json({ success: true, message: "Driver unassigned" }, 200);
 }

@@ -1062,6 +1062,150 @@ export const PresignedUploadSchema = z
   })
   .openapi("PresignedUpload");
 
+// ─── Orders ───────────────────────────────────────────────────────────────────
+
+export const OrderStatusEnum = z.enum([
+  "new",
+  "confirmed",
+  "unreachable",
+  "preparing",
+  "ready",
+  "assigned",
+  "dispatched",
+  "out_for_delivery",
+  "delivered",
+  "returned",
+  "cancelled",
+]);
+
+export const StatusHistoryItemSchema = z
+  .object({
+    id: z.string(),
+    orderId: z.string(),
+    status: OrderStatusEnum,
+    timestamp: z.string().datetime().openapi({
+      description: "When the status change happened",
+    }),
+    by: z.string().nullable().openapi({
+      description: "User ID who triggered the status change",
+    }),
+    byName: z.string().nullable().openapi({
+      description: "User display name",
+    }),
+  })
+  .openapi("StatusHistoryItem");
+
+export const OrderProductSchema = z
+  .object({
+    id: z.string(),
+    orderId: z.string(),
+    productId: z.string(),
+    productName: z.string(),
+    variantId: z.string().nullable(),
+    variantLabel: z.string().nullable(),
+    sku: z.string().nullable().openapi({
+      description: "Denormalized SKU at time of order",
+    }),
+    quantity: z.number().int().openapi({ example: 2 }),
+    pricePerUnit: z.number().openapi({ example: 4500 }),
+    lineTotal: z.number().openapi({ example: 9000 }),
+    status: z.enum(["fulfilled", "partially_returned", "returned"]).openapi({
+      description:
+        "Per-line fulfilment outcome — updated via PATCH /orders/{id}/products/{productLineId}/return",
+    }),
+    returnedQuantity: z.number().int().openapi({
+      description:
+        "Units the customer refused at the door. Always 0 when status=fulfilled, = quantity when status=returned.",
+    }),
+    createdAt: z.string().datetime(),
+  })
+  .openapi("OrderProduct");
+
+export const OrderSchema = z
+  .object({
+    id: z.string().openapi({ example: "550e8400-e29b-41d4-a716-446655440000" }),
+    orderNumber: z.string().openapi({ example: "ORD-20260327-0042" }),
+    customerId: z.string(),
+    customerName: z.string().openapi({ example: "Ahmed Benali" }),
+    phone: z.string().openapi({ example: "0551234567" }),
+    wilayaId: z.number().int().min(1).max(58).nullable().openapi({ example: 16 }),
+    wilaya: z.string().nullable().openapi({
+      description: "Wilaya Arabic name, joined from reference table",
+      example: "الجزائر",
+    }),
+    communeId: z.string().nullable(),
+    commune: z.string().nullable().openapi({
+      description: "Commune Arabic name, joined from reference table",
+      example: "بئر مراد رايس",
+    }),
+    city: z.string().nullable(),
+    address: z.string().nullable(),
+    price: z.number().openapi({
+      description: "Product subtotal (excluding delivery fee)",
+      example: 9000,
+    }),
+    notes: z.string().nullable(),
+    status: OrderStatusEnum,
+    orderType: z.enum(["online", "offline"]),
+    deliveryMethod: z.enum(["unassigned", "driver", "company"]).openapi({
+      description:
+        "Default 'unassigned' at creation; flips to 'driver' or 'company' on assignment.",
+    }),
+    driverId: z.string().nullable(),
+    driverName: z.string().nullable().openapi({
+      description: "Driver display name, joined from drivers table",
+    }),
+    companyId: z.string().nullable(),
+    assignedAt: z.string().datetime().nullable(),
+    assignedBy: z.string().nullable(),
+    assignmentNotes: z.string().nullable(),
+    trackingNumber: z.string().nullable(),
+    trackingUrl: z.string().nullable(),
+    externalOrderId: z.string().nullable(),
+    deliveryType: z.enum(["home", "stop_desk"]),
+    stationCode: z.string().nullable(),
+    deliveryFee: z.number().openapi({ example: 400 }),
+    driverFee: z.number().openapi({
+      description:
+        "What the store pays the driver for this delivery, looked up from driver_compensations by (driverId, wilayaId). 0 when no compensation row exists or no driver assigned.",
+      example: 250,
+    }),
+    codAmount: z.number().nullable().openapi({
+      description: "Amount the driver collects from customer: price + deliveryFee",
+      example: 9400,
+    }),
+    pickupTime: z.string().datetime().nullable(),
+    deliveryTime: z.string().datetime().nullable(),
+    deliveryAttempts: z.number().int().nullable(),
+    photos: z.string().nullable().openapi({
+      description: "JSON array of photo URLs — delivery proof photos",
+    }),
+    codPaymentId: z.string().nullable(),
+    feePaymentId: z.string().nullable(),
+    weight: z.number().nullable().openapi({
+      description: "Parcel weight in kg — sent to carrier API when set",
+    }),
+    isFragile: z.boolean().nullable().openapi({
+      description: "Fragile parcel flag — sent to carrier API when set",
+    }),
+    hasReview: z.number().int().optional().openapi({
+      description: "1 if a customer review exists for this order, 0 otherwise. Included in list responses only (GET /api/orders).",
+    }),
+    lastUpdatedBy: z.string().nullable().optional().openapi({
+      description: "User ID of the last status-change actor. Included in list responses only (GET /api/orders).",
+    }),
+    products: z.array(OrderProductSchema).optional().openapi({
+      description: "Order line items. Included in GET /api/orders/{id} (detail view only).",
+    }),
+    statusHistory: z.array(StatusHistoryItemSchema).optional().openapi({
+      description: "Full status change log. Included in GET /api/orders/{id} (detail view only).",
+    }),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .openapi("Order");
+
+
 
 
 
