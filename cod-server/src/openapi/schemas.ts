@@ -1034,6 +1034,35 @@ export const DriverPaymentSchema = z
   })
   .openapi("DriverPayment");
 
+export const UploadedImageSchema = z
+  .object({
+    key: z.string().openapi({
+      description: "R2 object key — pass to POST /api/products/{id}/images as `key`",
+      example: "products/abc123def456.jpg",
+    }),
+    url: z.string().url().openapi({
+      description: "Public URL for the uploaded image",
+      example: "https://cdn.example.com/products/abc123def456.jpg",
+    }),
+  })
+  .openapi("UploadedImage");
+
+export const PresignedUploadSchema = z
+  .object({
+    presignedUrl: z.string().url().openapi({
+      description: "PUT this URL directly from the browser to upload the file",
+    }),
+    key: z.string().openapi({
+      description: "R2 object key — pass to POST /api/products/{id}/images as `key`",
+      example: "products/abc123def456.jpg",
+    }),
+    publicUrl: z.string().url().openapi({
+      description: "Permanent public URL served via custom domain",
+    }),
+  })
+  .openapi("PresignedUpload");
+
+
 
 
 
