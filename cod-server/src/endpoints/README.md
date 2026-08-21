@@ -25,10 +25,10 @@ notes live in `cod-server/MIGRATION_STATUS.md`.
 
 ## Pending migration (legacy openapi.ts present) ⏳
 
-`driver-payments`, `images`, `orders`,
+`images`, `orders`,
 `abandoned-orders`, `webhooks`, `store`, `analytics`
 
-Next up: **Driver Payments** (3 paths on `/api/driver-payments`) — see `cod-server/NEXT_ENDPOINT.md`.
+Next up: **Images** (multipart/R2 + unauthenticated serving — not a CRUD shape) — see `cod-server/NEXT_ENDPOINT.md`.
 
 ## Special
 
@@ -36,4 +36,4 @@ Next up: **Driver Payments** (3 paths on `/api/driver-payments`) — see `cod-se
 
 ## Progress
 
-**16/23 endpoints migrated (~70%)** · ~6,790 legacy lines removed
+**17/23 endpoints migrated (~74%)** · ~7,007 legacy lines removed

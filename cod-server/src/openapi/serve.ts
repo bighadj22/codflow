@@ -19,7 +19,6 @@ import { generateOpenAPISpec } from "./generator";
 import {
   orderPaths,
   imagePaths,
-  driverPaymentPaths,
   storePaths,
   webhookPaths,
 } from "./paths";
@@ -76,7 +75,6 @@ export function registerSpecEndpoint(app: OpenAPIHono<AppContext>): void {
     const legacy = generateOpenAPISpec(baseUrl);
     legacy.paths = {
       ...orderPaths,
-      ...driverPaymentPaths,
       ...storePaths,
       ...imagePaths,
       ...webhookPaths,

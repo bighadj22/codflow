@@ -3,7 +3,7 @@ import type { AppContext } from "@/types";
 import { getDb } from "@/db";
 import * as queries from "./queries";
 import * as validation from "./validation";
-import { NotFoundError, ValidationError } from "@/lib/errors/classes";
+import { ValidationError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 
 /**
@@ -12,18 +12,19 @@ import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
  */
 export async function createPayment(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const body = validation.createPaymentSchema.parse(await c.req.json());
+  const body: any = (c.req as any).valid?.("json");
+  const validated = body ?? validation.createPaymentSchema.parse(await c.req.json());
   const user = c.get("user");
 
-  const payment = await queries.createDriverPayment(db, body, user.id, user.name ?? user.id);
+  const payment = await queries.createDriverPayment(db, validated, user.id, user.name ?? user.id);
   console.info(
-    `[driver-payments] type=${body.type} driver=${body.driverId} amount=${payment.amount} orders=${payment.orderCount} by="${user.name ?? user.id}"`
+    `[driver-payments] type=${validated.type} driver=${validated.driverId} amount=${payment.amount} orders=${payment.orderCount} by="${user.name ?? user.id}"`
   );
   return c.json({ success: true, data: payment, message: "Payment recorded successfully" }, 201);
 }
 
 /**
- * GET /api/driver-payments/:driverId
+ * GET /api/driver-payments/{driverId}
  * List all payment records for a driver.
  */
 export async function listPayments(c: Context<AppContext>) {
@@ -35,11 +36,11 @@ export async function listPayments(c: Context<AppContext>) {
   }
 
   const data = await queries.getDriverPayments(db, driverId);
-  return c.json({ success: true, data });
+  return c.json({ success: true, data }, 200);
 }
 
 /**
- * GET /api/driver-payments/:driverId/pending
+ * GET /api/driver-payments/{driverId}/pending
  * List delivered, unsettled orders for a driver (for pre-settlement review).
  */
 export async function listPendingOrders(c: Context<AppContext>) {
@@ -51,5 +52,5 @@ export async function listPendingOrders(c: Context<AppContext>) {
   }
 
   const data = await queries.getPendingSettlementOrders(db, driverId);
-  return c.json({ success: true, data });
+  return c.json({ success: true, data }, 200);
 }

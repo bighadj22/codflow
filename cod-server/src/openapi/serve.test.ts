@@ -28,6 +28,7 @@ import storesRouter from "@/endpoints/stores/routes";
 import productsRouter from "@/endpoints/products/routes";
 import { stockRouter, productStockRouter } from "@/endpoints/stock/routes";
 import offersRouter from "@/endpoints/offers/routes";
+import driverPaymentsRouter from "@/endpoints/driver-payments/routes";
 
 function buildApp() {
   const app = new OpenAPIHono<AppContext>();
@@ -48,6 +49,7 @@ function buildApp() {
   app.route("/api/stock", stockRouter);
   app.route("/api/products", productStockRouter);
   app.route("/api/offers", offersRouter);
+  app.route("/api/driver-payments", driverPaymentsRouter);
   return app;
 }
 
@@ -665,6 +667,30 @@ describe("GET /api/openapi.json (merged spec)", () => {
     expect(offer).toBeDefined();
     expect(offer.properties.triggerProduct).toBeDefined();
     expect(offer.properties.rewardVariant).toBeDefined();
+  });
+
+  it("documents the migrated driver-payments endpoints from Zod schemas", async () => {
+    const app = buildApp();
+    const res = await app.request("/api/openapi.json", {}, { WORKER_URL: "https://x" } as any);
+    const spec: any = await res.json();
+
+    const create = spec.paths["/api/driver-payments"]?.post;
+    expect(create).toBeDefined();
+    expect(create.summary).toBe("Create driver payment");
+    expect(create.tags).toEqual(["Driver Payments"]);
+    expect(create.operationId).toBe("createDriverPayment");
+    expect(create.security).toEqual([{ ApiKeyAuth: [] }]);
+
+    expect(spec.paths["/api/driver-payments/{driverId}"]?.get?.operationId).toBe("listDriverPayments");
+    expect(spec.paths["/api/driver-payments/{driverId}/pending"]?.get?.operationId).toBe("listPendingSettlementOrders");
+
+    const payment = spec.components.schemas.DriverPayment;
+    expect(payment).toBeDefined();
+    expect(payment.properties.amount).toBeDefined();
+    expect(payment.properties.orderCount).toBeDefined();
+
+    expect(create.requestBody.content["application/json"].schema.required)
+      .toEqual(expect.arrayContaining(["driverId", "type", "orderIds"]));
   });
 
   it("still documents un-migrated endpoints from the legacy spec", async () => {
