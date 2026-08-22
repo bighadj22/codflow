@@ -16,24 +16,29 @@ TypeScript, deployed on Cloudflare (Workers, D1, R2, KV).
   layer, not a platform package; keep engine logic out. Its commands and
   boundaries differ — read `cod-astro/theme01/AGENTS.md` before editing it.
 
-There is **no root package.json and no npm workspaces**. Each package installs
-its own dependencies.
+There is **one root `package.json` with npm workspaces** and ONE root
+`package-lock.json`. Never add per-package lockfiles —
+`@opennextjs/cloudflare` detects monorepos by walking up for the nearest
+lockfile, so a nested one makes every cod-client deploy fail
+(`ENOENT pages-manifest.json`). The root also carries the repo-wide npm
+`overrides`: the single-Vite pin (theme01) and a sharp stub (native binaries
+cannot run on Workers; cod-client uses `images.unoptimized`).
 
 ## Commands
 
-Each package has its own lockfile. Install and run inside the package dir:
+One install at the repo root covers every package:
 
 ```sh
-cd cod-shared && npm ci        # always first — others resolve cod-shared deps
-cd cod-server && npm ci        # then
+npm ci                          # at repo root — installs all workspaces
+
 cd cod-server && npm run typecheck
 cd cod-server && npm test
 cd cod-server && npm run dev   # wrangler dev :8787
 ```
 
-Same for `cod-client` (`npm ci`, `npm run typecheck`, `npm test`, `npm run dev`).
+Same for `cod-client` (`npm run typecheck`, `npm test`, `npm run dev`).
 
-`cod-astro/theme01` is a separate package with its own lockfile — see
+`cod-astro/theme01` has extra validators — see
 `cod-astro/theme01/AGENTS.md` for its commands.
 
 ## Verification
@@ -65,17 +70,30 @@ Same for `cod-client` (`npm ci`, `npm run typecheck`, `npm test`, `npm run dev`)
 
 ## Known traps
 
-- Running cod-server/cod-client tests or typecheck fails if `cod-shared`
-  dependencies are not installed first.
-- In `cod-client/next.config.mjs`, `turbopack.root` AND
-  `outputFileTracingRoot` must stay pointed at the monorepo root
-  (`path.resolve(import.meta.dirname, "..")`, same value for both keys).
-  Reverting either to `process.cwd()` breaks `../../cod-shared/*` imports
-  under Turbopack (`Can't resolve` on every page).
-- Keep the `"overrides": { "vite": "^8.2.2" }` pin in
-  `cod-astro/theme01/package.json` (single Vite major across astro/vitest).
-  It is load-bearing: removing it reintroduces the dual-Vite boot crash
+- Never create per-package `package-lock.json` files (see Layout). If a
+  workspace's deps look stale, run `npm ci` at the repo root.
+- `cod-client/next.config.mjs` deliberately does NOT pin `turbopack.root` or
+  `outputFileTracingRoot`: with a single root lockfile, Turbopack and Next
+  infer the monorepo root themselves, which is what lets
+  `../../cod-shared/*` imports resolve AND what keeps OpenNext's standalone
+  output layout consistent. Re-adding either pin re-breaks one of the two.
+- The Vite pin lives in the **root** `package.json`
+  (`"overrides": { "vite": "^8.2.2" }`) — npm ignores `overrides` inside
+  workspace members. It keeps a single Vite major across astro/vitest;
+  removing it reintroduces the dual-Vite boot crash
   (`Missing field 'moduleType'`). Keep it in sync when astro bumps Vite.
+- Same for the sharp stub override: native binaries cannot run on Workers.
+  Do not install real `sharp` into cod-client.
+- Better Auth 1.7 schema requirements live in migrations 0010/0011:
+  `accounts.issuer` ('local:credential', account_id = user id) and
+  `jwkss.alg/crv`. cod-client ships its own KV `secondaryStorage` in
+  `lib/auth.ts` because better-auth-cloudflare@0.3.1 lacks the `increment`
+  method its rate limiter requires — do not swap back to `kv:` shortcut.
+- OAuth provider tables predate better-auth 1.7: `oauthClients`,
+  `oauthAccessTokens`, `oauthRefreshTokens`, `oauthConsents` are missing some
+  1.7 columns, and `oauthResource(s)`, `oauthClientResource(s)`,
+  `oauthClientAssertion(s)` do not exist yet. Core auth + dashboard work;
+  MCP client token flows may need that alignment before heavy use.
 - Inbound webhooks exist only for **Yalidine** and **ZR Express**. NOEST and
   EcoTrack tracking is pulled on demand via `GET /orders/:id/tracking` — there
   is no inbound receiver for them.

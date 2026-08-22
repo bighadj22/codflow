@@ -13,59 +13,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  shared:
-    name: cod-shared (install)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: cod-shared
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: cod-shared/package-lock.json
-      - run: npm ci
-
   server:
     name: cod-server (typecheck + test)
     runs-on: ubuntu-latest
-    needs: shared
-    defaults:
-      run:
-        working-directory: cod-server
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: cod-server/package-lock.json
-      - name: Install cod-shared
-        run: npm ci
-        working-directory: cod-shared
+          cache-dependency-path: package-lock.json
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
+      - run: npm run typecheck --workspace codflow-server
+      - run: npm test --workspace codflow-server
 
   client:
     name: cod-client (typecheck + test)
     runs-on: ubuntu-latest
-    needs: shared
-    defaults:
-      run:
-        working-directory: cod-client
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: cod-client/package-lock.json
-      - name: Install cod-shared
-        run: npm ci
-        working-directory: cod-shared
+          cache-dependency-path: package-lock.json
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
+      - run: npm run typecheck --workspace codflow-client
+      - run: npm test --workspace codflow-client

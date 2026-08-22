@@ -1,0 +1,6 @@
+{
+  "name": "sharp-stub",
+  "version": "0.0.0",
+  "description": "Empty sharp replacement. Native binaries cannot run on Cloudflare Workers; cod-client uses images.unoptimized so sharp is never invoked.",
+  "main": "index.js"
+}
