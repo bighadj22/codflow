@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-22
+
+First stable release of CodFlow.
+
+### Added
+
+- cod-server: full API migration to `@hono/zod-openapi` — orders, webhooks,
+  abandoned-orders, analytics, store API, products/variants/stock/offers,
+  customers, drivers, driver-payments, shipping-profiles, images, activity
+  logs and delivery-companies now serve auto-generated OpenAPI specs; the
+  legacy spec generator is retired
+- cod-server: `db:seed:remote` / `db:setup:remote` scripts to migrate and seed
+  the Cloudflare D1 database directly during provisioning
+- codflow-setup agent skill: guided runbook that creates dedicated D1/R2/KV
+  resources, binds their real IDs into both `wrangler.toml` files, uploads
+  secrets interactively, migrates and seeds the remote database, and verifies
+  deployments with smoke tests
+
+### Fixed
+
+- Fresh clones boot on the first try: Turbopack workspace root pinned to the
+  monorepo root in `cod-client/next.config.mjs` (fixes every page failing with
+  `Can't resolve '../../cod-shared/*'`)
+- Storefront dev server stability: single Vite major enforced via npm
+  overrides (fixes the dual-Vite `Missing field 'moduleType'` boot crash) and
+  late SSR dependency discovery disabled (fixes the workerd reload race)
+- MCP server peer packages installed explicitly
+
+### Changed
+
+- README and CONTRIBUTING overhaul; setup documentation points at the
+  `codflow-setup` runbook instead of one-off helper scripts
+
 ## [0.1.0] - 2026-08-20
 
 Initial public release of CodFlow — the open-source, COD-first e-commerce +
