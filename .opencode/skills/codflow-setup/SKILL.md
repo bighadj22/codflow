@@ -51,22 +51,28 @@ break with placeholders.
 If `whoami` lists multiple accounts, ask the developer which one to use and
 record that `account_id`.
 
+**Account-ID env gotcha:** if the shell exports `CLOUDFLARE_ACCOUNT_ID` for an
+account the OAuth token cannot access, every wrangler API call fails with
+`Authentication error [code: 10000]`. Run wrangler as
+`env -u CLOUDFLARE_ACCOUNT_ID npx wrangler …` (or unset the variable) so it
+targets the logged-in account.
+
 ---
 
-## Step 1 — Install Dependencies in Strict Order
+## Step 1 — Install Dependencies (one command)
 
-There is no root `package.json` and no npm workspaces. Install per-package,
-`cod-shared` first (other packages resolve it by relative path):
+CodFlow is an **npm workspace monorepo**: one root `package.json`, one root
+`package-lock.json`. Never create per-package lockfiles — OpenNext detects the
+monorepo by walking up for the nearest lockfile, and a nested one breaks every
+cod-client deploy (`ENOENT pages-manifest.json`).
 
 ```bash
-cd cod-shared && npm ci
-cd ../cod-server && npm ci
-cd ../cod-client && npm ci
-cd ../cod-astro/theme01 && npm install
-cd ../..
+npm ci        # at the repo root — installs all workspaces
 ```
 
-Use `npm ci` where a lockfile exists so installs match the committed lockfiles.
+Sanity check (optional): `npm ls vite` must show a single Vite major across all
+workspaces; `node -e "require('sharp/package.json')"` must resolve to the
+`sharp-stub` override, not real sharp.
 
 ## Step 2 — Create Dedicated Cloudflare Resources
 
@@ -114,7 +120,9 @@ While editing, also replace the example domains in `[vars]` /
 `[env.production.vars]` (`WORKER_URL`, `BETTER_AUTH_URL`, `WORKER_SELF_URL`,
 `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_WORKER_URL`, `ALLOWED_ORIGINS`) with the
 developer's real URLs when they are known; localhost defaults are correct for
-local runs.
+local runs. In `cod-astro/theme01/wrangler.jsonc`, set `COD_SERVER_URL` to the
+cod-server public URL before deploying the storefront (localhost default is
+correct for local dev only).
 
 ## Step 4 — Generate Keys & Configure Secrets
 
@@ -125,16 +133,17 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # 
 node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))" # STORE_API_KEY
 ```
 
-Set secrets on the deployed workers interactively (paste when prompted — never
-pipe secrets through `echo`; it leaks to shell history and process lists):
+Set secrets on the deployed workers (paste when prompted — never pipe secrets
+through `echo`; it leaks to shell history and process lists):
 
 ```bash
 cd cod-server         && npx wrangler secret put BETTER_AUTH_SECRET   # paste generated value
 cd ../cod-client      && npx wrangler secret put BETTER_AUTH_SECRET   # same value
 cd ../cod-astro/theme01 && npx wrangler secret put STORE_API_KEY      # paste generated store key
-cd ../.. 
+cd ../..
 ```
 
+If the worker does not exist yet, wrangler offers to create it — accept.
 For services that will also run locally, create `.dev.vars` from each package's
 `.dev.vars.example` with the same key values (`.dev.vars` is gitignored).
 
@@ -148,22 +157,28 @@ emulated copy:
 
 ```bash
 cd cod-server
-npm run db:migrate:remote                       # applies all D1 migrations
+npm run db:migrate:local                        # REQUIRED first: seed-admin writes local + remote
 STORE_API_KEY=<generated-store-key> npm run db:seed:remote   # demo store متجر التطوير + catalog
 
 cd ../cod-client
 ADMIN_EMAIL=admin@example.com ADMIN_NAME=Admin node scripts/seed-admin.mjs <password> --remote
 ```
 
-Verify the seeder reports all statements executed and note the admin
-email/password and API key output — they appear once.
+Notes:
+- `db:migrate:local` must run before `seed-admin.mjs`: the script seeds the
+  emulated local D1 first and needs its schema to exist.
+- The seeder writes better-auth ≥ 1.7 credential rows (`issuer =
+  'local:credential'`, `account_id = user id`) — re-run it after any password
+  reset request for the seeded admin.
+- Verify the seeder reports all statements executed and note the admin
+  email/password and API key output — they appear once.
 
 ## Step 6 — Deploy in Dependency Order + Smoke Test
 
 ```bash
 cd cod-server           && npm run deploy
-cd ../cod-client        && npm run deploy
-cd ../cod-astro/theme01 && npm run deploy
+cd ../cod-client        && npm run deploy     # opennextjs-cloudflare build && deploy
+cd ../cod-astro/theme01 && npm run deploy     # astro build && wrangler deploy
 ```
 
 Smoke-test after each deploy; do not continue past a failing check:
@@ -171,14 +186,19 @@ Smoke-test after each deploy; do not continue past a failing check:
 | Worker | Check | Expectation |
 | :--- | :--- | :--- |
 | cod-server | `curl -s -o /dev/null -w "%{http_code}" https://<workers-url>/api/docs` | `200` |
-| cod-client | open the workers URL | login page loads |
-| cod-astro/theme01 | open the workers URL | homepage renders the store title |
+| cod-client sign-in API | `curl -s -X POST https://<dashboard-url>/api/auth/sign-in/email -H "Content-Type: application/json" -d '{"email":"<admin>","password":"<pass>"}'` | `200` + user JSON (401 = credentials/schema issue, 500 = config) |
+| cod-client UI | open the workers URL | login page loads |
+| cod-astro/theme01 | open the workers URL | homepage renders |
 
 The first cod-server deploy also applies Durable Object / Workflow migrations —
 watch the deploy output for migration errors before declaring success.
 
-Sign in at the dashboard URL with the admin credentials from Step 5 to confirm
-the full stack end-to-end (products visible on the storefront, orders reachable).
+**workers.dev limitation (error 1042):** Cloudflare blocks Worker→Worker
+`fetch()` between two `*.workers.dev` hosts. A storefront deployed to
+workers.dev cannot load products from a cod-server also on workers.dev. For a
+production storefront, put cod-server on a custom domain/route and point
+`COD_SERVER_URL` at it (or wire a Service Binding), then re-deploy theme01 and
+confirm `/products` shows the seeded catalog. Local development is unaffected.
 
 ## Step 7 — Closing Summary (Mandatory)
 
@@ -201,7 +221,7 @@ Miniflare-emulated storage persisted to `<repo-root>/.wrangler-shared` — they
 do not read the deployed D1. To boot all three services locally:
 
 ```bash
-cd cod-server && npm run db:setup:local     # migrations + seed into the emulated D1
+cd cod-server && npm run db:migrate:local && STORE_API_KEY=<key> npm run db:seed:local
 cd ../cod-client && ADMIN_EMAIL=… ADMIN_NAME=Admin node scripts/seed-admin.mjs <password>
 ```
 
@@ -212,6 +232,9 @@ Then start one terminal per service:
 | API Server | `cod-server` | `npm run dev` | http://localhost:8787 (docs at `/api/docs`) |
 | Dashboard | `cod-client` | `npm run dev` | http://localhost:3000 |
 | Storefront | `cod-astro/theme01` | `npm run dev` | http://localhost:4321 |
+
+Localhost→localhost is unaffected by the workers.dev limitation: the storefront
+renders the full seeded catalog locally.
 
 The storefront directory is `cod-astro/theme01` — bare `cod-astro/` has no
 scripts.
@@ -224,16 +247,21 @@ scripts.
 | :--- | :--- | :--- |
 | **Deploy fails with placeholder-looking binding errors** | Resource IDs were never replaced in wrangler.toml | Re-run the Step 3 verification greps; bind real IDs. |
 | **`grep` finds placeholders inside `[env.production]` blocks** | Production block edited incompletely | Replace every all-zero `database_id` / KV `id` occurrence in the file. |
-| **Storefront empty / dashboard sign-in fails during local dev** | Emulated local D1 was never migrated/seeded | Run `db:setup:local` + local admin seed (see local section above); remote seeding only fills the deployed database. |
-| **cod-client pages 500: `Module not found: Can't resolve '../../cod-shared/...'`** | Turbopack workspace root pinned inside `cod-client` | Keep `turbopack.root` AND `outputFileTracingRoot` pointed at the monorepo root in `cod-client/next.config.mjs` (both keys, same value). |
-| **theme01 dev dies instantly: `Missing field 'moduleType'` / `Dev server process exited before becoming ready`** | Dual Vite majors from npm flat hoisting ([astro#16229](https://github.com/withastro/astro/issues/16229)) | Keep `"overrides": { "vite": "^8.2.2" }` + vitest 4 in theme01 package.json; `rm -rf node_modules && npm install`. `npm ls vite` must show a single major. |
-| **theme01 boots then wedges/crashes at first render: `optimized dependencies changed. reloading` → `The file does not exist at .../deps_ssr/server-*.js`** | Late SSR dep discovery races the workerd reload ([astro#16933](https://github.com/withastro/astro/issues/16933)) | Keep `vite.environments.ssr.optimizeDeps` (`noDiscovery: true` + excludes) in `astro.config.mjs`. The legacy `vite.ssr.optimizeDeps` key has no effect. |
+| **cod-client deploy: `ENOENT … pages-manifest.json`** | A per-package `package-lock.json` exists again, or the root one is missing — OpenNext cannot detect the monorepo | Delete nested lockfiles, run `npm ci` at the repo root, rebuild. |
+| **cod-client build: `Can't resolve '../../cod-shared/...'`** | Workspace root inference broken (nested lockfile or removed root package.json) | Restore single-root-lockfile layout; do NOT re-add `turbopack.root`/`outputFileTracingRoot` pins. |
+| **Worker bundling fails on `sharp` / `.node` files** | Real sharp entered the graph | Keep the root `"overrides": { "sharp": "file:vendor/sharp-stub" }`; do not install real sharp into cod-client. |
+| **theme01 dev dies: `Missing field 'moduleType'`** | Dual Vite majors | Root `package.json` overrides pin `vite` to ^8.2.2 (root-only — npm ignores child overrides). `rm -rf node_modules && npm ci`; `npm ls vite` must show one major. |
+| **Storefront deployed but products empty** | Worker→Worker fetch between two `*.workers.dev` hosts blocked (CF error 1042) | Put cod-server on a custom domain/route, set `COD_SERVER_URL`, redeploy theme01. Local dev unaffected. |
+| **Sign-in returns 500 `Secondary-storage rate limiting requires SecondaryStorage.increment`** | lib/auth.ts swapped back to `withCloudflare({ kv })` shortcut | Keep the full custom `secondaryStorage` in `cod-client/lib/auth.ts`; better-auth-cloudflare@0.3.1 lacks `increment`. |
+| **Sign-in returns 401 with correct credentials** | Admin row predates better-auth 1.7 semantics (missing `issuer`, `account_id = email`) | Apply migration 0010, re-run `scripts/seed-admin.mjs <password> --remote`. |
+| **get-session 500: field "alg" does not exist in "jwkss"** | Migration 0011 missing on that database | Run `npm run db:migrate:remote` (or `:local`). |
+| **wrangler API calls fail `Authentication error [code: 10000]`** | Shell exports `CLOUDFLARE_ACCOUNT_ID` for an account the token can't access | Prefix commands with `env -u CLOUDFLARE_ACCOUNT_ID` or unset it. |
+| **theme01 boots then wedges/crashes at first render: `optimized dependencies changed. reloading`** | Late SSR dep discovery races the workerd reload ([astro#16933](https://github.com/withastro/astro/issues/16933)) | Keep `vite.environments.ssr.optimizeDeps` (`noDiscovery: true` + excludes) in `astro.config.mjs`. |
 | **`Address already in use :8787`** | Another checkout's wrangler holds the port | Kill that process tree; run the port preflight before starting servers. |
 | **`Another astro dev server is already running`** | Astro 7 dev lockfile left behind | `npx astro dev stop` (or kill the stale process). |
 | **Astro behaves unexpectedly under an agent (backgrounded, JSON output)** | Astro auto-enables background+JSON mode when `AGENT`, `CLAUDE_CODE_*`, or `OPENCODE` env vars are present | Humans get foreground behavior; agents should use `npx astro dev status` / `logs` / `stop`. |
 | **`wrangler login` fails in headless/SSH** | No GUI browser available | Run `npx wrangler login` on a local machine, or configure `CLOUDFLARE_API_TOKEN` in the environment. |
 | **`wrangler r2 bucket create` fails** | R2 subscription not enabled on Cloudflare account | Navigate to dash.cloudflare.com → R2, add a payment card to activate the Free Tier, then retry. |
 | **Local D1 split-brain / missing tables** | Wrangler ran without `--persist-to` | Always run local migrations and commands with `--persist-to ../.wrangler-shared`. |
-| **`npm test` fails after git pull** | `cod-shared` was not installed first | Run `cd cod-shared && npm ci` before running tests in other packages. |
 | **Better Auth 500 on sign-in** | `BETTER_AUTH_SECRET` missing | Ensure `BETTER_AUTH_SECRET` is set in `cod-client/.dev.vars` (local) or via `wrangler secret put` (production). |
 | **Image uploads fail in browser** | R2 CORS not configured for PUT requests | Run `node scripts/setup-r2-cors.mjs` in `cod-server` with R2 API tokens. |

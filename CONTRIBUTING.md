@@ -31,17 +31,21 @@ codflow-os/
 └── cod-shared/   # Source-shared TS — D1 schema, RBAC scopes, read queries
 ```
 
-There is **no root package.json / workspace**. Each package installs and runs
-its own npm scripts. `cod-shared` is consumed directly from source via relative
-imports (`../../cod-shared/...`) — it has no build step.
+npm workspaces: one root `package.json` and a single root `package-lock.json`.
+Install once at the repo root (`npm ci`) — never add per-package lockfiles.
+`cod-shared` is consumed directly from source via relative imports
+(`../../cod-shared/...`) — it has no build step.
 
 ### Package scripts
 
-| Package            | Install | Dev          | Test        | Build       |
-|--------------------|---------|--------------|-------------|-------------|
-| `cod-server`       | `npm i` | `npm run dev`| `npm test`  | `npm run build:ci` |
-| `cod-client`       | `npm i` | `npm run dev`| `npm test`  | `npm run build` |
-| `cod-astro/theme01`| `npm i` | `npm run dev`| `npm test`  | `npm run build` |
+| Package            | Dev          | Test        | Build       |
+|--------------------|--------------|-------------|-------------|
+| `cod-server`       | `npm run dev`| `npm test`  | `npm run build:ci` |
+| `cod-client`       | `npm run dev`| `npm test`  | `opennextjs-cloudflare build` |
+| `cod-astro/theme01`| `npm run dev`| `npm test`  | `astro build` |
+
+Run package scripts either from inside the package directory or with
+`npm run <script> --workspace <package-name>` from the repo root.
 
 ---
 
@@ -96,16 +100,13 @@ database, and verifies the deployment.
 
 ### Manual Setup Step-by-Step
 
-#### 1. Install Dependencies (in order)
+#### 1. Install Dependencies
 
-`cod-shared` MUST be installed first because other packages resolve its dependencies:
+One install at the repo root covers every workspace (single root lockfile —
+never add per-package lockfiles):
 
 ```bash
-cd cod-shared        && npm install
-cd ../cod-server     && npm install
-cd ../cod-client     && npm install
-cd ../cod-astro/theme01 && npm install
-cd ../..
+npm ci
 ```
 
 ### 2. Create Cloudflare resources
