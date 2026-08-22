@@ -47,15 +47,20 @@ break with placeholders.
   ```bash
   lsof -nP -iTCP:3000 -iTCP:4321 -iTCP:8787 -sTCP:LISTEN   # expect no output
   ```
+  Processes on these ports often belong to ANOTHER checkout's dev servers;
+  identify via `ps -p <pid>` and confirm with the human before killing.
 
 If `whoami` lists multiple accounts, ask the developer which one to use and
 record that `account_id`.
 
-**Account-ID env gotcha:** if the shell exports `CLOUDFLARE_ACCOUNT_ID` for an
-account the OAuth token cannot access, every wrangler API call fails with
-`Authentication error [code: 10000]`. Run wrangler as
-`env -u CLOUDFLARE_ACCOUNT_ID npx wrangler …` (or unset the variable) so it
-targets the logged-in account.
+**CRITICAL: Strip stale `CLOUDFLARE_ACCOUNT_ID` everywhere.** If the shell
+exports `CLOUDFLARE_ACCOUNT_ID` for an account the OAuth token cannot access,
+every wrangler command fails with `Authentication error [code: 10000]` —
+including npm scripts (which invoke wrangler) and seeders. Shell rc files
+re-export this variable in every new shell. **Prefix EVERY wrangler invocation**
+with `env -u CLOUDFLARE_ACCOUNT_ID` so it targets the logged-in account, or
+`unset CLOUDFLARE_ACCOUNT_ID` once per session. Examples throughout this
+runbook show the prefix inline where practical.
 
 ---
 
@@ -81,17 +86,25 @@ name is `codflow`; use the developer's preferred prefix (`<project>`)
 otherwise.
 
 ```bash
-npx wrangler d1 create <project>-db           # capture database_id
-npx wrangler r2 bucket create <project>-images
-npx wrangler kv namespace create RATE_LIMIT_KV --binding RATE_LIMIT_KV  # capture id
+env -u CLOUDFLARE_ACCOUNT_ID npx wrangler d1 create <project>-db           # capture database_id
+env -u CLOUDFLARE_ACCOUNT_ID npx wrangler r2 bucket create <project>-images
+env -u CLOUDFLARE_ACCOUNT_ID npx wrangler kv namespace create RATE_LIMIT_KV --binding RATE_LIMIT_KV  # capture id
 ```
 
 Rules:
 - Always create new resources for this setup. Never bind to a resource that
   already exists in the account — it may belong to another application or
   store, and running migrations/seed against it would write into foreign data.
-- If a name is taken, do not reuse the existing resource: choose a fresh,
-  unique name (e.g. append the store name or a short suffix) and create again.
+- **Unique names apply to WORKER names, not just resources.** Default worker
+  `name` fields in wrangler configs (`codflow-server`, `codflow-main`/dashboard,
+  `cod-astro-theme01`) collide across clones, and deploying silently overwrites
+  another installation. Require the developer to choose a unique prefix (e.g.
+  `mystore-server`, `mystore-dashboard`, `mystore-theme01`) and update the
+  `name` field in all three wrangler files before first deploy. This prevents
+  cross-clone overwrite.
+- If a resource name is taken, do not reuse the existing resource: choose a
+  fresh, unique name (e.g. append the store name or a short suffix) and create
+  again.
 - Capture the D1 `database_id` (UUID) and KV `id` (32-hex) from command
   output. If parsing fails → hard stop, print the raw output, ask the
   developer. Never fall back to placeholder values.
@@ -116,6 +129,22 @@ grep -rn "00000000-0000\|00000000000000000000000000000000" \
 # expected: no matches — fix any hit before continuing
 ```
 
+**Propagate renamed D1 database through scripts:** If the database name differs
+from `codflow-db`, it is hardcoded in multiple locations that must be updated:
+- `cod-server/package.json`: `db:migrate:local` and `db:migrate:remote` scripts
+- `cod-server/scripts/seed-local.mjs`: both `--local` and `--remote` wrangler
+  d1 execute calls
+- `cod-client/scripts/seed-admin.mjs`: both `--local` and `--remote` wrangler
+  d1 execute calls
+
+After updating, grep the repo to confirm only README/doc mentions of the old
+name remain:
+
+```bash
+grep -r "codflow-db" --exclude-dir=node_modules --exclude-dir=.git
+# expected: only documentation files, zero script/config hits
+```
+
 While editing, also replace the example domains in `[vars]` /
 `[env.production.vars]` (`WORKER_URL`, `BETTER_AUTH_URL`, `WORKER_SELF_URL`,
 `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_WORKER_URL`, `ALLOWED_ORIGINS`) with the
@@ -133,17 +162,23 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # 
 node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))" # STORE_API_KEY
 ```
 
-Set secrets on the deployed workers (paste when prompted — never pipe secrets
-through `echo`; it leaks to shell history and process lists):
+**Deploy workers BEFORE setting secrets:** In non-interactive sessions,
+`wrangler secret put` against a nonexistent worker fails or hangs on the create
+prompt. Either deploy each worker first (Step 6), or wait until after deploy to
+set secrets. When setting secrets, provide values via stdin redirect from a
+chmod-600 temp file — never use `echo` or heredocs, which leak secrets into
+shell history and process lists:
 
 ```bash
-cd cod-server         && npx wrangler secret put BETTER_AUTH_SECRET   # paste generated value
-cd ../cod-client      && npx wrangler secret put BETTER_AUTH_SECRET   # same value
-cd ../cod-astro/theme01 && npx wrangler secret put STORE_API_KEY      # paste generated store key
-cd ../..
+# After cod-server is deployed:
+cd cod-server
+echo "<BETTER_AUTH_SECRET_value>" > /tmp/secret.txt && chmod 600 /tmp/secret.txt
+env -u CLOUDFLARE_ACCOUNT_ID npx wrangler secret put BETTER_AUTH_SECRET < /tmp/secret.txt
+rm /tmp/secret.txt
+
+# Repeat for cod-client and theme01 STORE_API_KEY
 ```
 
-If the worker does not exist yet, wrangler offers to create it — accept.
 For services that will also run locally, create `.dev.vars` from each package's
 `.dev.vars.example` with the same key values (`.dev.vars` is gitignored).
 
@@ -152,13 +187,15 @@ storefront secret and the seeded hash must come from the identical string.
 
 ## Step 5 — Migrate & Seed the Cloudflare D1 Database
 
-All schema and demo data go against the D1 created in Step 2 (remote), not an
-emulated copy:
+**Remote migrations are mandatory.** All schema and demo data go against the D1
+created in Step 2 (remote), not an emulated copy. Both local and remote
+migrations must run:
 
 ```bash
 cd cod-server
-npm run db:migrate:local                        # REQUIRED first: seed-admin writes local + remote
-STORE_API_KEY=<generated-store-key> npm run db:seed:remote   # demo store متجر التطوير + catalog
+env -u CLOUDFLARE_ACCOUNT_ID npm run db:migrate:local   # REQUIRED first: seed-admin writes local + remote
+env -u CLOUDFLARE_ACCOUNT_ID npm run db:migrate:remote  # MANDATORY: deployed sign-in 500s without this
+env -u CLOUDFLARE_ACCOUNT_ID STORE_API_KEY=<generated-store-key> npm run db:seed:remote   # demo store متجر التطوير + catalog
 
 cd ../cod-client
 ADMIN_EMAIL=admin@example.com ADMIN_NAME=Admin node scripts/seed-admin.mjs <password> --remote
@@ -167,6 +204,9 @@ ADMIN_EMAIL=admin@example.com ADMIN_NAME=Admin node scripts/seed-admin.mjs <pass
 Notes:
 - `db:migrate:local` must run before `seed-admin.mjs`: the script seeds the
   emulated local D1 first and needs its schema to exist.
+- `db:migrate:remote` is MANDATORY before any deployed sign-in attempt —
+  without it, Better Auth 1.7 schema requirements fail (`field "alg" does not
+  exist in "jwkss"`), producing 500 errors.
 - The seeder writes better-auth ≥ 1.7 credential rows (`issuer =
   'local:credential'`, `account_id = user id`) — re-run it after any password
   reset request for the seeded admin.
@@ -176,19 +216,40 @@ Notes:
 ## Step 6 — Deploy in Dependency Order + Smoke Test
 
 ```bash
-cd cod-server           && npm run deploy
-cd ../cod-client        && npm run deploy     # opennextjs-cloudflare build && deploy
-cd ../cod-astro/theme01 && npm run deploy     # astro build && wrangler deploy
+cd cod-server           && env -u CLOUDFLARE_ACCOUNT_ID npm run deploy
+cd ../cod-client        && env -u CLOUDFLARE_ACCOUNT_ID npm run deploy     # opennextjs-cloudflare build && deploy
+cd ../cod-astro/theme01 && env -u CLOUDFLARE_ACCOUNT_ID npm run deploy     # astro build && wrangler deploy
 ```
+
+**After deploy, replace localhost URL vars with real deployed URLs and
+redeploy:** Once workers are live, set `NEXT_PUBLIC_APP_URL` /
+`NEXT_PUBLIC_WORKER_URL` (cod-client wrangler.toml `[vars]`), `WORKER_URL`,
+`WORKER_SELF_URL`, `BETTER_AUTH_URL` (cod-server wrangler.toml `[vars]`), and
+`COD_SERVER_URL` (theme01 wrangler.jsonc) to the actual deployed URLs, then
+redeploy affected workers. Skipping this causes browser sign-in failures
+(R6/R7).
 
 Smoke-test after each deploy; do not continue past a failing check:
 
 | Worker | Check | Expectation |
 | :--- | :--- | :--- |
 | cod-server | `curl -s -o /dev/null -w "%{http_code}" https://<workers-url>/api/docs` | `200` |
-| cod-client sign-in API | `curl -s -X POST https://<dashboard-url>/api/auth/sign-in/email -H "Content-Type: application/json" -d '{"email":"<admin>","password":"<pass>"}'` | `200` + user JSON (401 = credentials/schema issue, 500 = config) |
+| cod-client sign-in API | `curl -s -X POST https://<dashboard-url>/api/auth/sign-in/email -H "Content-Type: application/json" -H "Origin: https://<dashboard-url>" -d '{"email":"<admin>","password":"<pass>"}'` | `200` + user JSON (401 = credentials/schema issue, 500 = config, **403 `INVALID_ORIGIN` = R6 not applied**) |
 | cod-client UI | open the workers URL | login page loads |
 | cod-astro/theme01 | open the workers URL | homepage renders |
+
+**CRITICAL — Origin header in sign-in tests:** Plain curl omits the `Origin`
+header; Better Auth skips its origin check and returns 200, while every real
+browser request gets `403 INVALID_ORIGIN` (which the UI masks as "Invalid email
+or password"). The canonical sign-in check MUST send
+`-H "Origin: https://<dashboard-url>"` and expect 200 + user JSON. If browser
+login fails but curl without Origin passes, `NEXT_PUBLIC_APP_URL` still points
+to localhost — apply R6, redeploy, and retest with the Origin header.
+
+**Diagnose unclear failures with `wrangler tail`:** Run
+`env -u CLOUDFLARE_ACCOUNT_ID npx wrangler tail <worker-name> --format pretty`
+in the background, have the human retry the failing operation, then read the
+log — the true error surfaces there, not in UI text.
 
 The first cod-server deploy also applies Durable Object / Workflow migrations —
 watch the deploy output for migration errors before declaring success.
@@ -210,7 +271,40 @@ Print a resource inventory:
 | R2 | `<project>-images` | n/a (name-bound) | cod-server/wrangler.toml | `r2 bucket create` confirmation |
 | KV | rate-limit namespace | `<32-hex>` | cod-server/wrangler.toml, cod-client/wrangler.toml | `kv namespace create` output |
 
-Plus a credentials table (admin email/password, STORE_API_KEY) shown **once**.
+**Credentials file delivery (mandatory):** Write credentials to a chmod-600
+markdown file OUTSIDE git-tracked directories (e.g. `~/codflow-credentials.md`
+or `/tmp/codflow-setup-<timestamp>.md`). Place every value inside a fenced code
+block so humans can copy-paste them without trailing-space login failures. Extract values programmatically from `.dev.vars` or source files; never retype from memory. Delete temporary secret files afterward. Show credentials in chat output at most once.
+
+Example credentials file structure:
+
+```markdown
+# CodFlow Setup Credentials — <project-name>
+
+## Admin User
+- **Email:** `admin@example.com`
+- **Password:**
+  ```
+  <actual-password>
+  ```
+
+## API Keys
+- **BETTER_AUTH_SECRET:**
+  ```
+  <base64-value>
+  ```
+- **STORE_API_KEY:**
+  ```
+  <base64url-value>
+  ```
+
+## Deployed URLs
+- Dashboard: https://<dashboard-url>
+- API Server: https://<cod-server-url>
+- Storefront: https://<theme01-url>
+
+**Security:** This file contains sensitive credentials. Store it securely and delete after transferring values to a password manager.
+```
 
 ---
 
@@ -255,9 +349,8 @@ scripts.
 | **Sign-in returns 500 `Secondary-storage rate limiting requires SecondaryStorage.increment`** | lib/auth.ts swapped back to `withCloudflare({ kv })` shortcut | Keep the full custom `secondaryStorage` in `cod-client/lib/auth.ts`; better-auth-cloudflare@0.3.1 lacks `increment`. |
 | **Sign-in returns 401 with correct credentials** | Admin row predates better-auth 1.7 semantics (missing `issuer`, `account_id = email`) | Apply migration 0010, re-run `scripts/seed-admin.mjs <password> --remote`. |
 | **get-session 500: field "alg" does not exist in "jwkss"** | Migration 0011 missing on that database | Run `npm run db:migrate:remote` (or `:local`). |
-| **wrangler API calls fail `Authentication error [code: 10000]`** | Shell exports `CLOUDFLARE_ACCOUNT_ID` for an account the token can't access | Prefix commands with `env -u CLOUDFLARE_ACCOUNT_ID` or unset it. |
 | **theme01 boots then wedges/crashes at first render: `optimized dependencies changed. reloading`** | Late SSR dep discovery races the workerd reload ([astro#16933](https://github.com/withastro/astro/issues/16933)) | Keep `vite.environments.ssr.optimizeDeps` (`noDiscovery: true` + excludes) in `astro.config.mjs`. |
-| **`Address already in use :8787`** | Another checkout's wrangler holds the port | Kill that process tree; run the port preflight before starting servers. |
+| **`Address already in use :8787`** | Another checkout's wrangler holds the port (see Prerequisites port preflight) | Identify via `ps -p <pid>`, confirm with human, then kill that process tree. |
 | **`Another astro dev server is already running`** | Astro 7 dev lockfile left behind | `npx astro dev stop` (or kill the stale process). |
 | **Astro behaves unexpectedly under an agent (backgrounded, JSON output)** | Astro auto-enables background+JSON mode when `AGENT`, `CLAUDE_CODE_*`, or `OPENCODE` env vars are present | Humans get foreground behavior; agents should use `npx astro dev status` / `logs` / `stop`. |
 | **`wrangler login` fails in headless/SSH** | No GUI browser available | Run `npx wrangler login` on a local machine, or configure `CLOUDFLARE_API_TOKEN` in the environment. |
