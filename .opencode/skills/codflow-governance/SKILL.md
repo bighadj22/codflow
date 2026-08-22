@@ -33,12 +33,11 @@ commands and boundaries live in each package's `AGENTS.md`
 
 ### 2. Install dependencies
 
-Run in this order — cod-server/cod-client tests and typecheck fail if
-`cod-shared` deps are not installed first:
+One install at the repo root covers every workspace (single root lockfile —
+never create per-package lockfiles):
 
 ```sh
-cd cod-shared && npm ci
-cd cod-server && npm ci   # and/or cd cod-client && npm ci
+npm ci
 ```
 
 ### 3. Make the change

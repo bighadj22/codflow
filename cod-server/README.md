@@ -24,13 +24,13 @@ database schema + query logic via `cod-shared`.
 
 ### Prerequisites
 
-- Node.js 20+ and npm
-- A Cloudflare account with the [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (`npm i -g wrangler`)
+- Node.js 22.12+ and npm
+- A Cloudflare account — Wrangler ships as a devDependency (`npx wrangler …`)
 
 ### 1. Install
 
 ```bash
-npm install
+npm ci        # at the repo root — installs all workspaces
 ```
 
 ### 2. Configure

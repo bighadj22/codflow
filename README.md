@@ -2,7 +2,7 @@
 
 ![CodFlow Banner](./imgs/codflow-banner.png)
 
-> **v0.1.0** — CodFlow is released and production-ready for self-hosting. See [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
+> **v1.0.0** — CodFlow is released and production-ready for self-hosting. See [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
 
 **The open-source, COD-first e-commerce + delivery platform for Algeria — built agentic-ready.**
 

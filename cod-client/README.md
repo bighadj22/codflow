@@ -22,8 +22,8 @@ No new `apiClient.get` calls may be added to `actions/*.ts` outside these three.
 ## 🚀 Quick Start
 
 ```bash
-# Install dependencies
-npm install
+# Install dependencies (at the repo root — npm workspaces)
+npm ci
 
 # Copy environment file (fill in BETTER_AUTH_SECRET — see below)
 cp .dev.vars.example .dev.vars
@@ -32,7 +32,7 @@ cp .dev.vars.example .dev.vars
 npm run dev
 
 # Build for production
-npm run build
+opennextjs-cloudflare build
 ```
 
 **Note:** The client connects to the server backend using the `NEXT_PUBLIC_WORKER_URL` environment variable. Make sure the server is running and the environment variable is set correctly.
@@ -42,7 +42,6 @@ npm run build
 1. **Server Setup:** The client requires the CodFlow server to be running
    ```bash
    cd ../cod-server
-   npm install
    npm run db:setup:local  # Migrate + seed demo store data
    npm run dev            # Start server on port 8787
    ```

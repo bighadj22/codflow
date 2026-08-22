@@ -29,8 +29,8 @@ Prereqs: Node 22.12+, the [Wrangler CLI](https://developers.cloudflare.com/worke
 and a running `cod-server` (the storefront reads all data from its `/store/*` API).
 
 ```bash
+npm ci                           # at the repo root — installs all workspaces
 cd cod-astro/theme01
-npm install
 cp .dev.vars.example .dev.vars   # fill in your values
 npm run dev                      # http://localhost:4321
 ```
