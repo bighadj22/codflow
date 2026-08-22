@@ -1146,6 +1146,7 @@ export const accounts = sqliteTable("accounts", {
   userId:                text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   accountId:             text("account_id").notNull(),
   providerId:            text("provider_id").notNull(),
+  issuer:                text("issuer"),
   accessToken:           text("access_token"),
   refreshToken:          text("refresh_token"),
   idToken:               text("id_token"),
@@ -1180,6 +1181,8 @@ export const jwkss = sqliteTable("jwkss", {
   privateKey: text("private_key").notNull(),
   createdAt:  integer("created_at", { mode: "timestamp_ms" }).default(authNow).notNull(),
   expiresAt:  integer("expires_at", { mode: "timestamp_ms" }),
+  alg:        text("alg"),
+  crv:        text("crv"),
 });
 
 // ─── @better-auth/oauth-provider ──────────────────────────────────────────────

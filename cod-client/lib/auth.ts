@@ -28,6 +28,43 @@ async function buildAuth() {
   const { env } = await getCloudflareContext({ async: true });
   const db = getDb(env.DB);
 
+  // Better Auth routes session caching AND rate-limit counters through
+  // `secondaryStorage`. better-auth-cloudflare@0.3.1's built-in KV adapter
+  // (createKVStorage) implements only get/set/delete — its rate limiter
+  // hard-requires `increment` and throws
+  //   BetterAuthError: Secondary-storage rate limiting requires
+  //   SecondaryStorage.increment.
+  // so we provide the full storage on RATE_LIMIT_KV ourselves.
+  //
+  // KV has no atomic counters: increment is read-modify-write. Under extreme
+  // concurrency two isolates can read the same count — worst case the limiter
+  // under-counts by one hit, never blocks legit traffic permanently.
+  //
+  // KV expirationTtl floor is 60s, so windows shorter than 60s effectively
+  // expire at 60s (all configured windows are ≥ 60s today).
+  const kv = env.RATE_LIMIT_KV;
+  const secondaryStorage = {
+    get: (key: string) => kv.get(key),
+    getAndDelete: async (key: string) => {
+      const value = await kv.get(key);
+      await kv.delete(key);
+      return value;
+    },
+    set: (key: string, value: string, ttl?: number) =>
+      kv.put(key, value, ttl ? { expirationTtl: Math.max(60, Math.ceil(ttl)) } : undefined),
+    delete: (key: string) => kv.delete(key),
+    increment: async (key: string, ttl?: number): Promise<number> => {
+      const previous = await kv.get(key);
+      const next = (previous ? Number.parseInt(previous, 10) : 0) + 1;
+      await kv.put(
+        key,
+        String(next),
+        previous ? undefined : { expirationTtl: Math.max(60, Math.ceil(ttl ?? 60)) }
+      );
+      return next;
+    },
+  };
+
   return betterAuth({
     ...withCloudflare(
       {
@@ -40,29 +77,11 @@ async function buildAuth() {
             transaction: false,
           },
         },
-        // KV namespace for Better Auth's secondaryStorage. Two effects:
-        //  1. session lookups are cached in KV → get-session avoids a D1
-        //     round-trip on every request (~10-30ms KV vs ~50-150ms D1).
-        //  2. rate-limit counters live here too — Better Auth auto-routes
-        //     `rateLimit.storage` to "secondary-storage" when secondaryStorage
-        //     is present (better-auth/dist/context/create-context.mjs).
-        // Replaces the hand-rolled customStorage we used to ship; that path
-        // worked but bypassed KV TTL clamping and shadowed the official KV
-        // helper from better-auth-cloudflare/createKVStorage.
-        //
-        // The cast is a workaround for the global-vs-import KVNamespace type
-        // duality — `env.RATE_LIMIT_KV` resolves to the GLOBAL KVNamespace
-        // pulled in via `/// <reference types="@cloudflare/workers-types" />`
-        // in cloudflare-env.d.ts, while better-auth-cloudflare's `kv` param
-        // wants the MODULE-imported KVNamespace from the same package. Same
-        // interface, different "identity" → TypeScript treats them as
-        // unrelated. Runtime is identical.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        kv: env.RATE_LIMIT_KV as any,
       },
       {
         baseURL: env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
         secret: env.BETTER_AUTH_SECRET,
+        secondaryStorage,
         // oauthProvider plugin owns /token — disable the default better-auth
         // handler so the two don't conflict on the same path.
         disabledPaths: ["/token"],

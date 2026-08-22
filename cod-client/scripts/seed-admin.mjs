@@ -65,6 +65,10 @@ async function main() {
   // Build idempotent SQL
   // INSERT OR IGNORE so re-running doesn't fail if admin already exists.
   // UPDATE ensures api_key is always refreshed to the new value so it's shown to the admin.
+  //
+  // Credential accounts must match Better Auth >= 1.7 lookup semantics
+  // (see better-auth/dist/api/routes/sign-in.mjs): provider_id = 'credential',
+  // issuer = 'local:credential', account_id = user id (NOT the email).
   const sql = `
 INSERT OR IGNORE INTO users
   (id, name, email, email_verified, role, status, api_key, created_at, updated_at)
@@ -75,16 +79,16 @@ UPDATE users SET api_key = '${apiKey}', updated_at = ${now}
 WHERE email = '${email}';
 
 INSERT OR IGNORE INTO accounts
-  (id, user_id, account_id, provider_id, password, created_at, updated_at)
-SELECT '${accountId}', id, '${email}', 'credential', '${hashedPw}', ${now}, ${now}
-FROM   users
-WHERE  email = '${email}'
+  (id, user_id, account_id, provider_id, issuer, password, created_at, updated_at)
+SELECT '${accountId}', u.id, u.id, 'credential', 'local:credential', '${hashedPw}', ${now}, ${now}
+FROM   users u
+WHERE  u.email = '${email}'
   AND  NOT EXISTS (
-    SELECT 1 FROM accounts WHERE account_id = '${email}' AND provider_id = 'credential'
+    SELECT 1 FROM accounts a WHERE a.user_id = u.id AND a.provider_id = 'credential'
   );
 
-UPDATE accounts SET password = '${hashedPw}', updated_at = ${now}
-WHERE account_id = '${email}' AND provider_id = 'credential';
+UPDATE accounts SET password = '${hashedPw}', issuer = 'local:credential', account_id = user_id, updated_at = ${now}
+WHERE user_id = (SELECT id FROM users WHERE email = '${email}') AND provider_id = 'credential';
 `.trim();
 
   // Write SQL to a temp file (wrangler --file is more reliable than --command for multi-line)

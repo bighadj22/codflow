@@ -16,11 +16,10 @@ engine logic lives in the CodFlow platform (see `cod-server`). Read the root
 
 ## Commands
 
-This is a standalone package with its own lockfile. Install and run inside this
-directory:
+This package is part of the root npm workspace. Install at the repo root
+(`npm ci`), then run inside this directory:
 
 ```sh
-npm ci              # install
 npm run dev         # astro dev :4321 (expects cod-server on :8787)
 npm run build       # astro build
 npm test            # vitest --run (6 unit/property tests)
@@ -47,7 +46,8 @@ verified manually with the commands above.
 - **No hardcoded user-facing strings** — add content keys to the language packs.
 - **No hardcoded design tokens** (colors, radii, fonts) in component styles.
   See `THEME_GUIDE.md`.
-- The `"overrides": { "vite": "^8.2.2" }` pin in `package.json` is
+- The `"overrides": { "vite": "^8.2.2" }` pin lives in the **root**
+  `package.json` (npm ignores overrides inside workspace members) and is
   load-bearing: it keeps a single Vite major across astro/vitest/plugins.
   Removing it reintroduces a dev-server boot crash; bump it together with
   astro's Vite major. `npm ls vite` must show one version.
