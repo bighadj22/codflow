@@ -26,12 +26,15 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@tailwindcss/vite": "^4.3.3",
-    "@vitest/ui": "^3.2.4",
+    "@vitest/ui": "^4.1.11",
     "fast-check": "^4.6.0",
     "happy-dom": "^20.9.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4",
+    "vitest": "^4.1.11",
     "wrangler": "^4.125.0"
+  },
+  "overrides": {
+    "vite": "^8.2.2"
   }
 }
