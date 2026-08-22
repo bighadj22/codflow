@@ -12,6 +12,8 @@
     "db:migrate:remote": "wrangler d1 migrations apply codflow-db --remote",
     "db:seed:local": "node scripts/seed-local.mjs",
     "db:setup:local": "npm run db:migrate:local && npm run db:seed:local",
+    "db:seed:remote": "node scripts/seed-local.mjs --remote",
+    "db:setup:remote": "npm run db:migrate:remote && npm run db:seed:remote",
     "db:validate": "npx tsx scripts/validate-migration.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest --run",

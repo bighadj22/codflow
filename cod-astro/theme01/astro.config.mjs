@@ -85,6 +85,20 @@ export default defineConfig({
   ],
   vite: {
     plugins: [tailwindcss()],
+    environments: {
+      ssr: {
+        optimizeDeps: {
+          // Deps discovered after boot trigger a re-bundle whose chunk renames
+          // race the workerd reload and wedge/crash the runner
+          // (withastro/astro#16933). Disable late discovery entirely: deps
+          // found at request time load unbundled instead. Must live under
+          // vite.environments.ssr — the legacy vite.ssr.optimizeDeps key is
+          // ignored by Vite 8 here.
+          noDiscovery: true,
+          exclude: ["astro/assets/services/noop", "astro-icon/components"],
+        },
+      },
+    },
     build: {
       // Minify for production
       minify: "esbuild",

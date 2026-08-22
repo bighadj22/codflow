@@ -199,16 +199,13 @@ Deploy CodFlow to your own Cloudflare account in minutes. Your customer records,
 
 Run the full platform locally — storefront, merchant dashboard, and backend sharing a single local D1 database.
 
-### ⚡ Fast Track: Automated Setup (AI Agents & Developers)
+### ⚡ Fast Track: Setup Runbook (AI Agents & Developers)
 
-You can bootstrap the entire local environment in **one command**:
+Setup is a guided runbook — it creates the Cloudflare resources (D1, R2, KV),
+binds their real IDs into the `wrangler.toml` files, migrates and seeds the
+database, and verifies the deployment.
 
-```bash
-# Automated setup (installs deps, generates .dev.vars, runs migrations, seeds store & admin)
-node .agents/skills/codflow-setup/scripts/setup-local.mjs
-```
-
-> 🤖 **Using an AI Coding Assistant?** CodFlow includes an autonomous setup skill. Tell your agent: *"Set up CodFlow locally"* and it will follow the [`codflow-setup` runbook](./.agents/skills/codflow-setup/SKILL.md).
+> 🤖 **Using an AI Coding Assistant?** CodFlow includes an autonomous setup skill. Tell your agent: *"Set up CodFlow"* and it will follow the [`codflow-setup` runbook](./.agents/skills/codflow-setup/SKILL.md).
 
 ---
 

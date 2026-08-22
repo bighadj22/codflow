@@ -47,6 +47,10 @@ verified manually with the commands above.
 - **No hardcoded user-facing strings** — add content keys to the language packs.
 - **No hardcoded design tokens** (colors, radii, fonts) in component styles.
   See `THEME_GUIDE.md`.
+- The `"overrides": { "vite": "^8.2.2" }` pin in `package.json` is
+  load-bearing: it keeps a single Vite major across astro/vitest/plugins.
+  Removing it reintroduces a dev-server boot crash; bump it together with
+  astro's Vite major. `npm ls vite` must show one version.
 - `wrangler.jsonc` ships a local `COD_SERVER_URL` var. Real secrets go in
   `.dev.vars` (gitignored) or `wrangler secret put` — never in `wrangler.jsonc`.
 - `MEDIA_DOMAIN` is optional; unset, the image optimizer passes URLs through

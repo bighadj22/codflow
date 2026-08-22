@@ -67,6 +67,15 @@ Same for `cod-client` (`npm ci`, `npm run typecheck`, `npm test`, `npm run dev`)
 
 - Running cod-server/cod-client tests or typecheck fails if `cod-shared`
   dependencies are not installed first.
+- In `cod-client/next.config.mjs`, `turbopack.root` AND
+  `outputFileTracingRoot` must stay pointed at the monorepo root
+  (`path.resolve(import.meta.dirname, "..")`, same value for both keys).
+  Reverting either to `process.cwd()` breaks `../../cod-shared/*` imports
+  under Turbopack (`Can't resolve` on every page).
+- Keep the `"overrides": { "vite": "^8.2.2" }` pin in
+  `cod-astro/theme01/package.json` (single Vite major across astro/vitest).
+  It is load-bearing: removing it reintroduces the dual-Vite boot crash
+  (`Missing field 'moduleType'`). Keep it in sync when astro bumps Vite.
 - Inbound webhooks exist only for **Yalidine** and **ZR Express**. NOEST and
   EcoTrack tracking is pulled on demand via `GET /orders/:id/tracking` — there
   is no inbound receiver for them.

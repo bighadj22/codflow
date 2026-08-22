@@ -84,16 +84,13 @@ New here? Here's the shortest path to a merged change:
 > The repo's `.nvmrc` pins Node 24; CI runs Node 24. Astro 7 (the storefront)
 > requires Node 22.12+.
 
-### ⚡ Fast Track: Automated Setup (AI Agents & Contributors)
+### ⚡ Fast Track: Setup Runbook (AI Agents & Contributors)
 
-You can bootstrap the entire local environment in **one command**:
+Setup is a guided runbook — it creates the Cloudflare resources (D1, R2, KV),
+binds their real IDs into the `wrangler.toml` files, migrates and seeds the
+database, and verifies the deployment.
 
-```bash
-# Automated setup (installs deps in order, generates .dev.vars, migrates D1, seeds store & admin)
-node .agents/skills/codflow-setup/scripts/setup-local.mjs
-```
-
-> 🤖 **Working with an AI Coding Assistant?** CodFlow includes an autonomous setup skill. Instruct your agent: *"Set up CodFlow locally"* and it will follow the [`codflow-setup` runbook](./.agents/skills/codflow-setup/SKILL.md).
+> 🤖 **Working with an AI Coding Assistant?** CodFlow includes an autonomous setup skill. Instruct your agent: *"Set up CodFlow"* and it will follow the [`codflow-setup` runbook](./.agents/skills/codflow-setup/SKILL.md).
 
 ---
 

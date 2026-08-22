@@ -8,7 +8,8 @@
  *   - Product images (picsum.photos placeholders)
  *
  * Usage:
- *   node scripts/seed-local.mjs
+ *   node scripts/seed-local.mjs            # local D1 (.wrangler-shared)
+ *   node scripts/seed-local.mjs --remote   # remote Cloudflare D1
  *
  * Reads STORE_API_KEY from $STORE_API_KEY, cod-astro/theme01/.dev.vars, or a
  * dev default (in that order).
@@ -23,6 +24,7 @@ import path from "path";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
+const remote = process.argv.includes("--remote");
 
 // ── 1. Resolve the store API key ────────────────────────────────────────────
 // Precedence: $STORE_API_KEY env var → cod-astro/theme01/.dev.vars → dev default.
@@ -203,8 +205,9 @@ for (const img of images) {
 
 // ── 5. Execute ────────────────────────────────────────────────────────────────
 function run(sql) {
+  const target = remote ? "--remote -y" : "--local --persist-to ../.wrangler-shared";
   execSync(
-    `npx wrangler d1 execute codflow-db --local --persist-to ../.wrangler-shared --command "${sql.replace(/"/g, '\\"')}"`,
+    `npx wrangler d1 execute codflow-db ${target} --command "${sql.replace(/"/g, '\\"')}"`,
     { cwd: root, stdio: "pipe" }
   );
 }
@@ -227,4 +230,4 @@ console.log(`  products   : ${products.length} (${products.filter(p => p.storeFe
 console.log(`  variants   : ${variants.length}`);
 console.log(`  images     : ${images.length}`);
 console.log(`\n  rawKey     : ${rawKey.slice(0, 24)}...`);
-console.log(`\nRestart cod-server + cod-astro, then open http://localhost:4321\n`);
+console.log(`\n  target     : ${remote ? "remote D1 (codflow-db)" : "local D1 (.wrangler-shared)"}\n`);
