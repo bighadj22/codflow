@@ -68,31 +68,30 @@ cd ../..
 
 Use `npm ci` where a lockfile exists so installs match the committed lockfiles.
 
-## Step 2 — Create or Reuse Each Cloudflare Resource
+## Step 2 — Create Dedicated Cloudflare Resources
 
-Never blind-create: list first, reuse what exists, create only what's missing.
-Default project name is `codflow`; use the developer's preferred prefix
-(`<project>`) otherwise.
+Create fresh, dedicated resources for this CodFlow install. Default project
+name is `codflow`; use the developer's preferred prefix (`<project>`)
+otherwise.
 
 ```bash
-npx wrangler d1 list                          # exists? capture its database_id → REUSE
-npx wrangler d1 create <project>-db           # only if absent
-
-npx wrangler r2 bucket list                   # exists? reuse
+npx wrangler d1 create <project>-db           # capture database_id
 npx wrangler r2 bucket create <project>-images
-
-npx wrangler kv namespace list                # exists? reuse (match by title)
 npx wrangler kv namespace create RATE_LIMIT_KV --binding RATE_LIMIT_KV  # capture id
 ```
 
 Rules:
-- Capture the D1 `database_id` (UUID) and KV `id` (32-hex) from command output.
-  If parsing fails → hard stop, print the raw output, ask the developer.
-  Never fall back to placeholder values.
-- Name collisions across clones on one account are expected: prefer unique
-  per-project names, else reuse deliberately.
-- One KV namespace serves both workers (binding name differs per file: `RATE_LIMIT`
-  in cod-server, `RATE_LIMIT_KV` in cod-client — only the namespace `id` matters).
+- Always create new resources for this setup. Never bind to a resource that
+  already exists in the account — it may belong to another application or
+  store, and running migrations/seed against it would write into foreign data.
+- If a name is taken, do not reuse the existing resource: choose a fresh,
+  unique name (e.g. append the store name or a short suffix) and create again.
+- Capture the D1 `database_id` (UUID) and KV `id` (32-hex) from command
+  output. If parsing fails → hard stop, print the raw output, ask the
+  developer. Never fall back to placeholder values.
+- One KV namespace serves both workers (binding name differs per file:
+  `RATE_LIMIT` in cod-server, `RATE_LIMIT_KV` in cod-client — only the
+  namespace `id` matters).
 
 ## Step 3 — Bind Real IDs into BOTH wrangler.toml Files
 
@@ -100,7 +99,7 @@ Files: `cod-server/wrangler.toml` **and** `cod-client/wrangler.toml`.
 
 - `[[d1_databases]]`: set `database_id` (same database in both files).
 - `[[kv_namespaces]]`: set `id`.
-- `[[r2_buckets]]`: confirm `bucket_name` matches the created/reused bucket.
+- `[[r2_buckets]]`: confirm `bucket_name` matches the bucket created in Step 2.
 
 Then read both files back and verify no placeholder remains anywhere,
 including `[env.production]` blocks:
@@ -187,9 +186,9 @@ Print a resource inventory:
 
 | Resource | Name | ID | Bound in | Verified by |
 | :--- | :--- | :--- | :--- | :--- |
-| D1 | `<project>-db` | `<uuid>` | cod-server/wrangler.toml, cod-client/wrangler.toml | `wrangler d1 list` + Step 3 grep |
-| R2 | `<project>-images` | n/a (name-bound) | cod-server/wrangler.toml | `wrangler r2 bucket list` |
-| KV | rate-limit namespace | `<32-hex>` | cod-server/wrangler.toml, cod-client/wrangler.toml | `wrangler kv namespace list` |
+| D1 | `<project>-db` | `<uuid>` | cod-server/wrangler.toml, cod-client/wrangler.toml | `d1 create` output + Step 3 grep |
+| R2 | `<project>-images` | n/a (name-bound) | cod-server/wrangler.toml | `r2 bucket create` confirmation |
+| KV | rate-limit namespace | `<32-hex>` | cod-server/wrangler.toml, cod-client/wrangler.toml | `kv namespace create` output |
 
 Plus a credentials table (admin email/password, STORE_API_KEY) shown **once**.
 
