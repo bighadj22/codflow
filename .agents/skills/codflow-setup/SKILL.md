@@ -15,6 +15,34 @@ This skill provides an exact, verified procedure for setting up CodFlow from a f
 
 ---
 
+## Read This First — What Exists Where (Expectation Contract)
+
+> [!IMPORTANT]
+> State this contract to the developer **before** running any setup step. Most
+> setup confusion comes from expecting local mode to provision real resources.
+
+| Mode | D1 | R2 | KV | DO / Workflow | Bindings in wrangler.toml |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| Local (`--persist-to ../.wrangler-shared`) | Emulated (SQLite file) | Emulated | Emulated | Emulated | Placeholder IDs OK — ignored |
+| Cloud / production | **Real, created by you** | **Real** (needs card-on-file for R2) | **Real** | Real at deploy | **Placeholder IDs forbidden** |
+
+Both `wrangler.toml` files ship with all-zero placeholder IDs:
+
+```toml
+database_id = "00000000-0000-0000-0000-000000000000"   # placeholder
+id          = "00000000000000000000000000000000"        # placeholder
+```
+
+Miniflare ignores these IDs locally — that is why local dev works out of the
+box. **Production deploys fail or silently break with them**, so every
+placeholder must be replaced during cloud provisioning (Step C2 below).
+
+Contract sentence to state verbatim before starting (fill `<project>` and account):
+
+> *"Local mode will not create anything in your Cloudflare dashboard. Cloud mode will create D1 `<project>-db`, R2 bucket `<project>-images`, and a KV namespace for rate limiting in account `<account>` and bind their real IDs into both wrangler.toml files."*
+
+---
+
 ## Essential Cloudflare Prerequisites & Account Setup
 
 > [!IMPORTANT]
@@ -50,11 +78,12 @@ When a developer asks to set up CodFlow, follow this decision path:
    - **Mode**: Local Development (default, 100% free offline emulation) OR Cloudflare Cloud / Production?
    - **Store/Project Name**: Resource name prefix (default: `codflow` or custom store brand).
    - **Admin Account**: Email (default: `admin@example.com`) and Name (default: `Admin`).
-   - If Cloudflare Cloud is selected: Verify `npx wrangler whoami` and remind about the R2 card-on-file activation.
+   - If Cloudflare Cloud is selected: verify `npx wrangler whoami`, remind about the R2 card-on-file activation, then follow the **Cloud Provisioning Runbook (C0–C6)** below.
+   - State the expectation contract above before executing anything.
 2. **Execute Setup Autonomously:**
    - Install dependencies in strict order (`cod-shared` first).
    - Configure `.dev.vars` with cryptographic keys.
-   - Run D1 migrations to shared state (`.wrangler-shared` for local, or remote D1).
+   - Run D1 migrations to shared state (`.wrangler-shared` for local, or remote D1 via Step C4).
    - Seed sample products, categories, 58-wilaya shipping rates, and store API key.
    - Create admin credentials with Better Auth hashed passwords.
 3. **Verify the Running Services:**
@@ -64,11 +93,10 @@ When a developer asks to set up CodFlow, follow this decision path:
 
 ---
 
-## Quick Automation Scripts
+## Automation Scripts
 
-The skill includes pre-tested, zero-assumption automation scripts in `scripts/`:
+### Automated Local Setup (One Command)
 
-### 1. Automated Local Setup (One Command)
 ```bash
 node .agents/skills/codflow-setup/scripts/setup-local.mjs
 
@@ -76,18 +104,14 @@ node .agents/skills/codflow-setup/scripts/setup-local.mjs
 ADMIN_EMAIL=you@example.dz ADMIN_NAME="Store Owner" node .agents/skills/codflow-setup/scripts/setup-local.mjs
 ```
 
-### 2. Automated Cloudflare Remote Provisioning
-```bash
-# Verify authentication first:
-npx wrangler whoami || npx wrangler login
-
-# Run automated provisioning:
-PROJECT_NAME=mystore ADMIN_EMAIL=admin@mystore.dz node .agents/skills/codflow-setup/scripts/setup-cloudflare.mjs
-```
+There is intentionally **no provisioning script for Cloud mode**. Remote
+provisioning is agent-driven: silent fallbacks, blind re-creation on name
+collisions, regex-edited TOML, and echo-piped secrets are exactly the failure
+modes written steps avoid. Follow the runbook below instead.
 
 ---
 
-## Detailed Step-by-Step Runbook (Manual / Autonomous Execution)
+## Detailed Step-by-Step Runbook (Local Development)
 
 ### Step 1: Install Dependencies in Strict Order
 
@@ -104,7 +128,7 @@ cd ../cod-server && npm install
 # 3. Merchant Dashboard (cod-client)
 cd ../cod-client && npm install
 
-# 4. Storefront Theme (cod-astro)
+# 4. Storefront Theme (cod-astro/theme01)
 cd ../cod-astro/theme01 && npm install
 cd ../..
 ```
@@ -177,6 +201,13 @@ ADMIN_EMAIL=admin@example.com ADMIN_NAME=Admin node scripts/seed-admin.mjs [opti
 
 ### Step 5: Start Local Development Servers
 
+Before starting servers, confirm the ports are free — a stale server from
+another checkout produces confusing failures:
+
+```bash
+lsof -nP -iTCP:3000 -iTCP:4321 -iTCP:8787 -sTCP:LISTEN   # expect no output
+```
+
 Open three terminals or launch background processes:
 
 | Package | Directory | Command | URL | Description |
@@ -185,73 +216,128 @@ Open three terminals or launch background processes:
 | **Dashboard** | `cod-client` | `npm run dev` | `http://localhost:3000` | Next.js 16 Merchant UI (Sign in with admin credentials) |
 | **Storefront** | `cod-astro/theme01` | `npm run dev` | `http://localhost:4321` | Astro 7 COD Storefront (Place test orders) |
 
+> The storefront lives in `cod-astro/theme01`, **not** bare `cod-astro/` —
+> the parent folder has no `dev` script (`Missing script: "dev"`).
+
 ---
 
-## Cloudflare Remote Provisioning & Production Setup
+## Cloud Provisioning Runbook (C0–C6)
 
-When deploying to a live Cloudflare account:
+Ordered steps for creating and binding real Cloudflare resources. Every step
+ends in a verified artifact; **do not skip a gate**. Reuse existing resources
+rather than blind-creating: name collisions across checkouts are expected
+(two clones of CodFlow on one account is a common situation). Prefer unique
+per-project names (`<project>-db`), else reuse deliberately.
 
-### 1. Authenticate with Cloudflare
+### Step C0 — Preflight
+
 ```bash
-npx wrangler whoami
-# If not authenticated, run:
-npx wrangler login
+npx wrangler whoami        # logged in? which account? multiple accounts → pin account_id
 ```
 
-### 2. Verify R2 Activation & Provision Cloudflare Resources
+- If multiple accounts: ask the developer which one; record the `account_id`.
+- R2 gate: ask the developer to confirm dash.cloudflare.com → R2 shows enabled
+  (card on file). Do not proceed to bucket creation until confirmed.
+- Port gate (if also running dev): check 3000/4321/8787 free.
+
+### Step C1 — Reuse-or-Create Each Resource (Never Blind-Create)
+
 ```bash
-# 1. Create D1 Database (save the database_id from output)
-npx wrangler d1 create codflow-db
-
-# 2. Create R2 Image Bucket (ensure card is on file in dash.cloudflare.com → R2)
-npx wrangler r2 bucket create codflow-images
-
-# 3. Create KV Namespace for Rate Limiting & Auth Cache (save the id)
-npx wrangler kv namespace create RATE_LIMIT_KV
+npx wrangler d1 list                          # exists? capture its database_id → REUSE
+npx wrangler d1 create <project>-db           # only if absent
+npx wrangler r2 bucket list                   # exists? reuse
+npx wrangler r2 bucket create <project>-images
+npx wrangler kv namespace list                # exists? reuse (match by title)
+npx wrangler kv namespace create RATE_LIMIT_KV --binding RATE_LIMIT_KV  # capture id
 ```
 
-### 3. Bind Resources in `wrangler.toml` Files
+Rules:
+- Capture the D1 `database_id` (UUID) and KV `id` (32-hex). If parsing fails →
+  **hard stop**, print raw output, ask the developer. Never fall back to
+  placeholder values.
+- A KV namespace reused by title may carry a different binding label than the
+  TOML expects (`RATE_LIMIT` in cod-server, `RATE_LIMIT_KV` in cod-client) —
+  only the namespace `id` matters in the config.
 
-- In `cod-server/wrangler.toml`:
-  - Set `[[d1_databases]]`: `database_name = "codflow-db"`, `database_id = "<your-d1-uuid>"`
-  - Set `[[r2_buckets]]`: `bucket_name = "codflow-images"`
-  - Set `[[kv_namespaces]]`: `id = "<your-kv-id>"`
-- In `cod-client/wrangler.toml`:
-  - Set `[[d1_databases]]`: `database_name = "codflow-db"`, `database_id = "<your-d1-uuid>"`
-  - Set `[[kv_namespaces]]`: `id = "<your-kv-id>"`
+### Step C2 — Bind Real IDs into BOTH wrangler.toml Files
 
-### 4. Upload Cloudflare Production Secrets
+Files: `cod-server/wrangler.toml` **and** `cod-client/wrangler.toml`.
+
+- Set `[[d1_databases]]` `database_id` (same database in both files).
+- Set `[[kv_namespaces]]` `id`.
+- Confirm `[[r2_buckets]]` `bucket_name` matches the created/reused bucket.
+
+Then **read both files back** and verify no placeholder remains anywhere,
+including any `[env.production]` blocks:
+
 ```bash
-# 1. Set Auth Secret on Server and Dashboard
-cd cod-server
-echo "<BETTER_AUTH_SECRET>" | npx wrangler secret put BETTER_AUTH_SECRET
-
-cd ../cod-client
-echo "<BETTER_AUTH_SECRET>" | npx wrangler secret put BETTER_AUTH_SECRET
-
-# 2. Set Store Key and Server URL on Storefront
-cd ../cod-astro/theme01
-echo "<STORE_API_KEY>" | npx wrangler secret put STORE_API_KEY
-echo "https://api.yourdomain.com" | npx wrangler secret put COD_SERVER_URL
+grep -rn "00000000-0000\|00000000000000000000000000000000" \
+  cod-server/wrangler.toml cod-client/wrangler.toml
+# expected: no matches
 ```
 
-### 5. Apply Migrations & Seed Remote Admin
-```bash
-# Apply schema to remote Cloudflare D1
-cd ../cod-server
-npm run db:migrate:remote
+If any match remains, fix it before proceeding. Placeholder IDs break deploys.
 
-# Seed remote admin user
+### Step C3 — Secrets (Interactive, No Echo-Piping)
+
+Generate the auth secret once:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Then set secrets interactively (paste when prompted):
+
+```bash
+cd cod-server    && npx wrangler secret put BETTER_AUTH_SECRET   # paste generated 32-byte base64
+cd cod-client    && npx wrangler secret put BETTER_AUTH_SECRET   # same value
+cd cod-astro/theme01 && npx wrangler secret put STORE_API_KEY && npx wrangler secret put COD_SERVER_URL
+```
+
+Print each secret **once** in a summary table (name, where used); tell the
+developer to store it. Never pipe secrets through `echo` — it leaks to shell
+history and the process list.
+
+### Step C4 — Remote Migrations & Admin
+
+```bash
+cd cod-server && npm run db:migrate:remote
+
 cd ../cod-client
 ADMIN_EMAIL=admin@yourdomain.com ADMIN_NAME=Admin node scripts/seed-admin.mjs <password> --remote
 ```
 
-### 6. Deploy Workers
+### Step C5 — Deploy in Dependency Order + Smoke Test
+
 ```bash
-cd ../cod-server && npm run deploy
-cd ../cod-client && npm run deploy
+cd cod-server         && npm run deploy   # then smoke-test below BEFORE deploying the rest
+cd ../cod-client      && npm run deploy
 cd ../cod-astro/theme01 && npm run deploy
 ```
+
+Smoke tests after each deploy:
+
+| Worker | Check | Expectation |
+| :--- | :--- | :--- |
+| cod-server | `curl -s -o /dev/null -w "%{http_code}" https://<workers-url>/api/docs` | `200` |
+| cod-client | open the workers URL | login page loads |
+| cod-astro/theme01 | open the workers URL | homepage renders store title |
+
+> The first `cod-server` deploy also applies Durable Object / Workflow
+> migrations (`mcp-v1`). Watch the deploy output for migration errors before
+> declaring success.
+
+### Step C6 — Closing Summary (Mandatory)
+
+Print a resource inventory table:
+
+| Resource | Name | ID | Bound in file | Verified by |
+| :--- | :--- | :--- | :--- | :--- |
+| D1 | `<project>-db` | `<uuid>` | cod-server/wrangler.toml, cod-client/wrangler.toml | `wrangler d1 list` + C2 grep |
+| R2 | `<project>-images` | n/a (name-bound) | cod-server/wrangler.toml | `wrangler r2 bucket list` |
+| KV | rate-limit namespace | `<32-hex>` | cod-server/wrangler.toml, cod-client/wrangler.toml | `wrangler kv namespace list` |
+
+Plus a credentials table (admin email/password, store API key) shown **once**.
 
 ---
 
@@ -259,6 +345,14 @@ cd ../cod-astro/theme01 && npm run deploy
 
 | Problem | Cause | Solution |
 | :--- | :--- | :--- |
+| **"You did not create anything in my CF account" after local setup** | Expected behavior: local mode is 100% Miniflare emulation | Point to the expectation contract table above; run C0–C6 for real resources. |
+| **Deploy fails with placeholder-looking binding errors** | Resource IDs were never replaced in wrangler.toml | Run the Step C2 verification greps; bind real IDs. |
+| **cod-client pages 500: `Module not found: Can't resolve '../../cod-shared/...'`** | Turbopack workspace root pinned inside `cod-client` | Keep `turbopack.root` AND `outputFileTracingRoot` pointed at the monorepo root in `cod-client/next.config.mjs` (both keys, same value). |
+| **theme01 dev dies instantly: `Missing field 'moduleType'` / `Dev server process exited before becoming ready`** | Dual Vite majors from npm flat hoisting ([astro#16229](https://github.com/withastro/astro/issues/16229)) | Keep `"overrides": { "vite": "^8.2.2" }` + vitest 4 in theme01 package.json; `rm -rf node_modules && npm install`. `npm ls vite` must show a single major. |
+| **theme01 boots then wedges/crashes at first render: `optimized dependencies changed. reloading` → `The file does not exist at .../deps_ssr/server-*.js`** | Late SSR dep discovery races the workerd reload ([astro#16933](https://github.com/withastro/astro/issues/16933)) | Keep `vite.environments.ssr.optimizeDeps` (`noDiscovery: true` + excludes) in `astro.config.mjs`. The legacy `vite.ssr.optimizeDeps` key has no effect. |
+| **`Address already in use :8787`** | Another checkout's wrangler holds the port | Kill that process tree; add the port preflight before starting servers. |
+| **`Another astro dev server is already running`** | Astro 7 dev lockfile left behind | `npx astro dev stop` (or kill the stale process). |
+| **Astro behaves unexpectedly under an agent (backgrounded, JSON output)** | Astro auto-enables background+JSON mode when `AGENT`, `CLAUDE_CODE_*`, or `OPENCODE` env vars are present | Humans get foreground behavior; agents should use `npx astro dev status` / `logs` / `stop`. |
 | **`wrangler login` fails in headless/SSH** | No GUI browser available | Run `npx wrangler login` on a local machine, or configure `CLOUDFLARE_API_TOKEN` in the environment. |
 | **`wrangler r2 bucket create` fails** | R2 subscription not enabled on Cloudflare account | Navigate to `https://dash.cloudflare.com → R2`, add a payment card to activate the Free Tier, then retry. |
 | **Local D1 split-brain / missing tables** | Wrangler ran without `--persist-to` | Always run local migrations and commands with `--persist-to ../.wrangler-shared`. |
