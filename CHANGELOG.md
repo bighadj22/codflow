@@ -27,9 +27,14 @@ First stable release of CodFlow.
 
 ### Fixed
 
-- Fresh clones boot on the first try: Turbopack workspace root pinned to the
-  monorepo root in `cod-client/next.config.mjs` (fixes every page failing with
-  `Can't resolve '../../cod-shared/*'`)
+- Fresh clones boot on the first try: the repository is an npm workspace
+  monorepo with a single root lockfile, so Turbopack resolves cross-package
+  `cod-shared/*` imports natively and OpenNext detects the monorepo correctly
+  on every cod-client deploy
+- Authentication aligned with better-auth ≥ 1.7 semantics: `accounts.issuer`
+  and `jwkss.alg/crv` columns (migrations 0010/0011), credential seeder writes
+  the current account shape, and the dashboard ships a complete KV
+  `secondaryStorage` (session caching + rate limiting)
 - Storefront dev server stability: single Vite major enforced via npm
   overrides (fixes the dual-Vite `Missing field 'moduleType'` boot crash) and
   late SSR dependency discovery disabled (fixes the workerd reload race)
@@ -37,8 +42,14 @@ First stable release of CodFlow.
 
 ### Changed
 
-- README and CONTRIBUTING overhaul; setup documentation points at the
-  `codflow-setup` runbook instead of one-off helper scripts
+- Repository layout: one root `package.json` + one lockfile for all packages;
+  per-package lockfiles removed; repo-wide npm overrides live at the root
+  (single Vite major, sharp stub for Workers compatibility)
+- cod-client deploys through the official `opennextjs-cloudflare`
+  build/deploy/preview commands; theme01 deploys build before deploying
+- CI installs once at the repo root and targets workspaces by name
+- README, CONTRIBUTING and AGENTS documentation overhauled; setup points at
+  the `codflow-setup` runbook instead of one-off helper scripts
 
 ## [0.1.0] - 2026-08-20
 
