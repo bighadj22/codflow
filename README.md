@@ -6,6 +6,16 @@
 
 **The open-source, COD-first e-commerce + delivery platform for Algeria — built agentic-ready.**
 
+## 📺 Video Setup Guide
+
+Watch the complete setup walkthrough to get CodFlow deployed to Cloudflare in minutes:
+
+[![CodFlow Setup Guide](https://img.youtube.com/vi/rJPCGQnDZ18/maxresdefault.jpg)](https://youtu.be/rJPCGQnDZ18)
+
+**[▶️ Watch: CodFlow Setup & Deployment Guide](https://youtu.be/rJPCGQnDZ18)**
+
+---
+
 CodFlow is a self-hosted commerce engine, merchant dashboard, and high-performance storefront designed specifically for the realities of **Cash on Delivery** (COD) in Algeria and emerging markets. It runs entirely on your own Cloudflare serverless account (Workers + D1 + R2 + KV) with **zero transaction fees**, connects to Algeria's major delivery carriers, and feeds **actual cash deliveries** back to Meta Ads so your ad algorithms stop burning budget on door refusals.
 
 ```
