@@ -97,11 +97,11 @@ WHERE user_id = (SELECT id FROM users WHERE email = '${email}') AND provider_id 
 
   try {
     console.log("\n=== Seeding admin (local) ===");
-    run(`npx wrangler d1 execute codflow-db --local --persist-to ../.wrangler-shared --file "${tmpFile}"`);
+    run(`npx wrangler d1 execute codflow-os-db --local --persist-to ../.wrangler-shared --file "${tmpFile}"`);
 
     if (remote) {
       console.log("\n=== Seeding admin (remote) ===");
-      run(`npx wrangler d1 execute codflow-db --remote --file "${tmpFile}"`);
+      run(`npx wrangler d1 execute codflow-os-db --remote --file "${tmpFile}"`);
     }
   } finally {
     unlinkSync(tmpFile);

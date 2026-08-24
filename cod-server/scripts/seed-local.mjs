@@ -207,7 +207,7 @@ for (const img of images) {
 function run(sql) {
   const target = remote ? "--remote -y" : "--local --persist-to ../.wrangler-shared";
   execSync(
-    `npx wrangler d1 execute codflow-db ${target} --command "${sql.replace(/"/g, '\\"')}"`,
+    `npx wrangler d1 execute codflow-os-db ${target} --command "${sql.replace(/"/g, '\\"')}"`,
     { cwd: root, stdio: "pipe" }
   );
 }
@@ -230,4 +230,4 @@ console.log(`  products   : ${products.length} (${products.filter(p => p.storeFe
 console.log(`  variants   : ${variants.length}`);
 console.log(`  images     : ${images.length}`);
 console.log(`\n  rawKey     : ${rawKey.slice(0, 24)}...`);
-console.log(`\n  target     : ${remote ? "remote D1 (codflow-db)" : "local D1 (.wrangler-shared)"}\n`);
+console.log(`\n  target     : ${remote ? "remote D1 (codflow-os-db)" : "local D1 (.wrangler-shared)"}\n`);

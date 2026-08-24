@@ -1,5 +1,5 @@
 {
-  "name": "cod-astro-theme01",
+  "name": "codflow-os-theme01",
   "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-04-22",
   "compatibility_flags": ["nodejs_compat"],
@@ -16,6 +16,6 @@
   //   STORE_API_KEY  → a secret — set it via `wrangler secret put STORE_API_KEY`
   //                     (do NOT put the real key here). Local dev reads both from .dev.vars.
   "vars": {
-    "COD_SERVER_URL": "http://localhost:8787"
+    "COD_SERVER_URL": "https://api.codflow.store"
   }
 }
