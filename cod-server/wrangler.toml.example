@@ -1,0 +1,116 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CodFlow server — Cloudflare Worker configuration
+#
+# EVERY value below is a placeholder you must replace with your own resources.
+# Nothing in this repo depends on a specific Cloudflare account, domain, or
+# database. See README.md → "Getting Started" for step-by-step setup.
+#
+#   wrangler d1 create codflow-db      → gives you a database_id
+#   wrangler r2 bucket create codflow-images
+#   wrangler deploy
+# ─────────────────────────────────────────────────────────────────────────────
+
+name = "codflow-server"
+main = "src/index.ts"
+compatibility_date = "2024-11-27"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 database binding.
+[[d1_databases]]
+binding = "DB"
+database_name = "codflow-db"
+# Replace with the id from `wrangler d1 create codflow-db`.
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "src/db/migrations"
+
+# R2 bucket for product images (serve + presigned uploads).
+# Replace with the name from `wrangler r2 bucket create codflow-images`.
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "codflow-images"
+
+# KV namespace for rate limiting.
+# Create with: wrangler kv:namespace create "RATE_LIMIT"
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "00000000000000000000000000000000"
+
+# MCP remote server — one Durable Object per active MCP session holds
+# transport state (streamable-HTTP connection, pending elicitations, etc.).
+# Binding name MCP_SESSIONS is referenced by CodMcpAgent.serve("/mcp", { binding: "MCP_SESSIONS" }).
+[[durable_objects.bindings]]
+name       = "MCP_SESSIONS"
+class_name = "CodMcpAgent"
+
+[[migrations]]
+tag                = "mcp-v1"
+new_sqlite_classes = ["CodMcpAgent"]
+
+# CodCapiWorkflow — fires Meta CAPI Purchase events at order delivery.
+[[workflows]]
+name       = "capi-workflow"
+binding    = "CAPI_WORKFLOW"
+class_name = "CodCapiWorkflow"
+
+# The `agents` package statically imports `cloudflare:email`. Declaring this
+# satisfies the module resolver even though this Worker never sends email.
+# (Cloudflare's local dev runtime fails to load the Worker without it.)
+[[send_email]]
+name = "SEND_EMAIL_UNUSED"
+
+# Cron Triggers
+# Sweeps pending abandoned orders → abandoned status every hour.
+# Maximum lag from "true abandonment" to "marked abandoned" is ~90 min (pending > 30 min).
+[triggers]
+crons = ["0 * * * *"]
+
+# Environment variables (non-secret).
+#
+# Local dev defaults work out of the box. For a deployed worker, replace the
+# URLs with your own public domains:
+#   WORKER_URL       → https://api.yourdomain.com      (your Worker's public URL)
+#   MEDIA_DOMAIN     → media.yourdomain.com            (domain fronting your R2 bucket)
+#   BETTER_AUTH_URL  → https://app.yourdomain.com/api/auth (the dashboard Worker's
+#                       Better Auth origin — issuer used to verify MCP tokens)
+#   WORKER_SELF_URL  → https://api.yourdomain.com/     (this Worker's own origin;
+#                       required `aud` claim for MCP bearer tokens)
+[vars]
+ENVIRONMENT = "development"
+WORKER_URL = "http://localhost:8787"
+MEDIA_DOMAIN = "media.example.com"
+R2_BUCKET_NAME = "codflow-images"
+BETTER_AUTH_URL = "http://localhost:3000/api/auth"
+WORKER_SELF_URL = "http://localhost:8787/"
+# Development allows all origins for easier testing. Production uses ALLOWED_ORIGINS.
+ALLOWED_ORIGINS = "*"
+
+# Production environment.
+# Deploy with `wrangler deploy --env production` after editing the values.
+# IMPORTANT: Set ALLOWED_ORIGINS to your actual client and storefront domains.
+[env.production]
+vars = { ENVIRONMENT = "production", WORKER_URL = "https://api.example.com", MEDIA_DOMAIN = "media.example.com", R2_BUCKET_NAME = "codflow-images", BETTER_AUTH_URL = "https://app.example.com/api/auth", WORKER_SELF_URL = "https://api.example.com/", ALLOWED_ORIGINS = "https://app.example.com,https://store.example.com" }
+
+[[env.production.r2_buckets]]
+binding = "IMAGES"
+bucket_name = "codflow-images"
+
+[[env.production.durable_objects.bindings]]
+name       = "MCP_SESSIONS"
+class_name = "CodMcpAgent"
+
+[[env.production.workflows]]
+name       = "capi-workflow"
+binding    = "CAPI_WORKFLOW"
+class_name = "CodCapiWorkflow"
+
+# Share local D1 state with cod-client so both read the same SQLite file in dev.
+# Without this, each project gets its own .wrangler/state dir and their D1s diverge.
+# `persist_to` under [dev] is not a wrangler 3.x field (hence the old warning);
+# the shared path is wired in via --persist-to in package.json dev + migration
+# scripts, plus initOpenNextCloudflareForDev({ persist: { path } }) on the client.
+# Shared path resolves to <repo-root>/.wrangler-shared.
+[dev]
+port = 8787
+
+[observability]
+enabled = false

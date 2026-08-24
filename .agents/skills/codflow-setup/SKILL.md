@@ -114,6 +114,11 @@ Rules:
 
 ## Step 3 — Bind Real IDs into BOTH wrangler.toml Files
 
+```bash
+cp cod-server/wrangler.toml.example cod-server/wrangler.toml
+cp cod-client/wrangler.toml.example cod-client/wrangler.toml
+```
+
 Files: `cod-server/wrangler.toml` **and** `cod-client/wrangler.toml`.
 
 - `[[d1_databases]]`: set `database_id` (same database in both files).
@@ -144,6 +149,16 @@ name remain:
 grep -r "codflow-db" --exclude-dir=node_modules --exclude-dir=.git
 # expected: only documentation files, zero script/config hits
 ```
+
+Confirm the filled `wrangler.toml` files are not tracked by git:
+
+```bash
+git status cod-server/wrangler.toml cod-client/wrangler.toml
+# expected: nothing listed (both ignored)
+```
+
+If either file appears in `git status`, stop — the `.gitignore` is not applied
+correctly. Do not continue until both are untracked.
 
 While editing, also replace the example domains in `[vars]` /
 `[env.production.vars]` (`WORKER_URL`, `BETTER_AUTH_URL`, `WORKER_SELF_URL`,
