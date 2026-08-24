@@ -170,33 +170,46 @@ correct for local dev only).
 
 ## Step 3b — Configure R2 for Image Uploads
 
-This step requires two one-time actions in the Cloudflare dashboard. Both must
-be done before the merchant dashboard can upload product images.
+This step requires values only the developer can retrieve from the Cloudflare
+dashboard. The agent must ask for them — do not guess or skip.
 
-### 1. Add a custom domain to the R2 bucket
+### Agent instructions
 
-Cloudflare dashboard → R2 → `<project>-images` → Settings → Custom Domains →
-Connect Domain. Enter the media subdomain (e.g. `media.yourdomain.com`).
-Cloudflare adds the DNS record automatically. Wait for status to show Active.
+**Ask the developer for these four things before proceeding:**
 
-Then set `MEDIA_DOMAIN` in `cod-server/wrangler.toml [vars]` to that hostname
-(no scheme):
+1. The **media subdomain** they want to use for serving images
+   (e.g. `media.yourdomain.com`). They must add this as a custom domain on
+   the R2 bucket first:
+   > Cloudflare dashboard → R2 → `<project>-images` → Settings →
+   > Custom Domains → Connect Domain → enter the subdomain → wait for Active.
 
-```toml
-MEDIA_DOMAIN = "media.yourdomain.com"
-```
+2. Their **Cloudflare Account ID**
+   (Cloudflare dashboard → top-right account menu, or any Workers page sidebar).
 
-### 2. Set the CORS policy on the bucket
+3. An **R2 API token** created specifically for this bucket:
+   > Cloudflare dashboard → R2 → Manage R2 API Tokens → Create API Token →
+   > Permissions: Object Read & Write → Bucket: `<project>-images` → Create.
+   >
+   > This shows two values **once** — copy both:
+   > - Access Key ID
+   > - Secret Access Key
 
-Cloudflare dashboard → R2 → `<project>-images` → Settings → CORS Policy →
-Add CORS policy. Paste this JSON, replacing the origin with the actual
-dashboard domain:
+Once the developer provides all four values, continue with the steps below.
+
+---
+
+### 1. Give the developer the CORS JSON to paste
+
+Tell the developer to set the CORS policy on the bucket manually:
+
+> Cloudflare dashboard → R2 → `<project>-images` → Settings → CORS Policy →
+> Add CORS policy → paste this JSON (replacing the dashboard domain):
 
 ```json
 [
   {
     "AllowedOrigins": [
-      "https://app.yourdomain.com",
+      "https://<dashboard-domain>",
       "http://localhost:3000"
     ],
     "AllowedMethods": ["PUT", "GET", "HEAD"],
@@ -207,57 +220,65 @@ dashboard domain:
 ]
 ```
 
-Without this, browser presigned PUT requests are blocked by CORS and all image
-uploads fail.
+Wait for the developer to confirm it is saved before continuing.
 
-### 3. Create R2 API tokens
+### 2. Set MEDIA_DOMAIN in wrangler.toml
 
-Cloudflare dashboard → R2 → Manage R2 API Tokens → Create API Token.
+Update `MEDIA_DOMAIN` in `cod-server/wrangler.toml` `[vars]` and
+`[env.production]` to the media subdomain the developer provided. No scheme —
+hostname only:
 
-- Permissions: **Object Read & Write**
-- Bucket: the bucket created in Step 2
+```toml
+MEDIA_DOMAIN = "media.yourdomain.com"
+```
 
-Copy the `Access Key ID` and `Secret Access Key` — shown once. After
-cod-server is deployed (Step 6), set them as secrets:
+### 3. Set R2 secrets on the cod-server worker
+
+After cod-server is deployed (Step 6), set the three secrets using the values
+the developer provided. Use stdin redirect — never echo secrets into the shell:
 
 ```bash
-env -u CLOUDFLARE_ACCOUNT_ID npx wrangler secret put CF_ACCOUNT_ID --name <server-worker-name>
-env -u CLOUDFLARE_ACCOUNT_ID npx wrangler secret put R2_ACCESS_KEY_ID --name <server-worker-name>
-env -u CLOUDFLARE_ACCOUNT_ID npx wrangler secret put R2_SECRET_ACCESS_KEY --name <server-worker-name>
+printf '<CF_ACCOUNT_ID>' | env -u CLOUDFLARE_ACCOUNT_ID npx wrangler secret put CF_ACCOUNT_ID --name <server-worker-name>
+printf '<R2_ACCESS_KEY_ID>' | env -u CLOUDFLARE_ACCOUNT_ID npx wrangler secret put R2_ACCESS_KEY_ID --name <server-worker-name>
+printf '<R2_SECRET_ACCESS_KEY>' | env -u CLOUDFLARE_ACCOUNT_ID npx wrangler secret put R2_SECRET_ACCESS_KEY --name <server-worker-name>
 ```
 
-For local dev, add these to `cod-server/.dev.vars`:
+Also add them to `cod-server/.dev.vars` for local dev:
 
 ```
-CF_ACCOUNT_ID=<account-id>
-R2_ACCESS_KEY_ID=<key-id>
-R2_SECRET_ACCESS_KEY=<secret>
+CF_ACCOUNT_ID=<value>
+R2_ACCESS_KEY_ID=<value>
+R2_SECRET_ACCESS_KEY=<value>
 MEDIA_DOMAIN=media.yourdomain.com
 ```
 
-### 4. Set MEDIA_DOMAIN on the storefront worker
+### 4. Set MEDIA_DOMAIN on the storefront worker and redeploy
 
-After theme01 is deployed (Step 6), set the secret and redeploy:
+After theme01 is deployed (Step 6):
 
 ```bash
 printf 'media.yourdomain.com' | env -u CLOUDFLARE_ACCOUNT_ID npx wrangler secret put MEDIA_DOMAIN --name <theme01-worker-name>
 cd cod-astro/theme01 && env -u CLOUDFLARE_ACCOUNT_ID npm run deploy
 ```
 
-### Verify
-
-After all workers are deployed and secrets are set:
+### 5. Redeploy cod-server with updated MEDIA_DOMAIN
 
 ```bash
-# Should return { success: true, data: { presignedUrl, key, publicUrl } }
+cd cod-server && env -u CLOUDFLARE_ACCOUNT_ID npm run deploy
+```
+
+### Verify
+
+```bash
+# presignedUrl must appear and publicUrl must start with https://media.yourdomain.com/
 curl -s -X POST https://<api-domain>/api/images/presign \
   -H "Content-Type: application/json" \
   -H "X-API-Key: <admin-api-key>" \
   -d '{"contentType":"image/jpeg"}'
 ```
 
-`publicUrl` must start with `https://media.yourdomain.com/` — if it shows the
-Worker URL instead, `MEDIA_DOMAIN` is not set or the worker was not redeployed.
+If `publicUrl` starts with the Worker URL instead of the media domain,
+`MEDIA_DOMAIN` is not set or the worker was not redeployed after setting it.
 
 ---
 
