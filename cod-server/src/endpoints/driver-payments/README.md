@@ -13,9 +13,8 @@ src/endpoints/driver-payments/
 ├── ai-tools.ts            # AI/MCP tool definitions for agentic settlements (3 tools)
 ├── driver-payments.test.ts # Unit & integration tests for validation and settlement logic
 ├── handlers.ts            # HTTP request controllers with audit tracking
-├── openapi.ts             # OpenAPI 3.1 documentation paths, parameters, & response schemas
 ├── queries.ts             # Transactional settlement queries & shared query re-exports
-├── routes.ts              # Hono router definitions with RBAC scope guards
+├── routes.ts              # @hono/zod-openapi route definitions (validation + spec source of truth) with RBAC scope guards
 ├── validation.ts          # Zod request validation schemas
 ├── Guide.md               # Detailed financial domain guide & lifecycle walkthrough
 └── README.md              # Endpoint reference documentation (this file)
@@ -194,5 +193,5 @@ The Driver Payments endpoint adheres to the platform's standardized JSON error e
 | `422 Unprocessable Entity` | `ORDER_NOT_FOUND` | `BUSINESS_LOGIC` | One or more requested orders are invalid, not in `delivered` status, or do not belong to the specified driver (`requestedCount` vs `foundCount`). |
 | `422 Unprocessable Entity` | `PAYMENT_ALREADY_SETTLED` | `BUSINESS_LOGIC` | One or more orders are already linked to a settlement for the requested type (`kind: "cod"` or `kind: "fee"`). |
 | `401 Unauthorized` | `UNAUTHENTICATED` | `AUTHENTICATION` | Missing or invalid API key or OAuth bearer token. |
-| `403 Forbidden` | `INSUFFICIENT_PERMISSIONS` | `AUTHORIZATION` | Missing required scope (`delivery:read` or `delivery:manage`). |
+| `403 Forbidden` | — (no `code` field) | — | Missing required scope (`delivery:read` or `delivery:manage`). Scope denials come from RBAC middleware as plain JSON: `{ "error": "Insufficient permissions", "required": "<scope>" }`. |
 

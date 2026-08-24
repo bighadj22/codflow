@@ -46,8 +46,9 @@ List all product groups with optional filtering.
   ```json
   { "success": true, "data": [ ... ], "count": <number of groups> }
   ```
-  Each item in `data` includes `productsCount`: the number of **active**
-  (non-deleted) products assigned to that group (`products.deletedAt IS NULL`).
+  Each item in `data` includes `productsCount`: the number of **non-deleted**
+  products assigned to that group (`products.deletedAt IS NULL`) — counted
+  regardless of lifecycle status, so DRAFT and ARCHIVED products are included.
 
 ### GET /api/product-groups/:id
 
@@ -61,7 +62,7 @@ Get a single product group.
   The `data` object includes:
   - `children`: Array of **immediate** sub-categories (rows whose `parentId`
     equals this id).
-  - `productsCount`: Number of active (non-deleted) products assigned.
+  - `productsCount`: Number of non-deleted products assigned (any lifecycle status).
 - **Errors:**
   - `404` `PRODUCT_GROUP_NOT_FOUND` when no group exists with that id.
 
@@ -166,8 +167,8 @@ The exposed tools are:
   reference (e.g. Clothing > Men > T-Shirts).
 - **Slug Management:** Lowercase, URL-safe slugs; auto-generated from the name
   with a unique id suffix when omitted.
-- **Aggregated Analytics:** `productsCount` reflects **active (non-deleted)**
-  products for each group, used by the storefront for category rendering.
+- **Aggregated Analytics:** `productsCount` counts **all non-deleted** products
+  per group — including DRAFT and ARCHIVED — and is what the deletion guard checks.
 - **Display Positioning:** The `position` field (integer ≥ 0, default 0)
   controls ordering in navigation and list responses.
 - **SEO Metadata:** `metaTitle` (≤ 60), `metaDescription` (≤ 160), and

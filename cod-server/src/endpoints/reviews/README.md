@@ -6,10 +6,11 @@ Comprehensive API for managing and moderating product reviews submitted by custo
 
 ```
 reviews/
-├── routes.ts       # Route definitions with RBAC protection
-├── handlers.ts     # HTTP request handlers (controller logic)
-├── queries.ts      # Database operations (Drizzle)
-├── openapi.ts      # OpenAPI documentation paths
+├── routes.ts       # @hono/zod-openapi route definitions (validation + spec) with RBAC
+├── handlers.ts     # HTTP request handlers (moderation logic + audit logging)
+├── queries.ts      # Re-exports shared queries from cod-shared/queries/reviews
+├── ai-tools.ts     # AI/MCP tools for review moderation
+├── *.test.ts       # Unit & integration tests
 └── README.md       # This file
 ```
 
@@ -40,7 +41,7 @@ List all reviews with comprehensive filtering and metadata.
 - `pendingCount`: **Global count** of all pending reviews (ignoring filters). This is used by the frontend to display notification badges on the sidebar/dashboard.
 
 ### PATCH /api/reviews/:id
-Update the moderation status of a review.
+Update the moderation status of a review. Accepts `approved`, `rejected`, or `pending` (re-queueing a previously decided review is allowed).
 
 **Authorization:** Requires `reviews:manage` scope
 

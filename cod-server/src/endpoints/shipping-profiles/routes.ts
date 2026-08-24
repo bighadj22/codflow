@@ -48,7 +48,7 @@ const ruleParams = z.object({
 
 const communeParams = z.object({
   ...ruleParams.shape,
-  communeId: z.string().openapi({ description: "Commune ID", example: "16001" }),
+  communeId: z.string().openapi({ description: "Commune ID", example: "c-16-001" }),
 });
 
 const listProfilesRoute = createRoute({

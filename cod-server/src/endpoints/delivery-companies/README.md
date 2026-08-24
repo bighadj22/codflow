@@ -39,7 +39,7 @@ The system uses an **Adapter Pattern** to normalize diverse Algerian courier API
 | Provider | Code | Auth Requirements | Territory System | Tracking & Webhooks | Auto-Validate Default |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **ZR Express** | `zr_express` | `apiToken` (`X-Api-Key`) + `apiUserGuid` (`X-Tenant`) | UUID-based territories | Inbound **Svix HMAC webhooks** + on-demand tracking | `true` |
-| **Yalidine** | `yalidine` | `apiToken` (`X-API-TOKEN`) + `apiUserGuid` (`X-API-ID`) | Wilaya names (e.g., `"Alger"`) | Inbound **HMAC-SHA256 webhooks** + on-demand tracking | `true` |
+| **Yalidine** | `yalidine` | `apiToken` (`X-API-TOKEN`) + `apiUserGuid` (`X-API-ID`) | Wilaya names (e.g., `"Alger"`) | Inbound webhooks (secret stored; signature verification not yet implemented) + on-demand tracking | `true` |
 | **NOEST** | `noest` | `apiToken` (`api_token`) + `apiUserGuid` (`api_user_guid`) | Wilaya IDs (1–58) | On-demand tracking pull (no inbound webhooks) | `true` |
 | **EcoTrack / Packers** | `ecotrack`<br>`*_ecotrack` | `apiToken` (`token`) + `apiEndpoint` (Base URL) | Postal codes (`code_postal`) | On-demand tracking pull (no inbound webhooks) | `false` (keeps orders editable before courier lock) |
 
@@ -49,15 +49,15 @@ The system uses an **Adapter Pattern** to normalize diverse Algerian courier API
 * For EcoTrack carriers (e.g. Packers), `autoValidate` defaults to `false` so merchant teams can edit parcel contents post-dispatch before explicitly validating.
 
 ### 3. Stop-Desk (Pickup Point) Cache & Admin Controls
-* `POST /api/delivery-companies/:id/sync-stop-desks`: Fetches all carrier pickup points, validates foreign keys against 58 wilayas, and upserts them into `company_stop_desks` via atomic D1 `batch()` chunks.
-* **Admin Active Toggle**: Merchants can disable individual pickup points that cannot be serviced (`PATCH /:id/stop-desks/:code/toggle`). The `active` status is **preserved across re-syncs**.
+* `POST /api/delivery-companies/:id/sync-stop-desks`: Fetches all carrier pickup points, resolves wilaya IDs against the wilayas table (unknown/out-of-range IDs are stored as null), and upserts them into `company_stop_desks` via D1 `batch()` chunks.
+* **Admin Active Toggle**: Merchants can disable individual pickup points that cannot be serviced (`PATCH /:id/stop-desks/:code/toggle`). The `active` status survives re-syncs — but a desk deleted by the carrier is removed on the next sync, and if it reappears it comes back active.
 * `GET /api/delivery-companies/:id/stop-desks`: Reads fast from the local D1 cache without making outbound API requests.
 
 ### 4. Webhooks vs. Tracking Pull
 * **Inbound Webhook Receivers** exist exclusively for **Yalidine** (`/webhooks/yalidine`) and **ZR Express** (`/webhooks/zr_express`).
   * ZR Express: Automated API registration (`POST /:id/webhook/register`) storing Svix secrets and custom state mapping (`webhookStatusMapping`).
   * Yalidine: Manual webhook URL configuration in Yalidine dashboard with secret key stored via `PATCH /:id/webhook/secret`.
-* **On-Demand Tracking Pull**: NOEST and EcoTrack tracking updates are pulled on demand via `GET /api/orders/:id/tracking`.
+* **On-Demand Tracking Pull**: NOEST and EcoTrack tracking updates are pulled on demand via `GET /api/orders/:id/tracking-events`.
 
 ### 5. Credential Sanitization
 All client-facing responses strip raw `apiToken` and `apiUserGuid` secrets, returning a computed boolean `isConnected: true | false`.
@@ -344,7 +344,7 @@ The Delivery Companies endpoint adheres to the platform's standardized JSON erro
 | `404 Not Found` | `NOT_FOUND` | `BUSINESS_LOGIC` | Company or stop-desk code does not exist. |
 | `409 Conflict` | `DUPLICATE_ENTITY` | `BUSINESS_LOGIC` | A company with the specified `code` already exists. |
 | `422 Unprocessable Entity` | `PROVIDER_NOT_SUPPORTED` | `BUSINESS_LOGIC` | Unknown carrier code with no matching adapter in `registry.ts`. |
-| `502 Bad Gateway` | `EXTERNAL_API_ERROR` | `EXTERNAL_API` | Outbound request to carrier API failed (network error, invalid API key, timeout). |
+| `502 Bad Gateway` | `EXTERNAL_API_FAILURE` | `EXTERNAL_API` | Outbound request to carrier API failed (network error, invalid API key, timeout). |
 | `401 Unauthorized` | `UNAUTHENTICATED` | `AUTHENTICATION` | Missing or invalid API key / OAuth token. |
-| `403 Forbidden` | `INSUFFICIENT_PERMISSIONS` | `AUTHORIZATION` | Missing required scope (`delivery:read` or `delivery:manage`). |
+| `403 Forbidden` | — (no `code` field) | — | Missing required scope (`delivery:read` or `delivery:manage`). Scope denials come from RBAC middleware as plain JSON: `{ "error": "Insufficient permissions", "required": "<scope>" }`. |
 

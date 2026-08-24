@@ -40,7 +40,7 @@ This system uses **Better Auth** for authentication with credential-based login.
 ### GET /api/users
 List all team members with their assigned scopes and status.
 
-**Authorization:** Requires `settings:team` scope
+**Authorization:** Admin role required (`requireAdmin()` — staff are rejected regardless of scopes)
 
 **Query Parameters:**
 - `role` - Filter by role (`admin`, `staff`)
@@ -74,17 +74,17 @@ Provision a new team member.
 ### PATCH /api/users/:id
 Update user metadata (name, email, status).
 
-**Authorization:** Requires `settings:team` scope
+**Authorization:** Admin role required (`requireAdmin()` — staff are rejected regardless of scopes)
 
 ### PATCH /api/users/:id/role
 Dedicated endpoint to change a user's role. Changing a user to `admin` effectively grants them all permissions.
 
-**Authorization:** Requires `settings:team` scope
+**Authorization:** Admin role required (`requireAdmin()` — staff are rejected regardless of scopes)
 
 ### POST /api/users/:id/scopes
 Grant a specific permission scope to a user.
 
-**Authorization:** Requires `settings:team` scope
+**Authorization:** Admin role required (`requireAdmin()` — staff are rejected regardless of scopes)
 
 **Request Body:**
 ```json
@@ -96,7 +96,7 @@ Grant a specific permission scope to a user.
 ### DELETE /api/users/:id/scopes/:scope
 Revoke a permission scope from a user.
 
-**Authorization:** Requires `settings:team` scope
+**Authorization:** Admin role required (`requireAdmin()` — staff are rejected regardless of scopes)
 
 ### POST /api/users/:id/api-key/rotate
 Generate a new secure API key for the user, invalidating the old one. The new raw key is returned only once.
@@ -110,5 +110,5 @@ Generate a new secure API key for the user, invalidating the old one. The new ra
 - **Audit Logging:** Every management action (creation, role change, scope grant/revoke, key rotation) is logged in the activity logs with the actor's details
 - **Security:** 
   - Passwords are hashed using scrypt with the same parameters as Better Auth
-  - API keys are never stored in plain text (where applicable) and are returned only in "one-time" responses (creation or rotation)
+  - API keys are stored as-is in the users table (authentication compares the raw header value); their secrecy comes from one-time-only display at creation or rotation
   - Temporary passwords are generated securely and should be changed on first login

@@ -12,9 +12,6 @@
  * ONE file reviewers can audit at a glance — instead of scattered across
  * eight `ai-tools.ts` files. When a new domain adds a destructive tool,
  * the contributor edits this file too; there is no way to silently bypass.
- *
- * The set is currently empty — MCP-11 fills it once the first tools are
- * wired into the registry.
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";

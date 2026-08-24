@@ -333,7 +333,8 @@ export async function deleteProductImage(c: Context<AppContext>) {
     throw new NotFoundError("Image", imageId);
   }
 
-  // Delete from R2 first — if this fails we still clean the DB record
+  // Delete from R2 first — a storage failure aborts the whole operation so the
+  // DB record never points at a missing object.
   if (image.r2Key) {
     try {
       await bucket.delete(image.r2Key);

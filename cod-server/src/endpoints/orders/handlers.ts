@@ -308,7 +308,9 @@ export async function returnOrderProduct(c: Context<AppContext>) {
 
 /**
  * DELETE /orders/:id
- * Delete order (soft delete)
+ * Permanently delete the order: restore tracked inventory, adjust customer
+ * counters, then remove the order with its lines, shipments, and cascaded
+ * history/reviews. No soft-delete exists for orders.
  */
 export async function deleteOrder(c: Context<AppContext>) {
   const db = getDb(c.env.DB);

@@ -6,12 +6,12 @@ Complete API for managing the products catalog, variations, inventory, and media
 
 ```
 products/
-├── routes.ts       # Route definitions with RBAC protection
+├── routes.ts       # @hono/zod-openapi route definitions (validation + spec) with RBAC — also mounts images & variants handlers
 ├── handlers.ts     # HTTP request handlers (controller logic)
-├── queries.ts      # Database operations (Drizzle)
+├── queries.ts      # Re-exports shared queries from cod-shared/queries/products
 ├── validation.ts   # Zod validation schemas
-├── openapi.ts      # OpenAPI documentation paths
-├── products.test.ts # Unit tests for validation and logic
+├── ai-tools.ts     # AI/MCP tools for product management
+├── *.test.ts       # Unit & integration tests
 └── README.md       # This file
 ```
 
@@ -78,7 +78,7 @@ Dedicated endpoint for updating a product's status (`DRAFT`, `ACTIVE`, `ARCHIVED
 **Authorization:** Requires `products:manage` scope
 
 ### DELETE /api/products/:id
-Soft-delete a product. Sets `deletedAt`, excluding the product from all future listings while preserving order history integrity.
+Soft-delete a product — blocked with `422 PRODUCT_HAS_ORDERS` if any order line references it. Otherwise sets `deletedAt`, excluding the product from all future listings.
 
 **Authorization:** Requires `products:manage` scope
 
@@ -89,13 +89,15 @@ Soft-delete a product. Sets `deletedAt`, excluding the product from all future l
 ### Images (`/api/products/:id/images`)
 - `GET`: List all images for a product ordered by position.
 - `POST`: Associate an R2-uploaded image (`key`, `src`) with the product.
-- `DELETE`: Remove an image record and its corresponding R2 object.
+- `PATCH /reorder`: Set display order — send the complete ordered array of image IDs.
+- `DELETE /{imageId}`: Remove an image record and its corresponding R2 object.
 
 ### Variants (`/api/products/:productId/variants`)
-- `GET`: List all variants for a product.
+- `GET`: List all variants for a product (position order).
+- `GET /{variantId}`: Fetch a single variant.
 - `POST`: Create a new variant based on the product's `variantOptions`.
 - `PATCH`: Update variant-specific price, SKU, or inventory.
-- `DELETE`: Remove a variant (blocked if linked to orders).
+- `DELETE`: Permanently delete a variant. NOT blocked by orders — referencing order lines keep their history via a nullified `variantId`.
 
 ## Features & Implementation
 

@@ -6,11 +6,12 @@ A comprehensive system for tracking inventory levels, logging stock movements, a
 
 ```
 stock/
-├── routes.ts       # Global overview and product-nested routes
-├── handlers.ts     # Handlers for adjustments and history
-├── queries.ts      # Logic for inventory math and aggregation
-├── validation.ts   # Zod schemas for adjustments and filters
-├── openapi.ts      # OpenAPI documentation paths
+├── routes.ts       # Two @hono/zod-openapi routers: /api/stock/* + product/variant-nested stock paths
+├── handlers.ts     # Handlers for adjustments, history, overview, alerts, thresholds
+├── queries.ts      # Re-exports shared reads; adjustStock lives here (raises server errors)
+├── validation.ts   # Zod schemas: adjustment rules, threshold, filters
+├── ai-tools.ts     # AI/MCP tools for stock operations
+├── *.test.ts       # Unit & integration tests
 └── README.md       # This file
 ```
 
@@ -38,7 +39,7 @@ Returns a high-level summary of warehouse health.
 - **Segments:** Arrays of specific items that are out-of-stock or low-stock.
 
 ### GET /api/stock/alerts
-Paginated list of all items currently requiring attention (at or below threshold).
+Paginated list of all items currently requiring attention (at or below threshold). Out-of-stock items sort first, then by inventory ascending.
 
 ### POST /api/products/:id/stock/adjust
 Adjust stock for a simple product.
@@ -47,6 +48,15 @@ Adjust stock for a simple product.
 
 ### GET /api/products/:id/stock/history
 Retrieve the full audit trail of movements for a specific product. Can be filtered by `variantId`.
+
+### PATCH /api/products/:id/stock/threshold
+Set the low-stock threshold for a simple product (0–9999; 0 disables low-stock alerting).
+
+### POST /api/products/:productId/variants/:variantId/stock/adjust
+Same adjustment semantics as the simple-product endpoint, but targets one variant. The variant must belong to the given product.
+
+### PATCH /api/products/:productId/variants/:variantId/stock/threshold
+Set the low-stock threshold for a specific variant.
 
 ## Implementation Details
 

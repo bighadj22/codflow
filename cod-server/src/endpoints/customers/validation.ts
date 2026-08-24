@@ -14,7 +14,7 @@ export const createCustomerSchema = z.object({
     z.string().regex(/^0[5-7]\d{8}$/, "Invalid Algerian phone number").optional()
   ).describe("Secondary Algerian phone number (optional)"),
   wilayaId: z.number().int().min(1).max(58).describe("The numeric ID of the Algerian wilaya (1-58)"),
-  communeId: z.string().min(1, "Commune is required").describe("The UUID or ID of the commune"),
+  communeId: z.string().min(1, "Commune is required").describe("The commune's text ID in \"c-XX-YYY\" format (e.g. \"c-16-001\")"),
   address: z.string().optional().describe("Full residential or business address (optional)"),
 });
 

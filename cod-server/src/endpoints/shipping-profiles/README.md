@@ -79,5 +79,5 @@ Delete a profile. Blocked (`PROFILE_IN_USE`, 422) when the profile is currently 
 - **Product Link Only:** Profiles are referenced only by `products.shippingProfileId` (set-null on delete). Drivers and delivery companies do **not** link to shipping profiles — they have their own compensation tables.
 - **Atomic Rule Replacement:** `setProfileRules` uses a delete-then-insert pattern. Commune overrides cascade automatically.
 - **Reference Join:** Rules are joined with `wilayas` to provide French and Arabic names in responses.
-- **Fee Resolution:** Order creation consults (1) product-level profile override, then (2) the default profile. Wilaya rule → commune override (inherit-on-null) → mode check → free-shipping offer. See `endpoints/orders/resolve-fee.ts`.
+- **Fee Resolution:** Order creation consults (1) the FIRST product's profile override, then (2) the default profile. Wilaya rule → commune override (inherit-on-null) → mode check → free-shipping offer. See `endpoints/orders/resolve-fee.ts`.
 - **RBAC:** Requires `delivery:read` to view and `delivery:manage` to modify.

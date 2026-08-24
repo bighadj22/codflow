@@ -16,8 +16,9 @@ import { getDb } from "@/db";
  *   official wilaya numbering system.
  * - Each wilaya has a French name (name) and an Arabic name (nameAr).
  *   Search works across both.
- * - Communes are sub-divisions of a wilaya. communeId (UUID) is used when
- *   creating/updating customers or orders for precise address targeting.
+ * - Communes are sub-divisions of a wilaya. communeId (text ID in
+ *   "c-XX-YYY" format, e.g. "c-16-001") is used when creating/updating
+ *   customers or orders for precise address targeting.
  * - These are purely read-only — no create, update, or delete operations exist.
  *
  * Typical agent workflow:
@@ -77,8 +78,8 @@ export const getWilayaTools = (db: ReturnType<typeof getDb>) => ({
   listWilayaCommunes: tool({
     description:
       "List all communes (sub-districts) for a specific wilaya, ordered alphabetically by name. " +
-      "Each commune has a UUID id and a name. " +
-      "Use the commune UUID as communeId when creating or updating a customer or order for precise address targeting. " +
+      "Each commune has a text id in \"c-XX-YYY\" format (e.g. \"c-16-001\") and a name. " +
+      "Use the commune id as communeId when creating or updating a customer or order for precise address targeting. " +
       "wilayaId must be an integer between 1 and 58.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
@@ -124,7 +125,7 @@ export const getWilayaTools = (db: ReturnType<typeof getDb>) => ({
           },
           count: communeList.length,
           communes: communeList.map((c) => ({
-            id: c.id,     // UUID — use this as communeId in customer/order creation
+            id: c.id,     // text ID "c-XX-YYY" — use this as communeId in customer/order creation
             name: c.name,
           })),
         };

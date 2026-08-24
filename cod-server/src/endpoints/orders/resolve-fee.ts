@@ -1,9 +1,8 @@
 /**
  * Delivery fee resolution utility.
  *
- * Single authoritative function for determining deliveryFee at order creation.
- * Implements the 5-step lookup from SHIPPING_SYSTEM.md:
- *   1. Find active profile (product override OR store default)
+ * Single authoritative function for determining deliveryFee at order creation:
+ *   1. Find active profile (first product's override OR store default)
  *   2. Look up wilaya rule
  *   3. Check commune override (sparse)
  *   4. Apply to order's deliveryType — reject if mode disabled
@@ -44,8 +43,8 @@ export interface ResolveFeeResult {
  * Resolves the customer delivery fee for an order.
  *
  * Steps:
- *  1. If any product has shippingProfileId set, use that profile (product override).
- *     If multiple products with different profiles, use the first one found.
+ *  1. If the FIRST product of the order has shippingProfileId set, use that
+ *     profile (product override). Later products' profiles are ignored.
  *  2. Otherwise, use the store default profile (isDefault=true).
  *  3. If no profile found, return fee=0 (no shipping config).
  *  4. Find wilaya rule — if not found, reject (mode not available here).
