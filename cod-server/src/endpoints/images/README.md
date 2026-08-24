@@ -6,10 +6,11 @@ A robust media management system powered by **Cloudflare R2** (S3-compatible obj
 
 ```
 images/
-├── routes.ts       # Route definitions for uploading and serving
-├── handlers.ts     # Handlers for proxy uploads, serving, and DB record syncing
-├── presign.ts      # Logic for generating S3-compatible presigned URLs
-├── openapi.ts      # OpenAPI documentation paths
+├── routes.ts       # Two routers: authed upload/presign (/api/images) + public plain-Hono serve route
+├── handlers.ts     # Proxy upload, R2 serving, product-image record CRUD helpers
+├── presign.ts      # S3-compatible presigned URL generation (10-minute expiry)
+├── openapi.ts      # OpenAPI documentation paths (incl. the legacy serve-route entry)
+├── *.test.ts       # Unit & integration tests
 └── README.md       # This file
 ```
 
@@ -25,9 +26,9 @@ All images are stored in a Cloudflare R2 bucket. Access is managed through:
 ### 2. Upload Strategies
 
 #### Strategy A: Server-Side Proxy (`POST /api/images/upload`)
-The client sends a `multipart/form-data` request containing the file. The server receives the file, validates the type/size, and streams it to R2.
+The client sends a `multipart/form-data` request containing the file. The server validates type/size, loads the file into memory, and writes it to R2.
 - **Pros:** Simple for small files; hides R2 credentials completely.
-- **Cons:** Consumes Worker CPU/Memory for large files.
+- **Cons:** Holds the whole file in Worker memory (bounded by the 10 MB cap).
 
 #### Strategy B: Client-Side Direct (`POST /api/images/presign`)
 The client requests a temporary "presigned" URL for a specific `contentType`. The server returns a URL that allows the browser to `PUT` the file directly to R2.

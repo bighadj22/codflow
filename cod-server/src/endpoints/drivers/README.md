@@ -278,7 +278,7 @@ Update a driver's operational availability.
 ---
 
 ### 6. Delete Driver
-Permanently delete a driver. Deletion cascades to all associated `driver_compensations` rows.
+Permanently delete a driver. Deletion cascades to all associated `driver_compensations` rows **and all `driver_payments` records** — settlement history is destroyed with no archive. Settle any outstanding COD before deleting.
 
 * **Route:** `DELETE /api/drivers/:id`
 * **Authorization:** Requires `delivery:manage` scope
@@ -419,5 +419,5 @@ The Drivers endpoint adheres to the platform's standardized JSON error envelope:
 | `409 Conflict` | `DUPLICATE_PHONE` | `BUSINESS_LOGIC` | Another driver already exists with the provided phone number. |
 | `409 Conflict` | `DRIVER_HAS_ACTIVE_ORDERS` | `BUSINESS_LOGIC` | Attempted to delete a driver with orders in `assigned` or `out_for_delivery` status. |
 | `401 Unauthorized` | `UNAUTHENTICATED` | `AUTHENTICATION` | Missing or invalid API key or OAuth bearer token. |
-| `403 Forbidden` | `INSUFFICIENT_PERMISSIONS` | `AUTHORIZATION` | Missing required scope (`delivery:read` or `delivery:manage`). |
+| `403 Forbidden` | — (no `code` field) | — | Missing required scope (`delivery:read` or `delivery:manage`). Scope denials come from RBAC middleware as plain JSON: `{ "error": "Insufficient permissions", "required": "<scope>" }`. |
 

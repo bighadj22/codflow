@@ -6,11 +6,12 @@ API for managing customer tags, allowing for granular segmentation and labeling 
 
 ```
 customer-tags/
-├── routes.ts       # Route definitions with RBAC protection
-├── handlers.ts     # HTTP request handlers (controller logic)
-├── queries.ts      # Database operations (Drizzle)
+├── routes.ts       # @hono/zod-openapi route definitions (validation + spec) with RBAC
+├── handlers.ts     # HTTP request handlers (controller logic + audit logging)
+├── queries.ts      # Re-exports shared queries from cod-shared/queries/customer-tags
 ├── validation.ts   # Zod validation schemas
-├── openapi.ts      # OpenAPI documentation paths
+├── ai-tools.ts     # AI/MCP tools for tag management
+├── *.test.ts       # Unit & integration tests
 └── README.md       # This file
 ```
 
@@ -53,7 +54,9 @@ Update tag name or color.
 **Authorization:** Requires `customer_tags:manage` scope
 
 ### DELETE /api/customer-tags/:id
-Permanently delete a tag. This also removes all associations with customers, but does not affect the customer records themselves.
+Permanently delete a tag.
+
+**Guard:** Blocked with `422 TAG_HAS_ASSIGNMENTS` (context includes `assignmentCount`) while any customer still carries the tag — unassign everyone first. Once deletable, the removal cascades to any remaining assignment rows; customer records themselves are never affected.
 
 **Authorization:** Requires `customer_tags:manage` scope
 

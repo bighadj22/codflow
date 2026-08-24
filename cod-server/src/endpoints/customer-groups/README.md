@@ -6,11 +6,12 @@ API for managing customer segments and membership. Groups allow you to categoriz
 
 ```
 customer-groups/
-├── routes.ts       # Route definitions with RBAC protection
-├── handlers.ts     # HTTP request handlers (controller logic)
-├── queries.ts      # Database operations (Drizzle)
+├── routes.ts       # @hono/zod-openapi route definitions (validation + spec) with RBAC
+├── handlers.ts     # HTTP request handlers (controller logic + audit logging)
+├── queries.ts      # Re-exports shared queries from cod-shared/queries/customer-groups
 ├── validation.ts   # Zod validation schemas
-├── openapi.ts      # OpenAPI documentation paths
+├── ai-tools.ts     # AI/MCP tools for group management
+├── *.test.ts       # Unit & integration tests
 └── README.md       # This file
 ```
 
@@ -54,7 +55,9 @@ Update group name, description, or color.
 **Authorization:** Requires `customer_groups:manage` scope
 
 ### DELETE /api/customer-groups/:id
-Permanently delete a group. This also removes all member associations, but does not affect the customer records themselves.
+Permanently delete a group.
+
+**Guard:** Blocked with `422 GROUP_HAS_MEMBERS` (context includes `memberCount`) while any customer is still a member — remove everyone first. Once empty, the removal cascades to any remaining member rows; customer records themselves are never affected.
 
 **Authorization:** Requires `customer_groups:manage` scope
 

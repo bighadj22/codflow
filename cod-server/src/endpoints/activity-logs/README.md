@@ -71,7 +71,7 @@ The system defines standardized action identifiers in `ACTIONS`:
 
 ## REST Endpoints
 
-All activity log endpoints require **Admin role** (`role === "admin"`). Requests by non-admin users return `403 Forbidden` (`INSUFFICIENT_PERMISSIONS`).
+All activity log endpoints require **Admin role** (`role === "admin"`). Requests by non-admin users return `403 Forbidden` (`PERMISSION_DENIED`).
 
 ### 1. List Activity Logs
 Get a paginated list of system-wide activity logs, ordered by `createdAt` descending.
@@ -154,10 +154,10 @@ The Activity Logs endpoint adheres to the platform's standardized JSON error env
 ```json
 {
   "error": "Admin access required",
-  "code": "INSUFFICIENT_PERMISSIONS",
-  "category": "AUTHORIZATION",
+  "code": "PERMISSION_DENIED",
+  "category": "AUTHENTICATION",
   "context": {
-    "requiredRole": "admin"
+    "requiredScope": "admin"
   }
 }
 ```
@@ -168,5 +168,5 @@ The Activity Logs endpoint adheres to the platform's standardized JSON error env
 | :--- | :--- | :--- | :--- |
 | `400 Bad Request` | `VALIDATION_FAILED` | `VALIDATION` | Invalid query parameter (e.g. negative offset, invalid limit number). |
 | `401 Unauthorized` | `UNAUTHENTICATED` | `AUTHENTICATION` | Missing or invalid authentication token. |
-| `403 Forbidden` | `INSUFFICIENT_PERMISSIONS` | `AUTHORIZATION` | Authenticated user is not an administrator (`role !== "admin"`). |
+| `403 Forbidden` | `PERMISSION_DENIED` | `AUTHENTICATION` | Authenticated user is not an administrator (`role !== "admin"`). Context carries `requiredScope: "admin"`. |
 

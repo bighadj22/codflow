@@ -682,8 +682,10 @@ export const orderProducts = sqliteTable("order_products", {
  * Carrier stop-desk / pickup-point cache and admin control table.
  *
  * Populated by POST /delivery-companies/:id/sync-stop-desks (calls provider.getStopDesks()).
- * The `active` flag is NEVER reset by syncs — only the admin can toggle it.
- * This allows the admin to deactivate specific communes for their account.
+ * The `active` flag survives re-syncs for desks still listed at the carrier — only the
+ * admin can toggle it. A desk removed at the carrier is hard-deleted on sync (its flag
+ * goes with it); if it reappears later it comes back active by default. This allows
+ * the admin to deactivate specific communes for their account.
  *
  * `code` maps to what is sent as stationCode in the carrier API:
  *   EcoTrack/Packers → code_postal string (e.g. "16001")
@@ -1008,7 +1010,9 @@ export const webhookEvents = sqliteTable("webhook_events", {
  *           rewardProduct === triggerProduct — see store/queries.ts for resolution logic)
  *
  * Scheduling: null startsAt = active immediately; null endsAt = never expires.
- * Multiple active offers on same product: first created (createdAt ASC) wins.
+ * Multiple active offers on same product: the one with the HIGHEST satisfied
+ * triggerQuantity wins (store.ts selectApplicableOffer orders by triggerQuantity DESC).
+ * createdAt ASC ordering applies only to the storefront display list.
  */
 export const offers = sqliteTable("offers", {
   id: text("id").primaryKey(),
