@@ -330,7 +330,13 @@ wrangler secret put STORE_API_KEY             # same key seeded into D1 (Step 4 
 > (or wire a Service Binding between the two workers).
 > Local development is unaffected (`localhost:4321 → localhost:8787`).
 
-### 4. Configure Production URLs & Meta Pixel
+### 4. Enable Image Uploads (R2 setup)
+
+Product image uploads require three additional steps — R2 API tokens, a CORS
+policy on the bucket, and a custom domain for serving. Full instructions:
+[`cod-server/src/endpoints/images/README.md`](cod-server/src/endpoints/images/README.md)
+
+### 5. Configure Production URLs & Meta Pixel
 
 1. Set `NEXT_PUBLIC_WORKER_URL` in `cod-client` to your deployed backend URL.
 2. Sign into your production dashboard at `https://admin.yourdomain.com`.
