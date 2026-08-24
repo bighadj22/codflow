@@ -168,6 +168,99 @@ local runs. In `cod-astro/theme01/wrangler.jsonc`, set `COD_SERVER_URL` to the
 cod-server public URL before deploying the storefront (localhost default is
 correct for local dev only).
 
+## Step 3b — Configure R2 for Image Uploads
+
+This step requires two one-time actions in the Cloudflare dashboard. Both must
+be done before the merchant dashboard can upload product images.
+
+### 1. Add a custom domain to the R2 bucket
+
+Cloudflare dashboard → R2 → `<project>-images` → Settings → Custom Domains →
+Connect Domain. Enter the media subdomain (e.g. `media.yourdomain.com`).
+Cloudflare adds the DNS record automatically. Wait for status to show Active.
+
+Then set `MEDIA_DOMAIN` in `cod-server/wrangler.toml [vars]` to that hostname
+(no scheme):
+
+```toml
+MEDIA_DOMAIN = "media.yourdomain.com"
+```
+
+### 2. Set the CORS policy on the bucket
+
+Cloudflare dashboard → R2 → `<project>-images` → Settings → CORS Policy →
+Add CORS policy. Paste this JSON, replacing the origin with the actual
+dashboard domain:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "https://app.yourdomain.com",
+      "http://localhost:3000"
+    ],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedHeaders": ["Content-Type", "Content-Length"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Without this, browser presigned PUT requests are blocked by CORS and all image
+uploads fail.
+
+### 3. Create R2 API tokens
+
+Cloudflare dashboard → R2 → Manage R2 API Tokens → Create API Token.
+
+- Permissions: **Object Read & Write**
+- Bucket: the bucket created in Step 2
+
+Copy the `Access Key ID` and `Secret Access Key` — shown once. After
+cod-server is deployed (Step 6), set them as secrets:
+
+```bash
+env -u CLOUDFLARE_ACCOUNT_ID npx wrangler secret put CF_ACCOUNT_ID --name <server-worker-name>
+env -u CLOUDFLARE_ACCOUNT_ID npx wrangler secret put R2_ACCESS_KEY_ID --name <server-worker-name>
+env -u CLOUDFLARE_ACCOUNT_ID npx wrangler secret put R2_SECRET_ACCESS_KEY --name <server-worker-name>
+```
+
+For local dev, add these to `cod-server/.dev.vars`:
+
+```
+CF_ACCOUNT_ID=<account-id>
+R2_ACCESS_KEY_ID=<key-id>
+R2_SECRET_ACCESS_KEY=<secret>
+MEDIA_DOMAIN=media.yourdomain.com
+```
+
+### 4. Set MEDIA_DOMAIN on the storefront worker
+
+After theme01 is deployed (Step 6), set the secret and redeploy:
+
+```bash
+printf 'media.yourdomain.com' | env -u CLOUDFLARE_ACCOUNT_ID npx wrangler secret put MEDIA_DOMAIN --name <theme01-worker-name>
+cd cod-astro/theme01 && env -u CLOUDFLARE_ACCOUNT_ID npm run deploy
+```
+
+### Verify
+
+After all workers are deployed and secrets are set:
+
+```bash
+# Should return { success: true, data: { presignedUrl, key, publicUrl } }
+curl -s -X POST https://<api-domain>/api/images/presign \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <admin-api-key>" \
+  -d '{"contentType":"image/jpeg"}'
+```
+
+`publicUrl` must start with `https://media.yourdomain.com/` — if it shows the
+Worker URL instead, `MEDIA_DOMAIN` is not set or the worker was not redeployed.
+
+---
+
 ## Step 4 — Generate Keys & Configure Secrets
 
 Generate both keys once and keep them:
@@ -372,4 +465,6 @@ scripts.
 | **`wrangler r2 bucket create` fails** | R2 subscription not enabled on Cloudflare account | Navigate to dash.cloudflare.com → R2, add a payment card to activate the Free Tier, then retry. |
 | **Local D1 split-brain / missing tables** | Wrangler ran without `--persist-to` | Always run local migrations and commands with `--persist-to ../.wrangler-shared`. |
 | **Better Auth 500 on sign-in** | `BETTER_AUTH_SECRET` missing | Ensure `BETTER_AUTH_SECRET` is set in `cod-client/.dev.vars` (local) or via `wrangler secret put` (production). |
-| **Image uploads fail in browser** | R2 CORS not configured for PUT requests | Run `node scripts/setup-r2-cors.mjs` in `cod-server` with R2 API tokens. |
+| **Image uploads fail in browser** | R2 CORS not configured for PUT requests | Cloudflare dashboard → R2 → bucket → Settings → CORS Policy. Add the JSON from Step 3b with your dashboard domain in `AllowedOrigins`. |
+| **Presign returns 500 with missing credentials error** | `CF_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, or `R2_SECRET_ACCESS_KEY` not set on the Worker | Run `wrangler secret put` for all three on the cod-server worker, then redeploy. |
+| **`publicUrl` points to Worker URL instead of media domain** | `MEDIA_DOMAIN` not set in `wrangler.toml` or worker not redeployed after setting it | Set `MEDIA_DOMAIN` in `[vars]` and redeploy cod-server. For theme01 image resizing, also set `MEDIA_DOMAIN` as a secret on the storefront worker and redeploy. |
