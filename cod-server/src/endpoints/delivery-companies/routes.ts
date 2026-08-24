@@ -29,6 +29,7 @@ const deliveryCompaniesRouter = new OpenAPIHono<AppContext>();
 const listRoute = createRoute({
   method: "get",
   path: "/",
+  tags: ["Delivery Companies"],
   summary: "List delivery companies",
   description: "List all delivery companies with optional filters",
   request: {
@@ -64,6 +65,7 @@ const listRoute = createRoute({
 const getRoute = createRoute({
   method: "get",
   path: "/{id}",
+  tags: ["Delivery Companies"],
   summary: "Get delivery company",
   description: "Get a single delivery company by ID",
   request: {
@@ -86,6 +88,7 @@ const getRoute = createRoute({
 const createRoute_definition = createRoute({
   method: "post",
   path: "/",
+  tags: ["Delivery Companies"],
   summary: "Create delivery company",
   description: "Create a new delivery company integration",
   request: {
@@ -133,6 +136,7 @@ const createRoute_definition = createRoute({
 const updateRoute = createRoute({
   method: "patch",
   path: "/{id}",
+  tags: ["Delivery Companies"],
   summary: "Update delivery company",
   description: "Update an existing delivery company",
   request: {
@@ -180,6 +184,7 @@ const updateRoute = createRoute({
 const deleteRoute = createRoute({
   method: "delete",
   path: "/{id}",
+  tags: ["Delivery Companies"],
   summary: "Delete delivery company",
   description: "Delete a delivery company",
   request: {
@@ -202,6 +207,7 @@ const deleteRoute = createRoute({
 const getStopDesksRoute = createRoute({
   method: "get",
   path: "/{id}/stop-desks",
+  tags: ["Delivery Companies"],
   summary: "Get company stop desks",
   description: "Read stop desks from DB (no live API call). Admin must sync first via POST .../sync-stop-desks",
   request: {
@@ -247,6 +253,7 @@ const getStopDesksRoute = createRoute({
 const syncStopDesksRoute = createRoute({
   method: "post",
   path: "/{id}/sync-stop-desks",
+  tags: ["Delivery Companies"],
   summary: "Sync stop desks",
   description: "Fetch stop desks from carrier API and upsert into DB. Active flag is preserved.",
   request: {
@@ -283,6 +290,7 @@ const syncStopDesksRoute = createRoute({
 const toggleStopDeskRoute = createRoute({
   method: "patch",
   path: "/{id}/stop-desks/{code}/toggle",
+  tags: ["Delivery Companies"],
   summary: "Toggle stop desk active flag",
   description: "Toggle the active flag on a single stop desk. Admin can deactivate stop desks that can't be serviced.",
   request: {
@@ -314,6 +322,7 @@ const toggleStopDeskRoute = createRoute({
 const registerWebhookRoute = createRoute({
   method: "post",
   path: "/{id}/webhook/register",
+  tags: ["Delivery Companies"],
   summary: "Register ZR Express webhook",
   description: "Registers a webhook endpoint with ZR Express via their API. Stores the endpointId and signing secret.",
   request: {
@@ -343,6 +352,7 @@ const registerWebhookRoute = createRoute({
 const unregisterWebhookRoute = createRoute({
   method: "delete",
   path: "/{id}/webhook/register",
+  tags: ["Delivery Companies"],
   summary: "Unregister ZR Express webhook",
   description: "Deletes the registered webhook endpoint from ZR Express and clears the DB fields.",
   request: {
@@ -366,6 +376,7 @@ const unregisterWebhookRoute = createRoute({
 const saveYalidineSecretRoute = createRoute({
   method: "patch",
   path: "/{id}/webhook/secret",
+  tags: ["Delivery Companies"],
   summary: "Save Yalidine webhook secret",
   description: "Stores the Yalidine webhook secret key (entered manually after setting up webhook in Yalidine dashboard).",
   request: {
@@ -396,6 +407,7 @@ const saveYalidineSecretRoute = createRoute({
 const saveZrMappingRoute = createRoute({
   method: "patch",
   path: "/{id}/webhook/mapping",
+  tags: ["Delivery Companies"],
   summary: "Save ZR status mapping",
   description: "Saves the custom ZR state name → our status mapping for this company.",
   request: {
