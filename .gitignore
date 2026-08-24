@@ -28,6 +28,10 @@ cod-shared/node_modules/
 # Wrangler
 .wrangler/
 .wrangler-shared/
+# Real wrangler configs contain live resource IDs — never commit them.
+# Copy wrangler.toml.example → wrangler.toml and fill in your own IDs.
+cod-server/wrangler.toml
+cod-client/wrangler.toml
 
 # OS
 .DS_Store
