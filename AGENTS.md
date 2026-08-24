@@ -102,3 +102,64 @@ Same for `cod-client` (`npm run typecheck`, `npm test`, `npm run dev`).
   placeholder; the backend collection + cron exist, the merchant UI does not.
 - cod-server tests run on miniflare + better-sqlite3 locally with no network
   or credentials required.
+## Skills
+
+This project has custom skills for AI agents. When working on specific tasks, activate the relevant skill:
+
+### Route Builder (API Endpoints)
+
+For creating or migrating API endpoints, use the **route-builder** skill:
+
+```bash
+# Activate the skill (if using Kiro with skills)
+disclose_context: route-builder
+```
+
+This skill provides:
+- **SKILL.md** - Quick reference for the defineRoute() pattern
+- **MIGRATION.md** - Step-by-step guide for migrating existing endpoints
+- **NEW-ENDPOINTS.md** - Guide for creating new endpoints
+- **EXAMPLES.md** - Real-world examples from the codebase
+
+### Key Patterns
+
+**Always use defineRoute() for new endpoints:**
+```typescript
+import { defineRoute } from "@/lib/route-builder";
+import { SCOPES } from "../../../../cod-shared/rbac/scopes";
+
+const myRoute = defineRoute({
+  method: "get",
+  path: "/my-resource",
+  auth: { scope: SCOPES.RESOURCE_READ },  // Always use SCOPES constants
+  handler: handlers.list,
+});
+
+router.openapi(myRoute.route, myRoute.handler);
+```
+
+**Migration workflow:**
+1. Create `routes.prototype.ts` 
+2. Convert routes using defineRoute()
+3. Run tests: `npm test -- <endpoint>`
+4. Verify no behavior changes
+
+### Available Skills
+
+| Skill | When to Use |
+|-------|-------------|
+| `route-builder` | Creating or migrating API endpoints |
+| `code-review` | Reviewing code changes |
+| `codebase-design` | Understanding architecture |
+| `prototype` | Building throwaway prototypes |
+| `improve-codebase-architecture` | Refactoring or architecture changes |
+| `tdd` | Test-driven development |
+| `wayfinder` | Navigating the codebase |
+| `codflow-setup` | Setting up the project |
+| **`diagnosing-bugs`** | **Debug production issues (orders, delivery, payments)** |
+| **`domain-modeling`** | **Design data models for complex domain** |
+| **`implement`** | **Turn specs into working code** |
+| **`to-spec`** | **Convert ideas into formal specifications** |
+| **`to-tickets`** | **Break features into GitHub issues** |
+
+For more details on any skill, see the `.agents/skills/` directory.

@@ -1,27 +1,19 @@
 /**
  * Orders Routes
  *
- * Order CRUD, lifecycle transitions, driver assignment, carrier dispatch
- * (single + bulk), and post-dispatch shipment operations. Handlers live in
- * focused modules: handlers.ts (CRUD/returns), status-transitions.ts,
- * dispatch.ts, shipment-operations.ts.
- *
- * Migrated to @hono/zod-openapi: route definitions below are the single
- * source of truth for validation and the OpenAPI spec. Handlers are
- * unchanged and remain independently mountable/testable.
- *
- * ⚠️ Route order matters: "/bulk-dispatch" is registered before "/{id}"
- * routes so it never matches as an order ID.
+ * CRUD, lifecycle transitions, carrier dispatch, and shipment operations.
  */
 
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AppContext } from "@/types";
+import { defineRoute } from "@/lib/route-builder";
+import { SCOPES } from "../../../../cod-shared/rbac/scopes";
+
 import * as handlers from "./handlers";
 import * as statusTransitions from "./status-transitions";
 import * as dispatch from "./dispatch";
 import * as shipmentOps from "./shipment-operations";
-import { requireScope } from "@/rbac/middleware";
-import { SCOPES } from "../../../../cod-shared/rbac/scopes";
+
 import {
   createOrderSchema,
   updateOrderStatusSchema,
@@ -30,87 +22,69 @@ import {
   orderFiltersSchema,
   bulkDispatchSchema,
 } from "./validation";
+
 import {
-  OrderSchema,
-  ErrorResponseSchema,
-  ListResponseSchema,
   SuccessResponseSchema,
+  SuccessWithMessageSchema,
+  MessageResponseSchema,
+  ListResponseSchema,
+  IdParamSchema,
+  OrderListItemSchema,
+  OrderDetailSchema,
+  OrderCreatedDataSchema,
+  ShipmentCreatedDataSchema,
+  BulkDispatchDataSchema,
+  BulkDispatchResultItemSchema,
+  ReturnProductDataSchema,
+  CarrierRecordsArraySchema,
 } from "@/openapi/schemas";
 
 const jsonContent = <T extends z.ZodType>(schema: T) => ({
   "application/json": { schema },
 });
 
-const errorResponse = (description: string) => ({
-  description,
-  content: jsonContent(ErrorResponseSchema),
-});
-
-const idParams = z.object({
-  id: z.string().openapi({ description: "Order ID" }),
-});
-
-const notFoundResponse = errorResponse("Order not found (ORDER_NOT_FOUND)");
-
-const messageResponse = jsonContent(
-  z.object({
-    success: z.boolean().openapi({ example: true }),
-    message: z.string(),
-  })
-);
-
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
-const listOrdersRoute = createRoute({
+const listOrdersRoute = defineRoute({
   method: "get",
   path: "/",
-  middleware: [requireScope(SCOPES.ORDERS_READ)],
+  auth: { scope: SCOPES.ORDERS_READ },
   tags: ["Orders"],
   summary: "List orders",
   operationId: "listOrders",
-  request: {
-    query: orderFiltersSchema,
-  },
+  query: orderFiltersSchema,
   responses: {
     200: {
       description:
         "List of orders (each item includes wilaya/commune/driverName joins plus hasReview and lastUpdatedBy)",
-      content: jsonContent(ListResponseSchema(OrderSchema)),
+      content: jsonContent(ListResponseSchema(OrderListItemSchema)),
     },
-    400: errorResponse("Invalid query parameter — e.g. unknown status value (VALIDATION_FAILED)"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing orders:read scope"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: handlers.listOrders,
 });
 
-const getOrderRoute = createRoute({
+const getOrderRoute = defineRoute({
   method: "get",
   path: "/{id}",
-  middleware: [requireScope(SCOPES.ORDERS_READ)],
+  auth: { scope: SCOPES.ORDERS_READ },
   tags: ["Orders"],
   summary: "Get order",
   description: "Returns full order detail including products and status history.",
   operationId: "getOrder",
-  request: {
-    params: idParams,
-  },
+  params: IdParamSchema,
   responses: {
     200: {
       description: "Order details",
-      content: jsonContent(SuccessResponseSchema(OrderSchema)),
+      content: jsonContent(SuccessResponseSchema(OrderDetailSchema)),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing orders:read scope"),
-    404: notFoundResponse,
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: handlers.getOrder,
 });
 
-const createOrderRoute = createRoute({
+const createOrderRoute = defineRoute({
   method: "post",
   path: "/",
-  middleware: [requireScope(SCOPES.ORDERS_CREATE)],
+  auth: { scope: SCOPES.ORDERS_CREATE },
   tags: ["Orders"],
   summary: "Create order",
   description: `Creates a new order.
@@ -123,89 +97,44 @@ const createOrderRoute = createRoute({
 
 **companyId:** If provided, the delivery company must exist — returns 404 if not found.`,
   operationId: "createOrder",
-  request: {
-    body: {
-      required: true,
-      content: jsonContent(createOrderSchema),
-    },
-  },
+  body: createOrderSchema,
   responses: {
     201: {
       description: "Order created successfully",
-      content: jsonContent(
-        z.object({
-          success: z.boolean().openapi({ example: true }),
-          data: z.object({
-            id: z.string().openapi({ description: "Newly created order ID" }),
-            orderNumber: z.string().openapi({ example: "ORD-20260327-0042" }),
-            deliveryFee: z.number().openapi({
-              description: "Calculated delivery fee (from shipping profile or admin override)",
-              example: 600,
-            }),
-            price: z.number().openapi({
-              description: "Product subtotal (excluding delivery fee)",
-              example: 2500,
-            }),
-            codAmount: z.number().openapi({
-              description: "Total amount to collect (price + deliveryFee)",
-              example: 3100,
-            }),
-            customerId: z.string(),
-            customerName: z.string(),
-            phone: z.string(),
-            wilayaId: z.number().int(),
-            communeId: z.string().nullable(),
-            deliveryType: z.enum(["home", "stop_desk"]),
-            orderType: z.enum(["online", "offline"]),
-            status: z.string().openapi({ description: "Initial order status", example: "new" }),
-          }),
-          message: z.string().openapi({ example: "Order created successfully" }),
-        })
-      ),
+      content: jsonContent(SuccessWithMessageSchema(OrderCreatedDataSchema)),
     },
-    400: errorResponse("Validation error (VALIDATION_FAILED)"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing orders:create scope"),
-    404: errorResponse("Delivery company not found when companyId provided"),
+    404: {
+      description: "Delivery company not found when companyId provided",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: handlers.createOrder,
 });
 
-const deleteOrderRoute = createRoute({
+const deleteOrderRoute = defineRoute({
   method: "delete",
   path: "/{id}",
-  middleware: [requireScope(SCOPES.ORDERS_DELETE)],
+  auth: { scope: SCOPES.ORDERS_DELETE },
   tags: ["Orders"],
   summary: "Delete order",
   description:
     "Permanently deletes the order and all child records (order products, shipments) from the database.",
   operationId: "deleteOrder",
-  request: {
-    params: idParams,
-  },
+  params: IdParamSchema,
   responses: {
     200: {
       description: "Order deleted",
-      content: jsonContent(
-        z.object({
-          success: z.boolean().openapi({ example: true }),
-          message: z.string().openapi({ example: "Order deleted" }),
-        })
-      ),
+      content: jsonContent(MessageResponseSchema),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing orders:delete scope"),
-    404: notFoundResponse,
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: handlers.deleteOrder,
 });
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
-const updateStatusRoute = createRoute({
+const updateStatusRoute = defineRoute({
   method: "patch",
   path: "/{id}/status",
-  middleware: [requireScope(SCOPES.ORDERS_UPDATE)],
+  auth: { scope: SCOPES.ORDERS_UPDATE },
   tags: ["Orders"],
   summary: "Update order status",
   description: `Updates the order status and appends a record to status history.
@@ -222,32 +151,25 @@ const updateStatusRoute = createRoute({
 - **cancelled / returned**: restores inventory for products with \`trackInventory\` enabled (double-cancel/return is safe)
 - **delivered**: fires the Meta CAPI Purchase workflow when the store has tracking enabled`,
   operationId: "updateOrderStatus",
-  request: {
-    params: idParams,
-    body: {
-      required: true,
-      content: jsonContent(updateOrderStatusSchema),
-    },
-  },
+  params: IdParamSchema,
+  body: updateOrderStatusSchema,
   responses: {
     200: {
       description: "Status updated",
-      content: messageResponse,
+      content: jsonContent(MessageResponseSchema),
     },
-    400: errorResponse(
-      "Unknown status value (VALIDATION_FAILED) or transition not allowed by the flow guard (INVALID_STATUS_TRANSITION with currentStatus/targetStatus/allowedTransitions context)"
-    ),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing orders:update scope"),
-    404: notFoundResponse,
+    400: {
+      description:
+        "Unknown status value (VALIDATION_FAILED) or transition not allowed by the flow guard (INVALID_STATUS_TRANSITION with currentStatus/targetStatus/allowedTransitions context)",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: statusTransitions.updateStatus,
 });
 
-const assignDriverRoute = createRoute({
+const assignDriverRoute = defineRoute({
   method: "patch",
   path: "/{id}/assign-driver",
-  middleware: [requireScope(SCOPES.ORDERS_ASSIGN)],
+  auth: { scope: SCOPES.ORDERS_ASSIGN },
   tags: ["Orders"],
   summary: "Assign driver to order",
   description: `Assigns a driver for manual delivery.
@@ -258,36 +180,25 @@ const assignDriverRoute = createRoute({
 - The order status is \`out_for_delivery\`, \`delivered\`, \`returned\`, or \`cancelled\`
 - The driver does not exist (404)`,
   operationId: "assignDriver",
-  request: {
-    params: idParams,
-    body: {
-      required: true,
-      content: jsonContent(assignDriverSchema),
-    },
-  },
+  params: IdParamSchema,
+  body: assignDriverSchema,
   responses: {
     200: {
       description: "Driver assigned",
-      content: jsonContent(
-        z.object({
-          success: z.boolean().openapi({ example: true }),
-          message: z.string().openapi({ example: "Driver assigned successfully" }),
-        })
-      ),
+      content: jsonContent(MessageResponseSchema),
     },
-    400: errorResponse("Validation error (VALIDATION_FAILED)"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing orders:assign scope"),
-    404: errorResponse("Order or driver not found"),
-    422: errorResponse("Business rule violation — already dispatched / company-assigned / locked status"),
+    422: {
+      description:
+        "Business rule violation — already dispatched / company-assigned / locked status",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: statusTransitions.assignDriver,
 });
 
-const unassignDriverRoute = createRoute({
+const unassignDriverRoute = defineRoute({
   method: "patch",
   path: "/{id}/unassign",
-  middleware: [requireScope(SCOPES.ORDERS_ASSIGN)],
+  auth: { scope: SCOPES.ORDERS_ASSIGN },
   tags: ["Orders"],
   summary: "Unassign driver from order",
   description: `Removes the driver currently assigned to an order. Clears driverId and driverFee, resets deliveryMethod to "unassigned", and rolls the status back from "assigned" → "ready" when applicable.
@@ -296,31 +207,23 @@ const unassignDriverRoute = createRoute({
 - order has no driver assigned
 - order has already progressed past dispatch (out_for_delivery, delivered, returned, cancelled) — at that point clearing the driver would erase payroll/handoff history.`,
   operationId: "unassignDriver",
-  request: {
-    params: idParams,
-  },
+  params: IdParamSchema,
   responses: {
     200: {
       description: "Driver unassigned",
-      content: jsonContent(
-        z.object({
-          success: z.boolean().openapi({ example: true }),
-          message: z.string().openapi({ example: "Driver unassigned" }),
-        })
-      ),
+      content: jsonContent(MessageResponseSchema),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing orders:assign scope"),
-    404: notFoundResponse,
-    422: errorResponse("Order has no driver assigned, or status is locked"),
+    422: {
+      description: "Order has no driver assigned, or status is locked",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: statusTransitions.unassignDriver,
 });
 
-const returnOrderProductRoute = createRoute({
+const returnOrderProductRoute = defineRoute({
   method: "patch",
   path: "/{id}/products/{productLineId}/return",
-  middleware: [requireScope(SCOPES.ORDERS_UPDATE)],
+  auth: { scope: SCOPES.ORDERS_UPDATE },
   tags: ["Orders"],
   summary: "Record a product line return",
   description: `Records how many units on a single order line the customer refused at the door. Used for the Algerian "open the box at delivery" workflow where a customer may accept part of an order and return the rest.
@@ -329,44 +232,32 @@ The server computes the line status ("fulfilled" | "partially_returned" | "retur
 
 Rejected with 422 while the overall order is already \`returned\` or \`cancelled\` — stock was already reconciled.`,
   operationId: "returnOrderProduct",
-  request: {
-    params: idParams.extend({
-      productLineId: z.string().openapi({ description: "Order product line ID" }),
-    }),
-    body: {
-      required: true,
-      content: jsonContent(returnOrderProductSchema),
-    },
-  },
+  params: IdParamSchema.extend({
+    productLineId: z.string().openapi({ description: "Order product line ID" }),
+  }),
+  body: returnOrderProductSchema,
   responses: {
     200: {
       description: "Return recorded",
-      content: jsonContent(
-        z.object({
-          success: z.boolean().openapi({ example: true }),
-          data: z.object({
-            returnedQuantity: z.number().int(),
-            status: z.enum(["fulfilled", "partially_returned", "returned"]),
-          }),
-          message: z.string().openapi({ example: "Return recorded" }),
-        })
-      ),
+      content: jsonContent(SuccessWithMessageSchema(ReturnProductDataSchema)),
     },
-    400: errorResponse("Validation error (VALIDATION_FAILED / VALUE_OUT_OF_RANGE)"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing orders:update scope"),
-    404: notFoundResponse,
-    422: errorResponse("Order is in a terminal state (returned/cancelled) — returns already reconciled"),
+    400: {
+      description: "Validation error (VALIDATION_FAILED / VALUE_OUT_OF_RANGE)",
+    },
+    422: {
+      description:
+        "Order is in a terminal state (returned/cancelled) — returns already reconciled",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: handlers.returnOrderProduct,
 });
 
 // ─── Carrier dispatch ─────────────────────────────────────────────────────────
 
-const bulkDispatchRoute = createRoute({
+const bulkDispatchRoute = defineRoute({
   method: "post",
   path: "/bulk-dispatch",
-  middleware: [requireScope(SCOPES.DELIVERY_DISPATCH)],
+  auth: { scope: SCOPES.DELIVERY_DISPATCH },
   tags: ["Orders"],
   summary: "Bulk dispatch orders to a delivery company",
   description: `Dispatch multiple existing orders to a delivery company in one API call using the provider's bulk creation endpoint (up to 100 orders per request).
@@ -375,32 +266,11 @@ const bulkDispatchRoute = createRoute({
 
 Per-order results are returned; partial success is possible (HTTP 201 when at least one order dispatched, 400 when none did).`,
   operationId: "bulkDispatch",
-  request: {
-    body: {
-      required: true,
-      content: jsonContent(bulkDispatchSchema),
-    },
-  },
+  body: bulkDispatchSchema,
   responses: {
     201: {
       description: "Bulk dispatch executed (at least one order dispatched)",
-      content: jsonContent(
-        z.object({
-          success: z.boolean(),
-          message: z.string(),
-          data: z.object({
-            results: z.array(
-              z.object({
-                orderId: z.string(),
-                orderNumber: z.string().optional(),
-                trackingNumber: z.string().optional(),
-                labelUrl: z.string().optional(),
-                error: z.string().optional(),
-              })
-            ),
-          }),
-        })
-      ),
+      content: jsonContent(SuccessWithMessageSchema(BulkDispatchDataSchema)),
     },
     400: {
       description:
@@ -409,32 +279,21 @@ Per-order results are returned; partial success is possible (HTTP 201 when at le
         z.object({
           success: z.boolean(),
           message: z.string(),
-          results: z
-            .array(
-              z.object({
-                orderId: z.string(),
-                orderNumber: z.string().optional(),
-                trackingNumber: z.string().optional(),
-                labelUrl: z.string().optional(),
-                error: z.string().optional(),
-              })
-            )
-            .optional(),
+          results: z.array(BulkDispatchResultItemSchema).optional(),
         })
       ),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing delivery:dispatch scope"),
-    404: errorResponse("Delivery company not found"),
-    422: errorResponse("Provider does not support bulk creation (OPERATION_NOT_SUPPORTED)"),
+    422: {
+      description: "Provider does not support bulk creation (OPERATION_NOT_SUPPORTED)",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: dispatch.bulkDispatch,
 });
 
-const dispatchToCompanyRoute = createRoute({
+const dispatchToCompanyRoute = defineRoute({
   method: "post",
   path: "/{id}/dispatch",
-  middleware: [requireScope(SCOPES.DELIVERY_DISPATCH)],
+  auth: { scope: SCOPES.DELIVERY_DISPATCH },
   tags: ["Orders"],
   summary: "Dispatch order to delivery company",
   description: `Creates a shipment via the assigned delivery company's API (NOEST, ZR Express, Yalidine, Packers/EcoTrack).
@@ -448,76 +307,54 @@ const dispatchToCompanyRoute = createRoute({
 
 **Body fields are all optional** — they override values stored on the order.`,
   operationId: "dispatchToCompany",
-  request: {
-    params: idParams,
-    body: {
-      required: false,
-      content: jsonContent(
-        z.object({
-          companyId: z.string().optional().openapi({
-            description: "Override the order's assigned company",
-          }),
-          stationCode: z.string().optional().openapi({
-            description: "Stop-desk station code. Required when deliveryType is stop_desk",
-          }),
-          remarks: z.string().optional().openapi({
-            description: "Delivery remarks passed to the provider",
-          }),
-          weight: z.number().optional().openapi({
-            description: "Parcel weight in kg override",
-          }),
-          fragile: z.boolean().optional().openapi({
-            description: "Fragile parcel flag override",
-          }),
-        })
-      ),
-    },
-  },
+  params: IdParamSchema,
+  body: z.object({
+    companyId: z.string().optional().openapi({
+      description: "Override the order's assigned company",
+    }),
+    stationCode: z.string().optional().openapi({
+      description: "Stop-desk station code. Required when deliveryType is stop_desk",
+    }),
+    remarks: z.string().optional().openapi({
+      description: "Delivery remarks passed to the provider",
+    }),
+    weight: z.number().optional().openapi({
+      description: "Parcel weight in kg override",
+    }),
+    fragile: z.boolean().optional().openapi({
+      description: "Fragile parcel flag override",
+    }),
+  }),
   responses: {
     201: {
       description: "Shipment created successfully",
-      content: jsonContent(
-        z.object({
-          success: z.boolean().openapi({ example: true }),
-          data: z.object({
-            shipmentId: z.string().openapi({ description: "Internal shipment record ID" }),
-            trackingNumber: z.string().openapi({ example: "NE123456789DZ" }),
-            labelUrl: z.string().nullable().openapi({
-              description: "PDF label URL, if provided by the company",
-            }),
-          }),
-          message: z.string().openapi({ example: "Shipment created successfully" }),
-        })
-      ),
+      content: jsonContent(SuccessWithMessageSchema(ShipmentCreatedDataSchema)),
     },
-    400: errorResponse(
-      "Validation error — no delivery company, missing wilaya/commune, or missing station code"
-    ),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing delivery:dispatch scope"),
-    404: errorResponse("Order or delivery company not found"),
-    422: errorResponse(
-      "Already dispatched (ORDER_ALREADY_DISPATCHED), driver assigned (DRIVER_ALREADY_ASSIGNED), inactive company, unsupported provider, or shipment creation failed (SHIPMENT_CREATION_FAILED)"
-    ),
+    400: {
+      description:
+        "Validation error — no delivery company, missing wilaya/commune, or missing station code",
+    },
+    422: {
+      description:
+        "Already dispatched (ORDER_ALREADY_DISPATCHED), driver assigned (DRIVER_ALREADY_ASSIGNED), inactive company, unsupported provider, or shipment creation failed (SHIPMENT_CREATION_FAILED)",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: dispatch.dispatchToCompany,
 });
 
-const validateShipmentRoute = createRoute({
+const validateShipmentRoute = defineRoute({
   method: "post",
   path: "/{id}/validate-shipment",
-  middleware: [requireScope(SCOPES.DELIVERY_DISPATCH)],
+  auth: { scope: SCOPES.DELIVERY_DISPATCH },
   tags: ["Orders"],
   summary: "Manually validate a dispatched shipment",
   description: `Manually validate a dispatched order at the carrier API. Only meaningful when company.auto_validate=false (e.g. Packers). Advances status dispatched → out_for_delivery.`,
   operationId: "validateShipmentManually",
-  request: {
-    params: idParams,
-  },
+  params: IdParamSchema,
   responses: {
     200: {
       description: "Shipment validated — order is now out for delivery",
-      content: messageResponse,
+      content: jsonContent(MessageResponseSchema),
     },
     400: {
       description: "Carrier validation returned false",
@@ -528,23 +365,23 @@ const validateShipmentRoute = createRoute({
         })
       ),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing delivery:dispatch scope"),
-    404: errorResponse("Order or delivery company not found"),
-    422: errorResponse(
-      "Order not in dispatched state (INVALID_STATUS_TRANSITION), inactive company, unsupported provider, or external API error (502 EXTERNAL_API_ERROR)"
-    ),
-    500: errorResponse("External API error"),
+    422: {
+      description:
+        "Order not in dispatched state (INVALID_STATUS_TRANSITION), inactive company, unsupported provider, or external API error (502 EXTERNAL_API_ERROR)",
+    },
+    500: {
+      description: "External API error",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: dispatch.validateShipmentManually,
 });
 
 // ─── Shipment operations ──────────────────────────────────────────────────────
 
-const updateShipmentRoute = createRoute({
+const updateShipmentRoute = defineRoute({
   method: "patch",
   path: "/{id}/update-shipment",
-  middleware: [requireScope(SCOPES.DELIVERY_DISPATCH)],
+  auth: { scope: SCOPES.DELIVERY_DISPATCH },
   tags: ["Orders"],
   summary: "Update shipment info at carrier",
   description: `Updates an existing shipment at the carrier API: customer info, COD amount, delivery preferences (fragile, weight, remarks). Changed fields sync back to the database.
@@ -555,56 +392,49 @@ All fields are optional — omitted fields use current order values. EcoTrack re
 
 **Returns 422** when there is no tracking number, the provider doesn't support updates, or the EcoTrack pre-validation guard trips. External carrier failures surface as 502 EXTERNAL_API_ERROR.`,
   operationId: "updateShipmentInfo",
-  request: {
-    params: idParams,
-    body: {
-      required: false,
-      content: jsonContent(
-        z.object({
-          customerName: z.string().optional().openapi({ description: "Customer full name" }),
-          phone: z.string().optional().openapi({
-            description: "Algerian mobile number",
-            example: "0551234567",
-          }),
-          phone2: z.string().optional().openapi({ description: "Secondary phone number" }),
-          address: z.string().optional().openapi({ description: "Delivery address" }),
-          commune: z.string().optional().openapi({
-            description: "Commune name in French (required by Packers on every call — server pre-fills)",
-          }),
-          wilayaId: z.number().int().min(1).max(58).optional(),
-          amount: z.number().positive().optional().openapi({
-            description: "COD amount to collect",
-          }),
-          remarks: z.string().optional().openapi({ description: "Delivery remarks/notes" }),
-          fragile: z.boolean().optional(),
-          weight: z.number().min(0).optional().openapi({
-            description: "Package weight in kg",
-          }),
-        })
-      ),
-    },
-  },
+  params: IdParamSchema,
+  body: z.object({
+    customerName: z.string().optional().openapi({ description: "Customer full name" }),
+    phone: z.string().optional().openapi({
+      description: "Algerian mobile number",
+      example: "0551234567",
+    }),
+    phone2: z.string().optional().openapi({ description: "Secondary phone number" }),
+    address: z.string().optional().openapi({ description: "Delivery address" }),
+    commune: z.string().optional().openapi({
+      description:
+        "Commune name in French (required by Packers on every call — server pre-fills)",
+    }),
+    wilayaId: z.number().int().min(1).max(58).optional(),
+    amount: z.number().positive().optional().openapi({
+      description: "COD amount to collect",
+    }),
+    remarks: z.string().optional().openapi({ description: "Delivery remarks/notes" }),
+    fragile: z.boolean().optional(),
+    weight: z.number().min(0).optional().openapi({
+      description: "Package weight in kg",
+    }),
+  }),
   responses: {
     200: {
       description: "Shipment updated successfully",
-      content: messageResponse,
+      content: jsonContent(MessageResponseSchema),
     },
-    400: errorResponse("Validation error"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing delivery:dispatch scope"),
-    404: errorResponse("Order or delivery company not found"),
-    422: errorResponse(
-      "No tracking number, provider does not support updates, or EcoTrack pre-validation guard tripped"
-    ),
-    500: errorResponse("External API error (EXTERNAL_API_ERROR)"),
+    422: {
+      description:
+        "No tracking number, provider does not support updates, or EcoTrack pre-validation guard tripped",
+    },
+    500: {
+      description: "External API error (EXTERNAL_API_ERROR)",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: shipmentOps.updateShipmentInfo,
 });
 
-const cancelShipmentRoute = createRoute({
+const cancelShipmentRoute = defineRoute({
   method: "post",
   path: "/{id}/cancel-shipment",
-  middleware: [requireScope(SCOPES.DELIVERY_DISPATCH)],
+  auth: { scope: SCOPES.DELIVERY_DISPATCH },
   tags: ["Orders"],
   summary: "Cancel shipment at carrier",
   description: `Deletes/cancels a shipment at the carrier API (before validation only). On success: clears the tracking number from the order and resets status to "ready" so it can be re-dispatched.
@@ -613,151 +443,131 @@ Uses POST (not DELETE) to avoid routing ambiguity with DELETE /orders/{id}.
 
 Provider support: ecotrack ✅ | others ❌ OPERATION_NOT_SUPPORTED.`,
   operationId: "cancelShipment",
-  request: {
-    params: idParams,
-  },
+  params: IdParamSchema,
   responses: {
     200: {
       description: "Shipment cancelled — order reset to ready",
-      content: messageResponse,
+      content: jsonContent(MessageResponseSchema),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing delivery:dispatch scope"),
-    404: errorResponse("Order or delivery company not found"),
-    422: errorResponse(
-      "No tracking number (REQUIRED_FIELD_MISSING), or provider does not support cancelling (OPERATION_NOT_SUPPORTED)"
-    ),
-    500: errorResponse("External API error (EXTERNAL_API_ERROR)"),
+    422: {
+      description:
+        "No tracking number (REQUIRED_FIELD_MISSING), or provider does not support cancelling (OPERATION_NOT_SUPPORTED)",
+    },
+    500: {
+      description: "External API error (EXTERNAL_API_ERROR)",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: shipmentOps.cancelShipment,
 });
 
-const addRemarkRoute = createRoute({
+const addRemarkRoute = defineRoute({
   method: "post",
   path: "/{id}/add-remark",
-  middleware: [requireScope(SCOPES.DELIVERY_DISPATCH)],
+  auth: { scope: SCOPES.DELIVERY_DISPATCH },
   tags: ["Orders"],
   summary: "Add remark to shipment at carrier",
   description: `Adds a remark/note to the shipment at the carrier API. Works at any time after dispatch; visible to carrier and sender.
 
 Provider support: ecotrack ✅ | others ❌ OPERATION_NOT_SUPPORTED.`,
   operationId: "addShipmentRemark",
-  request: {
-    params: idParams,
-    body: {
-      required: true,
-      content: jsonContent(
-        z.object({
-          content: z.string().min(1).openapi({
-            description: "Remark text shown to the carrier and courier",
-            example: "Appeler le client 30 minutes avant",
-          }),
-        })
-      ),
-    },
-  },
+  params: IdParamSchema,
+  body: z.object({
+    content: z.string().min(1).openapi({
+      description: "Remark text shown to the carrier and courier",
+      example: "Appeler le client 30 minutes avant",
+    }),
+  }),
   responses: {
     200: {
       description: "Remark added",
-      content: jsonContent(
-        z.object({
-          success: z.boolean().openapi({ example: true }),
-          message: z.string().openapi({ example: "Remark added" }),
-        })
-      ),
+      content: jsonContent(MessageResponseSchema),
     },
-    400: errorResponse("Missing or empty remark content (REQUIRED_FIELD_MISSING)"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing delivery:dispatch scope"),
-    404: errorResponse("Order or delivery company not found"),
-    422: errorResponse("No tracking number, or provider does not support remarks"),
-    500: errorResponse("External API error (EXTERNAL_API_ERROR)"),
+    400: {
+      description: "Missing or empty remark content (REQUIRED_FIELD_MISSING)",
+    },
+    422: {
+      description: "No tracking number, or provider does not support remarks",
+    },
+    500: {
+      description: "External API error (EXTERNAL_API_ERROR)",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: shipmentOps.addShipmentRemark,
 });
 
-const openRecordsArray = () =>
-  z.array(z.record(z.string(), z.unknown())).openapi({
-    description: "Structure varies by carrier API.",
-  });
-
-const getRemarksRoute = createRoute({
+const getRemarksRoute = defineRoute({
   method: "get",
   path: "/{id}/remarks",
-  middleware: [requireScope(SCOPES.ORDERS_READ)],
+  auth: { scope: SCOPES.ORDERS_READ },
   tags: ["Orders"],
   summary: "Fetch shipment remarks from carrier",
   description: `Fetches the list of remarks/notes for a shipment from the carrier API — entries from both sender and courier/driver.
 
 Provider support: ecotrack ✅ (GET /api/v1/get/maj) | NOEST ❌ | Yalidine ❌ | ZR Express ❌.`,
   operationId: "getShipmentRemarks",
-  request: {
-    params: idParams,
-  },
+  params: IdParamSchema,
   responses: {
     200: {
       description: "Remarks fetched successfully",
       content: jsonContent(
         z.object({
           success: z.boolean().openapi({ example: true }),
-          data: openRecordsArray(),
+          data: CarrierRecordsArraySchema,
         })
       ),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing orders:read scope"),
-    404: errorResponse("Order or delivery company not found"),
-    422: errorResponse("No tracking number, or provider does not support fetching remarks"),
-    500: errorResponse("External API error (EXTERNAL_API_ERROR)"),
+    422: {
+      description: "No tracking number, or provider does not support fetching remarks",
+    },
+    500: {
+      description: "External API error (EXTERNAL_API_ERROR)",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: shipmentOps.getShipmentRemarks,
 });
 
-const getTrackingRoute = createRoute({
+const getTrackingRoute = defineRoute({
   method: "get",
   path: "/{id}/tracking-events",
-  middleware: [requireScope(SCOPES.ORDERS_READ)],
+  auth: { scope: SCOPES.ORDERS_READ },
   tags: ["Orders"],
   summary: "Fetch tracking history from carrier",
   description: `Fetches the full chronological tracking history for a shipment from the carrier API (pickup, hub reception, transit, delivery attempts, delivered/returned).
 
 Provider support: all four ✅ (ecotrack, noest, yalidine, zr_express).`,
   operationId: "getShipmentTracking",
-  request: {
-    params: idParams,
-  },
+  params: IdParamSchema,
   responses: {
     200: {
       description: "Tracking events fetched successfully",
       content: jsonContent(
         z.object({
           success: z.boolean().openapi({ example: true }),
-          data: openRecordsArray(),
+          data: CarrierRecordsArraySchema,
         })
       ),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing orders:read scope"),
-    404: errorResponse("Order or delivery company not found"),
-    422: errorResponse("No tracking number, or provider does not support live tracking"),
-    500: errorResponse("External API error (EXTERNAL_API_ERROR)"),
+    422: {
+      description: "No tracking number, or provider does not support live tracking",
+    },
+    500: {
+      description: "External API error (EXTERNAL_API_ERROR)",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: shipmentOps.getShipmentTracking,
 });
 
-const proxyLabelRoute = createRoute({
+const proxyLabelRoute = defineRoute({
   method: "get",
   path: "/{id}/label",
-  middleware: [requireScope(SCOPES.ORDERS_READ)],
+  auth: { scope: SCOPES.ORDERS_READ },
   tags: ["Orders"],
   summary: "Proxy shipment label PDF from carrier",
   description: `Proxies the shipment label PDF from the carrier API. Carrier label URLs require a Bearer token and are not publicly accessible — this endpoint fetches server-side (with the stored token, or a fresh SAS URL for ZR Express) and streams the PDF to the client.
 
 Returns application/pdf with Content-Disposition: inline.`,
   operationId: "proxyShipmentLabel",
-  request: {
-    params: idParams,
-  },
+  params: IdParamSchema,
   responses: {
     200: {
       description: "Label PDF stream",
@@ -767,38 +577,40 @@ Returns application/pdf with Content-Disposition: inline.`,
         },
       },
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing orders:read scope"),
-    404: errorResponse("Order or delivery company not found"),
-    422: errorResponse(
-      "No tracking number, no API token configured (MISSING_API_CREDENTIALS), or label not yet available"
-    ),
-    500: errorResponse("Failed to fetch label from carrier (EXTERNAL_API_ERROR)"),
+    422: {
+      description:
+        "No tracking number, no API token configured (MISSING_API_CREDENTIALS), or label not yet available",
+    },
+    500: {
+      description: "Failed to fetch label from carrier (EXTERNAL_API_ERROR)",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: shipmentOps.proxyShipmentLabel,
 });
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 
+// IMPORTANT: /bulk-dispatch must come before /{id} routes — otherwise
+// "bulk-dispatch" would be captured as an id param.
 const router = new OpenAPIHono<AppContext>();
 
-router.openapi(listOrdersRoute, handlers.listOrders);
-router.openapi(bulkDispatchRoute, dispatch.bulkDispatch);
+router.openapi(listOrdersRoute.route, listOrdersRoute.handler);
+router.openapi(bulkDispatchRoute.route, bulkDispatchRoute.handler);
 
-router.openapi(getOrderRoute, handlers.getOrder);
-router.openapi(createOrderRoute, handlers.createOrder);
-router.openapi(updateStatusRoute, statusTransitions.updateStatus);
-router.openapi(assignDriverRoute, statusTransitions.assignDriver);
-router.openapi(unassignDriverRoute, statusTransitions.unassignDriver);
-router.openapi(returnOrderProductRoute, handlers.returnOrderProduct);
-router.openapi(dispatchToCompanyRoute, dispatch.dispatchToCompany);
-router.openapi(validateShipmentRoute, dispatch.validateShipmentManually);
-router.openapi(updateShipmentRoute, shipmentOps.updateShipmentInfo);
-router.openapi(cancelShipmentRoute, shipmentOps.cancelShipment);
-router.openapi(addRemarkRoute, shipmentOps.addShipmentRemark);
-router.openapi(getRemarksRoute, shipmentOps.getShipmentRemarks);
-router.openapi(getTrackingRoute, shipmentOps.getShipmentTracking);
-router.openapi(proxyLabelRoute, shipmentOps.proxyShipmentLabel);
-router.openapi(deleteOrderRoute, handlers.deleteOrder);
+router.openapi(getOrderRoute.route, getOrderRoute.handler);
+router.openapi(createOrderRoute.route, createOrderRoute.handler);
+router.openapi(deleteOrderRoute.route, deleteOrderRoute.handler);
+router.openapi(updateStatusRoute.route, updateStatusRoute.handler);
+router.openapi(assignDriverRoute.route, assignDriverRoute.handler);
+router.openapi(unassignDriverRoute.route, unassignDriverRoute.handler);
+router.openapi(returnOrderProductRoute.route, returnOrderProductRoute.handler);
+router.openapi(dispatchToCompanyRoute.route, dispatchToCompanyRoute.handler);
+router.openapi(validateShipmentRoute.route, validateShipmentRoute.handler);
+router.openapi(updateShipmentRoute.route, updateShipmentRoute.handler);
+router.openapi(cancelShipmentRoute.route, cancelShipmentRoute.handler);
+router.openapi(addRemarkRoute.route, addRemarkRoute.handler);
+router.openapi(getRemarksRoute.route, getRemarksRoute.handler);
+router.openapi(getTrackingRoute.route, getTrackingRoute.handler);
+router.openapi(proxyLabelRoute.route, proxyLabelRoute.handler);
 
 export default router;
