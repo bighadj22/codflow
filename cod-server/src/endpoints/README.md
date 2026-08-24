@@ -1,51 +1,61 @@
 # Endpoints Directory
 
-Each subdirectory is one API domain. Migration status below tracks the
-conversion from hand-written OpenAPI (`openapi.ts` + legacy generator) to
-auto-generated specs via `@hono/zod-openapi`. Full details and per-endpoint
-notes live in `cod-server/MIGRATION_STATUS.md`.
+Each subdirectory is one API domain. The standard pattern for all routes is
+`defineRoute()` from `@/lib/route-builder`. Two endpoints have completed this
+migration; the rest still use raw `createRoute()` from `@hono/zod-openapi` and
+are pending conversion.
 
-## Migrated to @hono/zod-openapi ✅
+---
+
+## Migration status
+
+### Done — using `defineRoute()` ✅
+
+| Domain | Routes |
+|--------|--------|
+| `wilayas` | 2 |
+| `orders` | 17 |
+| `products` | 15 |
+
+### Pending — still using `createRoute()` ⏳
+
+These endpoints are fully on `@hono/zod-openapi` (validation + spec generation
+works), but have not been converted to `defineRoute()` yet. Convert one at a
+time following `MIGRATION.md` in `.agents/skills/route-builder/`.
 
 | Domain | Routes | Notes |
-|---|---|---|
-| `wilayas` | 2 | Pilot endpoint |
-| `activity-logs` | 2 | Admin-only |
-| `delivery-companies` | 13 | CRUD + stop-desks + webhook config |
-| `reviews` | 3 | Moderation, RBAC |
+|--------|--------|-------|
+| `abandoned-orders` | 6 | Dashboard CRUD/stats + storefront upsert/convert |
+| `activity-logs` | 2 | Admin-only read |
+| `analytics` | 1 | Dashboard status-count stats |
 | `customer-groups` | 7 | Segments + member management |
 | `customer-tags` | 7 | Tags + assignment management |
-| `product-groups` | 5 | Category tree CRUD; delete blocked with `422 PRODUCT_GROUP_HAS_PRODUCTS`; completed 2026-08-21 |
-| `customers` | 8 | CRUD + orders/groups/tags lookups; granular scopes (`customers:read/create/update/delete`); completed 2026-08-21 |
-| `shipping-profiles` | 10 | Rate cards + wilaya rules + commune overrides; delete guards (`PROFILE_IN_USE`, `DEFAULT_PROFILE_REQUIRED`); completed 2026-08-21 |
-| `drivers` | 8 | Driver CRUD + status + per-wilaya compensations; delete guard (`409 DRIVER_HAS_ACTIVE_ORDERS`); completed 2026-08-21 |
-| `users` | 8 | Team management + scopes + API-key rotation; admin-only (`requireAdmin`); one-time key reveals; completed 2026-08-21 |
-| `stores` | 4 | Store settings + Meta pixel config; admin-only; completed 2026-08-21 |
-| `products` | 15 | Product CRUD + nested images (R2 association, full-set reorder) + variants; `409 DUPLICATE_SKU`, `422 PRODUCT_HAS_ORDERS`; SKU required for simple products; completed 2026-08-21 |
+| `customers` | 8 | CRUD + orders/groups/tags lookups |
+| `delivery-companies` | 13 | CRUD + stop-desks + webhook config |
+| `driver-payments` | 3 | Payment create + history + pending settlement |
+| `drivers` | 8 | Driver CRUD + status + per-wilaya compensations |
+| `images` | 3 | Upload + presign + public serve (plain-Hono exception, see below) |
+| `offers` | 5 | Promotional offer CRUD |
+| `product-groups` | 5 | Category tree CRUD |
+| `reviews` | 3 | Moderation + RBAC |
+| `shipping-profiles` | 10 | Rate cards + wilaya rules + commune overrides |
+| `stock` | 7 | Inventory adjustments, history, thresholds (two sub-routers) |
+| `store` | 9 | Public storefront surface behind X-Store-API-Key |
+| `stores` | 4 | Store settings + Meta pixel config |
+| `users` | 8 | Team management + scopes + API-key rotation |
+| `webhooks` | 3 | Public receivers — no body validation (raw-byte signature contract) |
 
-| `driver-payments` | 3 | Payment create + history + pending settlement; `422 ORDER_NOT_FOUND` / `PAYMENT_ALREADY_SETTLED`; completed 2026-08-21 |
-| `images` | 2+1 | Upload + presign generated (`products:manage`, multipart); public `/images/{key}` serve stays plain-Hono + legacy stub (regex param) — exception documented; completed 2026-08-21 |
-| `orders` | 17 | Full COD lifecycle CRUD + driver/company dispatch (single+bulk) + shipment ops; transition guard (`INVALID_STATUS_TRANSITION`); 11-status enum now typed in cod-shared; completed 2026-08-21 |
-| `webhooks` | 3 | Public receivers (Yalidine CRC/events, ZR Svix); no body validation — raw-byte signature contract documented; completed 2026-08-21 |
-| `abandoned-orders` | 6 | Dashboard recovery CRUD/stats + storefront upsert/convert (StoreAuth); previously undocumented entirely — now fully specified; completed 2026-08-21 |
-| `store` | 9 | Public storefront catalog/order/review surface behind X-Store-API-Key; list-vs-detail product shapes; completed 2026-08-21 |
+---
 
-| `analytics` | 1 | Dashboard status-count stats (`dashboard:view`); previously undocumented — now specified; completed 2026-08-21 |
+## Special cases
 
-## Pending migration ⏳
+- `variants/` — no `routes.ts`; handlers are mounted directly inside `products/routes.ts`.
+- `mcp/` — MCP server surface, not part of the REST API.
+- `images/{key}` public serve — stays plain-Hono (regex param); the `createRoute` documentation stub for it is intentional.
 
-**None.** 🎉 The @hono/zod-openapi migration is complete (2026-08-21).
-Legacy `generator.ts` + `paths.ts` are retired; `/api/openapi.json` is purely
-generated from route definitions. The only hand-written entry left in the spec
-is the `/images/{key}` documentation stub (plain-Hono regex-param exception).
+---
 
-Next up: nothing to migrate. New endpoints are born migrated — define routes
-with `@hono/zod-openapi` and their docs generate themselves.
+## Summary
 
-## Special
-
-- `mcp` — MCP server surface, not part of the REST API migration.
-
-## Progress
-
-**23/23 endpoints migrated (100%)** · legacy generator + paths aggregation retired
+**3 / 22 domains on `defineRoute()` (14%)**
+19 domains still on `createRoute()` — fully functional, pending conversion.
