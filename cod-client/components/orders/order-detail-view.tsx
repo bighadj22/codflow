@@ -22,6 +22,7 @@ import {
   getShipmentTracking,
 } from "@/actions/orders";
 import { formatPrice, formatDateTime } from "@/lib/format";
+import { computeOrderTotals } from "@/lib/order-totals";
 import { ErrorModal } from "@/components/errors/error-modal";
 import { useErrorLocale } from "@/lib/errors/use-locale";
 import type { Order, OrderStatus, Driver, DeliveryCompany } from "@/types";
@@ -534,7 +535,7 @@ export function OrderDetailView({ order: initialOrder, drivers, companies }: Pro
             <div className="mt-5 pt-5 border-t border-border/10 space-y-2">
               <div className="flex items-center justify-between text-[12px]">
                 <span className="font-bold text-muted-foreground/60">{t.detail?.subtotal ?? "Subtotal"}</span>
-                <span className="font-black text-foreground/70 tabular-nums">{formatPrice(displayPrice - initialOrder.deliveryFee, common.currency.symbol)}</span>
+                <span className="font-black text-foreground/70 tabular-nums">{formatPrice(computeOrderTotals({ price: displayPrice, deliveryFee: initialOrder.deliveryFee }).subtotal, common.currency.symbol)}</span>
               </div>
               <div className="flex items-center justify-between text-[12px]">
                 <span className="font-bold text-muted-foreground/60">{t.detail?.delivery_fee ?? "Delivery"}</span>
@@ -547,7 +548,7 @@ export function OrderDetailView({ order: initialOrder, drivers, companies }: Pro
               <div className="flex items-center justify-between pt-3 border-t border-border/10">
                 <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest">{t.detail?.total_price ?? "Total"}</span>
                 <span className="text-2xl sm:text-3xl font-black text-primary tabular-nums tracking-tight font-display">
-                  {formatPrice(displayPrice, common.currency.symbol)}
+                  {formatPrice(computeOrderTotals({ price: displayPrice, deliveryFee: initialOrder.deliveryFee }).total, common.currency.symbol)}
                 </span>
               </div>
             </div>

@@ -15,7 +15,8 @@
     "delivery": "Delivery",
     "driver": "Driver",
     "date": "Date",
-    "not_assigned": "Not Assigned"
+    "not_assigned": "Not Assigned",
+    "total": "Total"
   },
   "actions": {
     "view": "View",
