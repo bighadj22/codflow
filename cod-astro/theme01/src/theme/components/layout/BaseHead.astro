@@ -21,6 +21,8 @@ interface Props {
 }
 
 const { title, description, ogImage, noindex, config, primary, fontHref, font, bg, accent } = Astro.props;
+
+import { MEDIA_DOMAIN } from "astro:env/server";
 ---
 
 <head>
@@ -59,6 +61,9 @@ const { title, description, ogImage, noindex, config, primary, fontHref, font, b
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href={fontHref} rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href={fontHref} rel="stylesheet" /></noscript>
+
+  <!-- R2 media domain — early connection for product images -->
+  {MEDIA_DOMAIN && <link rel="preconnect" href={`https://${MEDIA_DOMAIN}`} />}
 
   <!-- Meta Pixel — deferred after window.load so fbevents.js (101 KiB) does
        not compete with the LCP image for bandwidth. A lightweight queue stub
