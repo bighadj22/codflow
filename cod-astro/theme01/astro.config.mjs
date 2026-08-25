@@ -1,4 +1,4 @@
-import { defineConfig, envField } from "astro/config";
+import { defineConfig, envField, passthroughImageService } from "astro/config";
 import cloudflare from "@astrojs/cloudflare";
 import tailwindcss from "@tailwindcss/vite";
 import compress from "@playform/compress";
@@ -9,7 +9,7 @@ export default defineConfig({
   compressHTML: true,
   session: false,
   adapter: cloudflare({
-    imageService: "cloudflare",
+    imageService: "passthrough",
   }),
   env: {
     schema: {
@@ -34,7 +34,7 @@ export default defineConfig({
   },
   prefetch: true,
   image: {
-    // Allow any remote image (R2, CDN)
+    service: passthroughImageService(),
     remotePatterns: [{ protocol: "https" }],
   },
   build: {
