@@ -15,7 +15,8 @@
     "delivery": "Livraison",
     "driver": "Livreur",
     "date": "Date",
-    "not_assigned": "Non assigné"
+    "not_assigned": "Non assigné",
+    "total": "Total"
   },
   "actions": {
     "view": "Voir",

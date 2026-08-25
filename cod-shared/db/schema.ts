@@ -461,7 +461,7 @@ export const orders = sqliteTable("orders", {
   driverFee: real("driver_fee").notNull().default(0),
   /**
    * Cash-on-delivery amount the driver must collect from the customer.
-   * Set to order.price on creation. Added to driver.pendingCash when delivered.
+   * Set to order.price + delivery_fee on creation. Added to driver.pendingCash when delivered.
    */
   codAmount: real("cod_amount").notNull().default(0),
 

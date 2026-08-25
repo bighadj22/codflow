@@ -15,7 +15,8 @@
     "delivery": "التوصيل",
     "driver": "السائق",
     "date": "التاريخ",
-    "not_assigned": "غير معين"
+    "not_assigned": "غير معين",
+    "total": "الإجمالي"
   },
   "actions": {
     "view": "عرض",

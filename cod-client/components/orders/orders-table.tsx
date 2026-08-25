@@ -36,6 +36,7 @@ import { useErrorLocale } from "@/lib/errors/use-locale";
 import { useOrders, useCommon } from "@/lib/translations";
 import { useLanguage } from "@/lib/i18n-context";
 import { formatPrice, formatDate, formatRelativeTime } from "@/lib/format";
+import { computeOrderTotals } from "@/lib/order-totals";
 import { cn } from "@/lib/utils";
 import { updateOrderStatus, assignDriverToOrder, dispatchOrder, deleteOrder } from "@/actions/orders";
 import { fetchCompanyStopDesks } from "@/actions/delivery-companies";
@@ -834,11 +835,11 @@ export function OrdersTable({
 
     {
       key: "price",
-      label: t.table.price,
+      label: t.table.total,
       sortable: true,
-      render: (value) => (
+      render: (_value, row) => (
         <span className="font-black text-sm text-primary tabular-nums">
-          {formatPrice(value, common.currency.symbol)}
+          {formatPrice(computeOrderTotals({ price: row.price, deliveryFee: row.deliveryFee }).total, common.currency.symbol)}
         </span>
       ),
       className: "text-right",
@@ -1030,7 +1031,7 @@ export function OrdersTable({
               {/* Row 3: price + delivery type + date */}
               <div className="flex items-center justify-between gap-2 pt-2 pb-2.5 border-b border-border/10">
                 <p className="text-[22px] font-black text-primary tabular-nums tracking-tight leading-none" dir="ltr">
-                  {formatPrice(order.price, common.currency.symbol)}
+                  {formatPrice(computeOrderTotals({ price: order.price, deliveryFee: order.deliveryFee }).total, common.currency.symbol)}
                 </p>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={cn(
