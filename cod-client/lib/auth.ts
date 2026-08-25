@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { betterAuth } from "better-auth";
 import { withCloudflare } from "better-auth-cloudflare";
 import { magicLink, jwt } from "better-auth/plugins";
@@ -103,6 +104,17 @@ async function buildAuth() {
           // Source-of-truth: better-auth/dist/db/internal-adapter.mjs:146-201
           // and @better-auth/oauth-provider/dist/index.mjs:2755.
           storeSessionInDatabase: true,
+          // Cookie cache stores session data in a short-lived signed cookie so
+          // getSession() verifies from memory (~1ms) instead of hitting KV/D1
+          // on every call. 5-minute window matches the Better Auth default
+          // recommendation. Revoked sessions remain valid until the window
+          // expires — acceptable for a merchant dashboard (not a banking app).
+          // Compatible with storeSessionInDatabase: true — D1 remains the
+          // source of truth; this is just a read-path optimisation.
+          cookieCache: {
+            enabled: true,
+            maxAge: 5 * 60,
+          },
         },
         advanced: {
           ipAddress: {
@@ -272,7 +284,12 @@ export type AuthUser = {
   apiKey: string | null;
 };
 
-export async function getUser(): Promise<AuthUser | null> {
+// React.cache() scopes memoization to the current RSC render pass — each
+// incoming request gets a fresh cache. All helpers below (requireUser,
+// getUserRole, getUserScopes, hasPermission, …) funnel through this single
+// function, so the auth.api.getSession() KV/D1 round-trip happens at most
+// once per request regardless of how many server components call it.
+export const getUser = cache(async (): Promise<AuthUser | null> => {
   try {
     const auth = await initAuth();
     const session = await auth.api.getSession({ headers: await headers() });
@@ -281,7 +298,7 @@ export async function getUser(): Promise<AuthUser | null> {
   } catch {
     return null;
   }
-}
+});
 
 export async function requireUser(): Promise<AuthUser> {
   const user = await getUser();
