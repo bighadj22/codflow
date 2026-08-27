@@ -33,7 +33,7 @@ See it in action and deploy your own store.
 Build features or customize CodFlow.
 
 **[→ Contributing guide](./CONTRIBUTING.md)**  
-**[→ Architecture overview](#-architecture)**  
+**[→ Architecture overview](./docs/ARCHITECTURE.md)**  
 **[→ AI agent instructions](./AGENTS.md)**
 
 </td>
