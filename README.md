@@ -308,6 +308,11 @@ cd ../cod-client && npm run typecheck
 | **[docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md)** | Incomplete features and platform constraints |
 | **[CONTRIBUTING.md](./CONTRIBUTING.md)** | Development standards and PR workflow |
 | **[AGENTS.md](./AGENTS.md)** | Repository instructions for AI coding assistants |
+### 🎬 Video Tutorial
+
+[![How to edit your CodFlow theme](https://img.youtube.com/vi/zZGWdEeUXVo/maxresdefault.jpg)](https://youtu.be/zZGWdEeUXVo)
+
+*How to edit your CodFlow theme — [watch on YouTube](https://youtu.be/zZGWdEeUXVo)*
 
 ---
 
