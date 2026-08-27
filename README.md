@@ -321,6 +321,7 @@ cd ../cod-client && npm run typecheck
 
 - 📦 **More Themes** — Additional storefront themes beyond `theme01`
 - 📘 **Theme Editing Guides** — Comprehensive guides for customizing and creating themes
+- ☁️ **CodFlow Cloud** — One-click deployment from dashboard for agencies to resell CodFlow
 - 📧 **[Sendili.com](https://sendili.com) Integration** — Add Sendili as a second email option for order notifications and admin alerts
 - 📱 **[DZVerify.com](https://dzverify.com) WhatsApp OTP** — Integrate WhatsApp OTP verification in order form to prevent fake orders
 
