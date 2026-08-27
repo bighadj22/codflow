@@ -311,6 +311,19 @@ cd ../cod-client && npm run typecheck
 
 ---
 
+## 🗺️ Roadmap
+
+### In Progress
+
+- 🚧 **Dashboard Migration to Astro** — Migrating merchant dashboard from Next.js to Astro for consistency and performance
+
+### Planned
+
+- 📦 **More Themes** — Additional storefront themes beyond `theme01`
+- 📘 **Theme Editing Guides** — Comprehensive guides for customizing and creating themes
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions from developers across Algeria and the global open-source community.
