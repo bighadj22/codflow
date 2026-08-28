@@ -8,8 +8,8 @@ import { verifySessionJwt } from "./session-auth";
  */
 
 const ENV = {
-  BETTER_AUTH_URL: "https://app.codflow.store",
-  WORKER_SELF_URL: "https://api.codflow.store/",
+  BETTER_AUTH_URL: "https://example.com",
+  WORKER_SELF_URL: "https://api.example.com/",
 };
 
 let privateKey: CryptoKey;
@@ -60,7 +60,7 @@ describe("verifySessionJwt", () => {
     const token = await signJwt({
       sub: "user_1",
       iss: ENV.BETTER_AUTH_URL,
-      aud: "https://api.codflow.store",
+      aud: "https://api.example.com",
       exp: Math.floor(Date.now() / 1000) + 600,
     });
     const payload = await verifySessionJwt(token, ENV);
@@ -72,7 +72,7 @@ describe("verifySessionJwt", () => {
     const token = await signJwt({
       sub: "user_1",
       iss: ENV.BETTER_AUTH_URL,
-      aud: "https://api.codflow.store",
+      aud: "https://api.example.com",
       exp: Math.floor(Date.now() / 1000) - 10,
     });
     await expect(verifySessionJwt(token, ENV)).rejects.toThrow(/expired/i);
@@ -91,7 +91,7 @@ describe("verifySessionJwt", () => {
     const forged = await signJwt({
       sub: "attacker",
       iss: ENV.BETTER_AUTH_URL,
-      aud: "https://api.codflow.store",
+      aud: "https://api.example.com",
       exp: Math.floor(Date.now() / 1000) + 600,
     });
     privateKey = realVerifyKey;
@@ -103,7 +103,7 @@ describe("verifySessionJwt", () => {
     const token = await signJwt({
       sub: "user_1",
       iss: "https://evil.example.com",
-      aud: "https://api.codflow.store",
+      aud: "https://api.example.com",
       exp: Math.floor(Date.now() / 1000) + 600,
     });
     await expect(verifySessionJwt(token, ENV)).rejects.toThrow(/issuer/i);
@@ -114,7 +114,7 @@ describe("verifySessionJwt", () => {
     const token = await signJwt({
       sub: "user_1",
       iss: ENV.BETTER_AUTH_URL,
-      aud: "https://not-our-api.example.com",
+      aud: "https://wrong-api.example.com",
       exp: Math.floor(Date.now() / 1000) + 600,
     });
     await expect(verifySessionJwt(token, ENV)).rejects.toThrow(/audience/i);
