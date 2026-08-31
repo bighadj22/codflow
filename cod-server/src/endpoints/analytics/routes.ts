@@ -3,22 +3,20 @@
  *
  * Read-only endpoints that serve aggregated stats for the dashboard and
  * any future reporting features. Protected by DASHBOARD_VIEW scope.
- *
- * Migrated to @hono/zod-openapi: route definitions below are the single
- * source of truth for validation and the OpenAPI spec.
+ * Built with defineRoute() — the standard route-builder pattern.
  */
 
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AppContext } from "@/types";
-import { requireScope } from "@/rbac/middleware";
+import { defineRoute } from "@/lib/route-builder";
 import { SCOPES } from "../../../../cod-shared/rbac/scopes";
 import { getDashboardStats } from "./handlers";
-import { OrderStatusEnum, ErrorResponseSchema } from "@/openapi/schemas";
+import { OrderStatusEnum } from "@/openapi/schemas";
 
-const dashboardStatsRoute = createRoute({
+const dashboardStatsRoute = defineRoute({
   method: "get",
   path: "/dashboard-stats",
-  middleware: [requireScope(SCOPES.DASHBOARD_VIEW)],
+  auth: { scope: SCOPES.DASHBOARD_VIEW },
   tags: ["Analytics"],
   summary: "Order status statistics",
   description:
@@ -41,24 +39,12 @@ const dashboardStatsRoute = createRoute({
         },
       },
     },
-    401: {
-      description: "Missing or invalid API key",
-      content: {
-        "application/json": { schema: ErrorResponseSchema },
-      },
-    },
-    403: {
-      description: "Missing dashboard:view scope",
-      content: {
-        "application/json": { schema: ErrorResponseSchema },
-      },
-    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: getDashboardStats,
 });
 
 const router = new OpenAPIHono<AppContext>();
 
-router.openapi(dashboardStatsRoute, getDashboardStats);
+router.openapi(dashboardStatsRoute.route, dashboardStatsRoute.handler);
 
 export default router;
