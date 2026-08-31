@@ -1,23 +1,25 @@
 /**
  * Abandoned Order Tracking
  *
- * Fires a POST /store/abandoned when the visitor has typed a valid name + phone
- * and stays on the page for 3 seconds without submitting. All updates use the
- * same sessionId (UPSERT on server), so there's exactly one DB record per tab.
+ * Sends shopper contact details to the same-origin proxy
+ * POST /api/abandoned (which forwards to cod-server with the server-side
+ * store key) when the visitor has typed a valid name + phone and pauses for
+ * 3 seconds without submitting. All updates use the same sessionId (UPSERT
+ * on the server), so there is exactly one DB record per browser tab.
  *
- * Conversion is marked by calling window.__markAbandonedConverted after a
- * successful order placement.
+ * On page exit (tab close, navigation), a final capture is attempted via
+ * navigator.sendBeacon so abandoners who never submit are still recorded.
+ *
+ * Conversion is handled by the inline script on the product page
+ * (POST /api/abandoned/convert) — see pages/products/[slug].astro.
+ *
+ * Non-critical by contract: every failure is swallowed. Tracking can never
+ * affect the order flow, page speed, or console cleanliness.
  */
 
-const COD_SERVER_URL = (import.meta.env.PUBLIC_COD_SERVER_URL as string | undefined) ?? "";
-const STORE_API_KEY = (import.meta.env.PUBLIC_STORE_API_KEY as string | undefined) ?? "";
+const UPSERT_URL = "/api/abandoned";
 
-// Skip entirely if env vars are missing (dev without server, etc.)
-if (!COD_SERVER_URL || !STORE_API_KEY) {
-  console.debug("[abandonment] env vars missing — tracking disabled");
-} else {
-  initAbandonmentTracking();
-}
+initAbandonmentTracking();
 
 function initAbandonmentTracking() {
   // One session per tab — survives navigation within the tab, not cross-tab
@@ -85,23 +87,41 @@ function initAbandonmentTracking() {
     };
   }
 
+  function isCapturable(data: ReturnType<typeof collectFormData>) {
+    return isValidName(data.customerName) && isValidPhone(data.phone);
+  }
+
   async function sendAbandonment() {
     const data = collectFormData();
-    if (!isValidName(data.customerName) || !isValidPhone(data.phone)) return;
+    if (!isCapturable(data)) return;
 
     try {
-      await fetch(`${COD_SERVER_URL}/store/abandoned`, {
+      await fetch(UPSERT_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Store-API-Key": STORE_API_KEY,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
         keepalive: true,
       });
       hasSentInitial = true;
     } catch {
       // Non-critical — tracking failure must never affect the order flow
+    }
+  }
+
+  /**
+   * Final capture attempt as the page unloads. sendBeacon is fire-and-forget
+   * and survives navigation/tab close where fetch would be killed.
+   */
+  function sendBeaconOnExit() {
+    const data = collectFormData();
+    if (!isCapturable(data)) return;
+    try {
+      navigator.sendBeacon(
+        UPSERT_URL,
+        new Blob([JSON.stringify(data)], { type: "application/json" })
+      );
+    } catch {
+      // Non-critical
     }
   }
 
@@ -117,33 +137,15 @@ function initAbandonmentTracking() {
   // Watch wilaya / commune / delivery type — immediate update once initial record exists
   ["#f-wilaya", "#f-commune"].forEach((sel) => {
     document.querySelector(sel)?.addEventListener("change", () => {
-      if (hasSentInitial) sendAbandonment();
+      if (hasSentInitial) void sendAbandonment();
     });
   });
   document.querySelectorAll<HTMLInputElement>("[name=deliveryType]").forEach((el) => {
     el.addEventListener("change", () => {
-      if (hasSentInitial) sendAbandonment();
+      if (hasSentInitial) void sendAbandonment();
     });
   });
 
-  // Exposed globally so the order-submit success handler can call it
-  (window as any).__markAbandonedConverted = async (
-    orderId: string,
-    orderNumber: string
-  ): Promise<void> => {
-    try {
-      await fetch(`${COD_SERVER_URL}/store/abandoned/${sessionId}/convert`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Store-API-Key": STORE_API_KEY,
-        },
-        body: JSON.stringify({ orderId, orderNumber }),
-        keepalive: true,
-      });
-    } catch {
-      // Non-critical
-    }
-    sessionStorage.removeItem("cod_session_id");
-  };
+  // Capture shoppers who close the tab or navigate away mid-checkout
+  window.addEventListener("pagehide", sendBeaconOnExit);
 }

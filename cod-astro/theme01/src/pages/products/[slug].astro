@@ -20,9 +20,10 @@ const { config, content, isRTL } = await getStoreContext();
 
 // Action result (must be checked before rendering)
 const result = Astro.getActionResult(actions.placeOrder);
-// If order succeeded, pass data to client — the inline script below will call
-// __markAbandonedConverted (keepalive fetch) then redirect to /thank-you.
-// This avoids losing the conversion signal on a hard server redirect.
+// If order succeeded, pass data to client — the inline script below posts the
+// abandonment-conversion signal (bounded keepalive fetch) then redirects to
+// /thank-you. This avoids losing the conversion signal on a hard server
+// redirect.
 const orderSuccess = result?.data?.orderNumber
   ? {
       orderNumber: result.data.orderNumber,
@@ -62,8 +63,30 @@ const serverError  = result?.error && !isInputError(result.error) ? result.error
     define:vars={{ orderNumber: orderSuccess.orderNumber, total: orderSuccess.total, orderId: orderSuccess.orderId }}
   >
     (async () => {
-      if (typeof window.__markAbandonedConverted === "function") {
-        await window.__markAbandonedConverted(orderId, orderNumber);
+      // Mark the abandoned-checkout session as converted (fire-and-forget).
+      // Posts directly — the deferred tracking module may not have defined
+      // its global yet when this inline script runs. Bounded wait so a
+      // stalled network can never delay the thank-you page by more than 2.5s.
+      try {
+        var sessionId = sessionStorage.getItem("cod_session_id");
+        if (sessionId) {
+          await Promise.race([
+            fetch("/api/abandoned/convert", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sessionId: sessionId,
+                orderId: orderId,
+                orderNumber: orderNumber,
+              }),
+              keepalive: true,
+            }).catch(function () {}),
+            new Promise(function (resolve) { setTimeout(resolve, 2500); }),
+          ]);
+          sessionStorage.removeItem("cod_session_id");
+        }
+      } catch (e) {
+        // Non-critical — conversion tracking must never block the redirect
       }
       window.location.replace(
         "/thank-you?order=" +
