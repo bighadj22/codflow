@@ -33,6 +33,8 @@ import { ErrorResponseSchema } from "@/openapi/schemas";
 /**
  * Authentication strategy for the route.
  * 
+ * - "public": No auth middleware, no security requirement (signature-verified
+ *   receivers, health checks, etc.)
  * - "api-key": Requires X-API-Key header (any authenticated user)
  * - "admin": Requires X-API-Key + admin role
  * - "store": Requires X-Store-API-Key header
@@ -41,6 +43,7 @@ import { ErrorResponseSchema } from "@/openapi/schemas";
  * - { allOf: ["orders:read", "products:read"] }: Requires all scopes
  */
 export type AuthStrategy =
+  | "public"
   | "api-key"
   | "admin"
   | "store"
@@ -62,6 +65,7 @@ export interface RouteDefinition {
   query?: ZodType;                            // Query parameters (GET /users?role=admin)
   params?: ZodType;                           // Path parameters (GET /users/:id)
   body?: ZodType;                             // Request body (POST /users)
+  headers?: ZodType;                          // Request headers (POST /webhooks with svix-*)
   handler: (c: Context<AppContext>) => any;   // Your handler function
   
   /**
@@ -125,8 +129,10 @@ const standardErrors: Record<number, any> = {
  * Convert auth strategy to Hono middleware array.
  */
 function resolveAuthMiddleware(auth: AuthStrategy) {
-  if (auth === "api-key") {
-    // Just authMiddleware (loaded at app level) — no additional middleware
+  if (auth === "public" || auth === "api-key") {
+    // No additional middleware — public routes are unprotected (handlers
+    // verify signatures themselves when needed); api-key routes rely on the
+    // app-level authMiddleware.
     return [];
   }
   if (auth === "admin") {
@@ -149,6 +155,13 @@ function resolveAuthMiddleware(auth: AuthStrategy) {
  * Convert auth strategy to OpenAPI security requirement.
  */
 function resolveSecurity(auth: AuthStrategy) {
+  if (auth === "public") {
+    // Omit the security requirement entirely — matches routes that declare
+    // no security (public receivers). `security: []` would also render, so
+    // undefined is what keeps the generated spec identical to raw
+    // createRoute() calls without a security block.
+    return undefined;
+  }
   if (auth === "store") {
     return [{ StoreAuth: [] }];
   }
@@ -182,16 +195,19 @@ function generateSuccessResponse(method: string): Record<number, any> {
  */
 function generateErrorResponses(method: string, auth: AuthStrategy) {
   const errors: Record<number, any> = { ...standardErrors };
-  
-  // Add 403 for endpoints that might have permission checks
-  if (method !== "get" || auth === "admin" || (typeof auth === "object" && "scope" in auth)) {
+
+  if (auth === "public") {
+    // Public routes have no auth to fail — drop 401, never add 403
+    delete errors[401];
+  } else if (method !== "get" || auth === "admin" || (typeof auth === "object" && "scope" in auth)) {
+    // Add 403 for endpoints that might have permission checks
     errors[403] = errorResponse("Permission denied");
   }
-  
+
   // Add 404 for routes with params (/:id endpoints)
   // Note: This is a heuristic — callers can override by passing custom responses
   errors[404] = errorResponse("Resource not found");
-  
+
   return errors;
 }
 
@@ -231,6 +247,7 @@ export function defineRoute(def: RouteDefinition): BuiltRoute {
   const request: any = {};
   if (def.query) request.query = def.query;
   if (def.params) request.params = def.params;
+  if (def.headers) request.headers = def.headers;
   if (def.body) request.body = { content: jsonContent(def.body) };
   
   // Use custom responses if provided, otherwise generate standard ones
