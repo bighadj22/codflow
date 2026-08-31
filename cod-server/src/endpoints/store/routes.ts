@@ -4,14 +4,12 @@
  * Public storefront surface (cod-astro/theme01). Authenticated globally via
  * storeAuthMiddleware (X-Store-API-Key) applied to /store/* in src/index.ts —
  * a different credential from the dashboard X-API-Key.
- *
- * Migrated to @hono/zod-openapi: route definitions below are the single
- * source of truth for validation and the OpenAPI spec. Handlers are
- * unchanged and remain independently mountable/testable.
+ * Built with defineRoute() — the standard route-builder pattern.
  */
 
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AppContext } from "@/types";
+import { defineRoute } from "@/lib/route-builder";
 import * as h from "./handlers";
 import { storeOrderSchema, storeReviewSchema } from "./validation";
 import {
@@ -19,20 +17,12 @@ import {
   StoreProductListSchema,
   StoreProductDetailSchema,
   ProductCategoryRowSchema,
-  ErrorResponseSchema,
   SuccessResponseSchema,
 } from "@/openapi/schemas";
 
 const jsonContent = <T extends z.ZodType>(schema: T) => ({
   "application/json": { schema },
 });
-
-const errorResponse = (description: string) => ({
-  description,
-  content: jsonContent(ErrorResponseSchema),
-});
-
-const unauthorized = errorResponse("Missing or invalid X-Store-API-Key");
 
 const countEnvelope = <T extends z.ZodType>(itemSchema: T) =>
   jsonContent(
@@ -43,11 +33,52 @@ const countEnvelope = <T extends z.ZodType>(itemSchema: T) =>
     })
   );
 
+// ─── Request schemas ──────────────────────────────────────────────────────────
+
+const productsQuerySchema = z.object({
+  featured: z.enum(["true", "false"]).optional().openapi({
+    description: "When true, only return products where `storeFeatured=true`.",
+  }),
+  categoryId: z.string().optional().openapi({ description: "Filter by category ID." }),
+  limit: z.coerce.number().int().max(100).default(24).openapi({
+    description: "Maximum number of products to return. Server cap: 100.",
+  }),
+});
+
+const handleParams = z.object({
+  handle: z.string().openapi({ example: "samsung-galaxy-a54" }),
+});
+
+const wilayaIdParams = z.object({
+  wilayaId: z.coerce.number().int().min(1).max(58).openapi({
+    description: "Wilaya number (1–58).",
+    example: 16,
+  }),
+});
+
+const reviewsQuerySchema = z.object({
+  productId: z.string().min(1).openapi({
+    description: "Product ID to fetch reviews for.",
+  }),
+  limit: z.coerce.number().int().max(50).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+const reviewItemSchema = z.object({
+  id: z.string(),
+  customerName: z.string(),
+  rating: z.number().int().min(1).max(5),
+  title: z.string().nullable(),
+  body: z.string(),
+  createdAt: z.string().datetime(),
+});
+
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const getStoreConfigRoute = createRoute({
+const getStoreConfigRoute = defineRoute({
   method: "get",
   path: "/config",
+  auth: "store",
   tags: ["Store API"],
   summary: "Get store configuration",
   description:
@@ -58,70 +89,54 @@ const getStoreConfigRoute = createRoute({
       description: "Store configuration",
       content: jsonContent(SuccessResponseSchema(StoreConfigSchema)),
     },
-    401: unauthorized,
-    404: errorResponse("Store not found for this API key (STORE_NOT_FOUND)"),
   },
-  security: [{ StoreAuth: [] }],
+  handler: h.getStoreConfig,
 });
 
 // ─── Catalog ──────────────────────────────────────────────────────────────────
 
-const listStoreProductsRoute = createRoute({
+const listStoreProductsRoute = defineRoute({
   method: "get",
   path: "/products",
+  auth: "store",
   tags: ["Store API"],
   summary: "List store products",
   description:
     "Get the public product catalog for the storefront. Only returns products where `status=ACTIVE`, `showInStore=true`, `visibility=true`, and `deletedAt=null`.",
   operationId: "listStoreProducts",
-  request: {
-    query: z.object({
-      featured: z.enum(["true", "false"]).optional().openapi({
-        description: "When true, only return products where `storeFeatured=true`.",
-      }),
-      categoryId: z.string().optional().openapi({ description: "Filter by category ID." }),
-      limit: z.coerce.number().int().max(100).default(24).openapi({
-        description: "Maximum number of products to return. Server cap: 100.",
-      }),
-    }),
-  },
+  query: productsQuerySchema,
   responses: {
     200: {
       description: "List of products",
       content: countEnvelope(StoreProductListSchema),
     },
-    401: unauthorized,
   },
-  security: [{ StoreAuth: [] }],
+  handler: h.listStoreProducts,
 });
 
-const getStoreProductRoute = createRoute({
+const getStoreProductRoute = defineRoute({
   method: "get",
   path: "/products/{handle}",
+  auth: "store",
   tags: ["Store API"],
   summary: "Get store product",
   description:
     "Get a single product by its URL handle. Same visibility filters as the list endpoint. Returns parsed `variantOptions`, `tags`, joined `category`, active `variants`, all `images`, and `offers` — the active Buy X Get Y promotions currently applicable to this product.",
   operationId: "getStoreProduct",
-  request: {
-    params: z.object({
-      handle: z.string().openapi({ example: "samsung-galaxy-a54" }),
-    }),
-  },
+  params: handleParams,
   responses: {
     200: {
       description: "Product details",
       content: jsonContent(SuccessResponseSchema(StoreProductDetailSchema)),
     },
-    401: unauthorized,
-    404: errorResponse("Product not found (PRODUCT_NOT_FOUND)"),
   },
-  security: [{ StoreAuth: [] }],
+  handler: h.getStoreProduct,
 });
 
-const listStoreCategoriesRoute = createRoute({
+const listStoreCategoriesRoute = defineRoute({
   method: "get",
   path: "/categories",
+  auth: "store",
   tags: ["Store API"],
   summary: "List store categories",
   description: "Get product categories ordered by position.",
@@ -131,16 +146,16 @@ const listStoreCategoriesRoute = createRoute({
       description: "List of categories",
       content: countEnvelope(ProductCategoryRowSchema),
     },
-    401: unauthorized,
   },
-  security: [{ StoreAuth: [] }],
+  handler: h.listStoreCategories,
 });
 
 // ─── Shipping ─────────────────────────────────────────────────────────────────
 
-const getShippingRatesRoute = createRoute({
+const getShippingRatesRoute = defineRoute({
   method: "get",
   path: "/shipping-rates",
+  auth: "store",
   tags: ["Store API"],
   summary: "Get shipping rates",
   description:
@@ -168,27 +183,20 @@ const getShippingRatesRoute = createRoute({
         })
       ),
     },
-    401: unauthorized,
   },
-  security: [{ StoreAuth: [] }],
+  handler: h.getShippingRates,
 });
 
-const communesRoute = createRoute({
+const communesRoute = defineRoute({
   method: "get",
   path: "/communes/{wilayaId}",
+  auth: "store",
   tags: ["Store API"],
   summary: "List communes for a wilaya",
   description:
     "Get all communes for a given wilaya. Use the returned `id` as `communeId` when submitting an order.",
   operationId: "listStoreCommunes",
-  request: {
-    params: z.object({
-      wilayaId: z.coerce.number().int().min(1).max(58).openapi({
-        description: "Wilaya number (1–58).",
-        example: 16,
-      }),
-    }),
-  },
+  params: wilayaIdParams,
   responses: {
     200: {
       description: "List of communes for the wilaya",
@@ -203,17 +211,17 @@ const communesRoute = createRoute({
         })
       ),
     },
-    400: errorResponse("Invalid wilaya ID — must be 1–58 (VALUE_OUT_OF_RANGE)"),
-    401: unauthorized,
+    400: { description: "Invalid wilaya ID — must be 1–58 (VALUE_OUT_OF_RANGE)" },
   },
-  security: [{ StoreAuth: [] }],
+  handler: h.listStoreCommunes,
 });
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
-const createStoreOrderRoute = createRoute({
+const createStoreOrderRoute = defineRoute({
   method: "post",
   path: "/orders",
+  auth: "store",
   tags: ["Store API"],
   summary: "Create store order",
   description: `Submit a customer order from the public storefront. Finds or creates the customer by phone number. Delivery fee is resolved from the default shipping profile.
@@ -226,12 +234,7 @@ const createStoreOrderRoute = createRoute({
 
 **Multi-unit variant orders:** when different variants are selected per unit, send \`variantSelections\` — one entry per unit. Identical variants are grouped into a single line and inventory deducts per-variant.`,
   operationId: "createStoreOrder",
-  request: {
-    body: {
-      required: true,
-      content: jsonContent(storeOrderSchema),
-    },
-  },
+  body: storeOrderSchema,
   responses: {
     201: {
       description: "Order created",
@@ -248,44 +251,27 @@ const createStoreOrderRoute = createRoute({
         })
       ),
     },
-    400: errorResponse("Validation error"),
-    401: unauthorized,
-    404: errorResponse("Referenced SKU/product record missing (REQUIRED_FIELD_MISSING)"),
-    422: errorResponse(
-      "Insufficient stock (INSUFFICIENT_STOCK) or missing SKU before accepting orders"
-    ),
+    404: { description: "Referenced SKU/product record missing (REQUIRED_FIELD_MISSING)" },
+    422: {
+      description:
+        "Insufficient stock (INSUFFICIENT_STOCK) or missing SKU before accepting orders",
+    },
   },
-  security: [{ StoreAuth: [] }],
+  handler: h.createStoreOrder,
 });
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
 
-const reviewItemSchema = z.object({
-  id: z.string(),
-  customerName: z.string(),
-  rating: z.number().int().min(1).max(5),
-  title: z.string().nullable(),
-  body: z.string(),
-  createdAt: z.string().datetime(),
-});
-
-const listStoreReviewsRoute = createRoute({
+const listStoreReviewsRoute = defineRoute({
   method: "get",
   path: "/reviews",
+  auth: "store",
   tags: ["Store API"],
   summary: "List approved reviews for a product",
   description:
     "Get approved product reviews for the storefront. Returns only reviews with `status=approved`.",
   operationId: "listStoreReviews",
-  request: {
-    query: z.object({
-      productId: z.string().min(1).openapi({
-        description: "Product ID to fetch reviews for.",
-      }),
-      limit: z.coerce.number().int().max(50).default(20),
-      offset: z.coerce.number().int().min(0).default(0),
-    }),
-  },
+  query: reviewsQuerySchema,
   responses: {
     200: {
       description: "List of approved reviews",
@@ -300,15 +286,15 @@ const listStoreReviewsRoute = createRoute({
         })
       ),
     },
-    400: errorResponse("productId is required (REQUIRED_FIELD_MISSING)"),
-    401: unauthorized,
+    400: { description: "productId is required (REQUIRED_FIELD_MISSING)" },
   },
-  security: [{ StoreAuth: [] }],
+  handler: h.listProductReviews,
 });
 
-const submitStoreReviewRoute = createRoute({
+const submitStoreReviewRoute = defineRoute({
   method: "post",
   path: "/reviews",
+  auth: "store",
   tags: ["Store API"],
   summary: "Submit a product review",
   description: `Submit a product review from the storefront.
@@ -317,12 +303,7 @@ const submitStoreReviewRoute = createRoute({
 
 Identity is derived from the resolved order — no customer login required. One review per order: a second submission returns **409 ORDER_ALREADY_REVIEWED**. Reviews are created with \`status=pending\` and require merchant approval before appearing publicly.`,
   operationId: "submitStoreReview",
-  request: {
-    body: {
-      required: true,
-      content: jsonContent(storeReviewSchema),
-    },
-  },
+  body: storeReviewSchema,
   responses: {
     201: {
       description: "Review submitted (pending moderation)",
@@ -333,24 +314,24 @@ Identity is derived from the resolved order — no customer login required. One 
         })
       ),
     },
-    400: errorResponse("Validation error — malformed order number or missing/invalid field"),
-    401: unauthorized,
-    404: errorResponse("No order in this store matches the supplied order number"),
-    409: errorResponse("A review has already been submitted for this order (ORDER_ALREADY_REVIEWED)"),
+    404: { description: "No order in this store matches the supplied order number" },
+    409: { description: "A review has already been submitted for this order (ORDER_ALREADY_REVIEWED)" },
   },
-  security: [{ StoreAuth: [] }],
+  handler: h.submitReview,
 });
+
+// ─── Router ───────────────────────────────────────────────────────────────────
 
 const router = new OpenAPIHono<AppContext>();
 
-router.openapi(getStoreConfigRoute, h.getStoreConfig);
-router.openapi(listStoreProductsRoute, h.listStoreProducts);
-router.openapi(getStoreProductRoute, h.getStoreProduct);
-router.openapi(listStoreCategoriesRoute, h.listStoreCategories);
-router.openapi(getShippingRatesRoute, h.getShippingRates);
-router.openapi(communesRoute, h.listStoreCommunes);
-router.openapi(createStoreOrderRoute, h.createStoreOrder);
-router.openapi(listStoreReviewsRoute, h.listProductReviews);
-router.openapi(submitStoreReviewRoute, h.submitReview);
+router.openapi(getStoreConfigRoute.route, getStoreConfigRoute.handler);
+router.openapi(listStoreProductsRoute.route, listStoreProductsRoute.handler);
+router.openapi(getStoreProductRoute.route, getStoreProductRoute.handler);
+router.openapi(listStoreCategoriesRoute.route, listStoreCategoriesRoute.handler);
+router.openapi(getShippingRatesRoute.route, getShippingRatesRoute.handler);
+router.openapi(communesRoute.route, communesRoute.handler);
+router.openapi(createStoreOrderRoute.route, createStoreOrderRoute.handler);
+router.openapi(listStoreReviewsRoute.route, listStoreReviewsRoute.handler);
+router.openapi(submitStoreReviewRoute.route, submitStoreReviewRoute.handler);
 
 export default router;

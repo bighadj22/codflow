@@ -1,5 +1,34 @@
 # Route Builder - Change Log
 
+## [Unreleased] - 2026-08-31 (2)
+
+### ✅ Added: bodyContent for Non-JSON Bodies (images migration)
+
+**Problem:**
+- `body` only produces `application/json` content — the images upload
+  route documents a `multipart/form-data` body with a binary `file` field
+
+**Added:**
+
+```typescript
+const uploadRoute = defineRoute({
+  method: "post",
+  path: "/upload",
+  auth: { scope: SCOPES.PRODUCTS_MANAGE },
+  bodyContent: {
+    "multipart/form-data": {
+      schema: z.object({ file: z.instanceof(File).openapi({ type: "string", format: "binary" }) }),
+    },
+  },
+  ...
+});
+```
+
+- `bodyContent` is passed through verbatim as `request.body.content` with
+  `required: true`; takes precedence over `body`
+
+---
+
 ## [Unreleased] - 2026-08-31
 
 ### ✅ Added: Public Routes and Header Schemas (webhooks migration)

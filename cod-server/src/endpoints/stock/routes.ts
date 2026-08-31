@@ -7,14 +7,12 @@
  *   - productStockRouter  → /api/products/*       (adjust/history/threshold
  *     for simple products and variants, nested under the product path)
  *
- * Migrated to @hono/zod-openapi: route definitions below are the single
- * source of truth for validation and the OpenAPI spec. Handlers are
- * unchanged and remain independently mountable/testable.
+ * Built with defineRoute() — the standard route-builder pattern.
  */
 
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AppContext } from "@/types";
-import { requireScope } from "@/rbac/middleware";
+import { defineRoute } from "@/lib/route-builder";
 import { SCOPES } from "../../../../cod-shared/rbac/scopes";
 import * as h from "./handlers";
 import {
@@ -27,17 +25,11 @@ import {
   StockMovementSchema,
   StockAlertItemSchema,
   StockOverviewSchema,
-  ErrorResponseSchema,
   SuccessResponseSchema,
 } from "@/openapi/schemas";
 
 const jsonContent = <T extends z.ZodType>(schema: T) => ({
   "application/json": { schema },
-});
-
-const errorResponse = (description: string) => ({
-  description,
-  content: jsonContent(ErrorResponseSchema),
 });
 
 const idParams = z.object({
@@ -62,15 +54,12 @@ const adjustResponse = jsonContent(
   })
 );
 
-const thresholdBody = jsonContent(updateThresholdSchema);
-const adjustBody = jsonContent(adjustStockSchema);
-
 // ─── /api/stock/* ─────────────────────────────────────────────────────────────
 
-const getStockOverviewRoute = createRoute({
+const getStockOverviewRoute = defineRoute({
   method: "get",
   path: "/overview",
-  middleware: [requireScope(SCOPES.PRODUCTS_READ)],
+  auth: { scope: SCOPES.PRODUCTS_READ },
   tags: ["Stock"],
   summary: "Stock overview",
   description:
@@ -81,24 +70,20 @@ const getStockOverviewRoute = createRoute({
       description: "Stock health overview",
       content: jsonContent(SuccessResponseSchema(StockOverviewSchema)),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Insufficient scope — requires products:read"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.getStockOverview,
 });
 
-const getStockAlertsRoute = createRoute({
+const getStockAlertsRoute = defineRoute({
   method: "get",
   path: "/alerts",
-  middleware: [requireScope(SCOPES.PRODUCTS_READ)],
+  auth: { scope: SCOPES.PRODUCTS_READ },
   tags: ["Stock"],
   summary: "Low stock and out-of-stock alerts",
   description:
     "Paginated list of all SKUs at or below their low stock threshold (includes out-of-stock). Sorted: out-of-stock first, then by inventory ascending.",
   operationId: "getStockAlerts",
-  request: {
-    query: stockAlertsFiltersSchema,
-  },
+  query: stockAlertsFiltersSchema,
   responses: {
     200: {
       description: "Paginated alert items",
@@ -115,22 +100,20 @@ const getStockAlertsRoute = createRoute({
         })
       ),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Insufficient scope — requires products:read"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.getStockAlerts,
 });
 
 export const stockRouter = new OpenAPIHono<AppContext>();
-stockRouter.openapi(getStockOverviewRoute, h.getStockOverview);
-stockRouter.openapi(getStockAlertsRoute, h.getStockAlerts);
+stockRouter.openapi(getStockOverviewRoute.route, getStockOverviewRoute.handler);
+stockRouter.openapi(getStockAlertsRoute.route, getStockAlertsRoute.handler);
 
 // ─── Simple-product stock (/api/products/{id}/stock/*) ───────────────────────
 
-const adjustProductStockRoute = createRoute({
+const adjustProductStockRoute = defineRoute({
   method: "post",
   path: "/{id}/stock/adjust",
-  middleware: [requireScope(SCOPES.PRODUCTS_MANAGE)],
+  auth: { scope: SCOPES.PRODUCTS_MANAGE },
   tags: ["Stock"],
   summary: "Adjust stock for a simple product",
   description:
@@ -138,42 +121,32 @@ const adjustProductStockRoute = createRoute({
     "**`reason` is required for types:** `ADJUSTMENT_ADD`, `ADJUSTMENT_REMOVE`, `OFFLINE_SALE`.\n\n" +
     "**Delta sign convention:** positive = stock arriving, negative = stock leaving. The server rejects adjustments that would result in negative inventory (HTTP 422).",
   operationId: "adjustProductStock",
-  request: {
-    params: idParams,
-    body: {
-      required: true,
-      content: adjustBody,
-    },
-  },
+  params: idParams,
+  body: adjustStockSchema,
   responses: {
     200: {
       description: "Stock adjusted successfully",
       content: adjustResponse,
     },
-    400: errorResponse("Validation error — invalid type, zero delta, or missing reason (VALIDATION_FAILED)"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Insufficient scope — requires products:manage"),
-    404: errorResponse("Product not found (PRODUCT_NOT_FOUND)"),
-    422: errorResponse(
-      "Adjustment would result in negative inventory (INSUFFICIENT_STOCK). Context includes `stockId`, `productName`, `available`, and `required`."
-    ),
+    422: {
+      description:
+        "Adjustment would result in negative inventory (INSUFFICIENT_STOCK). Context includes `stockId`, `productName`, `available`, and `required`.",
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.adjustProductStock,
 });
 
-const getProductStockHistoryRoute = createRoute({
+const getProductStockHistoryRoute = defineRoute({
   method: "get",
   path: "/{id}/stock/history",
-  middleware: [requireScope(SCOPES.PRODUCTS_READ)],
+  auth: { scope: SCOPES.PRODUCTS_READ },
   tags: ["Stock"],
   summary: "Stock movement history for a product",
   description:
     "Paginated movement log for a product. Use `variantId` to narrow to a specific variant's history. Results are ordered newest-first.",
   operationId: "getProductStockHistory",
-  request: {
-    params: idParams,
-    query: stockHistoryFiltersSchema,
-  },
+  params: idParams,
+  query: stockHistoryFiltersSchema,
   responses: {
     200: {
       description: "Paginated movement history",
@@ -190,105 +163,76 @@ const getProductStockHistoryRoute = createRoute({
         })
       ),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Insufficient scope — requires products:read"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.getProductStockHistory,
 });
 
-const updateProductThresholdRoute = createRoute({
+const updateProductThresholdRoute = defineRoute({
   method: "patch",
   path: "/{id}/stock/threshold",
-  middleware: [requireScope(SCOPES.PRODUCTS_MANAGE)],
+  auth: { scope: SCOPES.PRODUCTS_MANAGE },
   tags: ["Stock"],
   summary: "Update low stock threshold for a simple product",
   description:
     "Sets the `lowStockThreshold` for a simple (non-variant) product. When inventory drops at or below this value, the product appears in stock alerts.",
   operationId: "updateProductThreshold",
-  request: {
-    params: idParams,
-    body: {
-      required: true,
-      content: thresholdBody,
-    },
-  },
+  params: idParams,
+  body: updateThresholdSchema,
   responses: {
     200: {
       description: "Threshold updated",
       content: jsonContent(z.object({ success: z.boolean().openapi({ example: true }) })),
     },
-    400: errorResponse("Validation error — non-integer, negative value, or value > 9999 (VALIDATION_FAILED)"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Insufficient scope — requires products:manage"),
-    404: errorResponse("Product not found (PRODUCT_NOT_FOUND)"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.updateProductThreshold,
 });
 
 // ─── Variant-level stock (/api/products/{productId}/variants/{variantId}/stock/*)
 
-const adjustVariantStockRoute = createRoute({
+const adjustVariantStockRoute = defineRoute({
   method: "post",
   path: "/{productId}/variants/{variantId}/stock/adjust",
-  middleware: [requireScope(SCOPES.PRODUCTS_MANAGE)],
+  auth: { scope: SCOPES.PRODUCTS_MANAGE },
   tags: ["Stock"],
   summary: "Adjust stock for a product variant",
   description:
     "Same semantics as the simple-product adjust endpoint but targets a specific variant. The `variantId` must belong to `productId`.",
   operationId: "adjustVariantStock",
-  request: {
-    params: variantIdParams,
-    body: {
-      required: true,
-      content: adjustBody,
-    },
-  },
+  params: variantIdParams,
+  body: adjustStockSchema,
   responses: {
     200: {
       description: "Variant stock adjusted",
       content: adjustResponse,
     },
-    400: errorResponse("Validation error — invalid type, zero delta, or missing reason (VALIDATION_FAILED)"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Insufficient scope — requires products:manage"),
-    404: errorResponse("Variant not found or does not belong to the given product (VARIANT_NOT_FOUND)"),
-    422: errorResponse("Adjustment would result in negative inventory (INSUFFICIENT_STOCK)"),
+    422: { description: "Adjustment would result in negative inventory (INSUFFICIENT_STOCK)" },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.adjustVariantStock,
 });
 
-const updateVariantThresholdRoute = createRoute({
+const updateVariantThresholdRoute = defineRoute({
   method: "patch",
   path: "/{productId}/variants/{variantId}/stock/threshold",
-  middleware: [requireScope(SCOPES.PRODUCTS_MANAGE)],
+  auth: { scope: SCOPES.PRODUCTS_MANAGE },
   tags: ["Stock"],
   summary: "Update low stock threshold for a variant",
   description:
     "Sets the `lowStockThreshold` for a specific product variant. The variant must belong to the specified product.",
   operationId: "updateVariantThreshold",
-  request: {
-    params: variantIdParams,
-    body: {
-      required: true,
-      content: thresholdBody,
-    },
-  },
+  params: variantIdParams,
+  body: updateThresholdSchema,
   responses: {
     200: {
       description: "Threshold updated",
       content: jsonContent(z.object({ success: z.boolean().openapi({ example: true }) })),
     },
-    400: errorResponse("Validation error — non-integer, negative value, or value > 9999 (VALIDATION_FAILED)"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Insufficient scope — requires products:manage"),
-    404: errorResponse("Variant not found or does not belong to the given product (VARIANT_NOT_FOUND)"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.updateVariantThreshold,
 });
 
 export const productStockRouter = new OpenAPIHono<AppContext>();
-productStockRouter.openapi(adjustProductStockRoute, h.adjustProductStock);
-productStockRouter.openapi(getProductStockHistoryRoute, h.getProductStockHistory);
-productStockRouter.openapi(updateProductThresholdRoute, h.updateProductThreshold);
-productStockRouter.openapi(adjustVariantStockRoute, h.adjustVariantStock);
-productStockRouter.openapi(updateVariantThresholdRoute, h.updateVariantThreshold);
+productStockRouter.openapi(adjustProductStockRoute.route, adjustProductStockRoute.handler);
+productStockRouter.openapi(getProductStockHistoryRoute.route, getProductStockHistoryRoute.handler);
+productStockRouter.openapi(updateProductThresholdRoute.route, updateProductThresholdRoute.handler);
+productStockRouter.openapi(adjustVariantStockRoute.route, adjustVariantStockRoute.handler);
+productStockRouter.openapi(updateVariantThresholdRoute.route, updateVariantThresholdRoute.handler);

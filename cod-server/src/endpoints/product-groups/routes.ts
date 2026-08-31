@@ -3,20 +3,16 @@
  *
  * CRUD endpoints for the product category/collection hierarchy.
  * All routes require an API key with the appropriate product_groups scope.
- *
- * Migrated to @hono/zod-openapi: route definitions below are the single
- * source of truth for validation and the OpenAPI spec. Handlers are
- * unchanged and remain independently mountable/testable.
+ * Built with defineRoute() — the standard route-builder pattern.
  */
 
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AppContext } from "@/types";
-import { requireScope } from "@/rbac/middleware";
+import { defineRoute } from "@/lib/route-builder";
 import { SCOPES } from "../../../../cod-shared/rbac/scopes";
 import * as h from "./handlers";
 import {
   ProductCategorySchema,
-  ErrorResponseSchema,
   SuccessResponseSchema,
   ListResponseSchema,
 } from "@/openapi/schemas";
@@ -25,12 +21,9 @@ const jsonContent = <T extends z.ZodType>(schema: T) => ({
   "application/json": { schema },
 });
 
-const errorResponse = (description: string) => ({
-  description,
-  content: jsonContent(ErrorResponseSchema),
-});
-
 const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+// ─── Request schemas ──────────────────────────────────────────────────────────
 
 const groupBaseFields = {
   name: z.string().min(1).openapi({ example: "Electronics" }),
@@ -52,143 +45,116 @@ const groupBaseFields = {
   metaKeywords: z.string().nullable().optional(),
 };
 
-const listGroupsRoute = createRoute({
+const listQuerySchema = z.object({
+  search: z.string().optional().openapi({ description: "Search by name" }),
+  parentId: z.string().optional().openapi({
+    description: "Filter to direct sub-categories of this parent group ID",
+  }),
+});
+
+const createBodySchema = z.object({
+  ...groupBaseFields,
+  position: z.number().int().min(0).default(0),
+});
+
+const idParams = z.object({
+  id: z.string().openapi({ description: "Product group ID", example: "cat_123" }),
+});
+
+const updateBodySchema = z.object({
+  ...groupBaseFields,
+  position: z.number().int().min(0).optional(),
+});
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
+
+const listGroupsRoute = defineRoute({
   method: "get",
   path: "/",
-  middleware: [requireScope(SCOPES.PRODUCT_GROUPS_READ)],
+  auth: { scope: SCOPES.PRODUCT_GROUPS_READ },
   tags: ["Product Groups"],
   summary: "List product groups",
   description:
     "Get all product categories/groups, ordered by position. Each item includes productsCount (active, non-deleted products).",
   operationId: "listProductGroups",
-  request: {
-    query: z.object({
-      search: z.string().optional().openapi({ description: "Search by name" }),
-      parentId: z.string().optional().openapi({
-        description: "Filter to direct sub-categories of this parent group ID",
-      }),
-    }),
-  },
+  query: listQuerySchema,
   responses: {
     200: {
       description: "List of product groups",
       content: jsonContent(ListResponseSchema(ProductCategorySchema)),
     },
-    400: errorResponse("Validation error - invalid query parameters"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing product_groups:read scope"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.listGroups,
 });
 
-const createGroupRoute = createRoute({
+const createGroupRoute = defineRoute({
   method: "post",
   path: "/",
-  middleware: [requireScope(SCOPES.PRODUCT_GROUPS_MANAGE)],
+  auth: { scope: SCOPES.PRODUCT_GROUPS_MANAGE },
   tags: ["Product Groups"],
   summary: "Create product group",
   description:
     "Create a new product category/group. Provide parentId to create a sub-category; slug is auto-generated from name when omitted.",
   operationId: "createProductGroup",
-  request: {
-    body: {
-      required: true,
-      content: jsonContent(
-        z.object({
-          ...groupBaseFields,
-          position: z.number().int().min(0).default(0),
-        })
-      ),
-    },
-  },
+  body: createBodySchema,
   responses: {
     201: {
       description: "Group created",
       content: jsonContent(SuccessResponseSchema(ProductCategorySchema)),
     },
-    400: errorResponse("Validation error (missing name, invalid slug or URL)"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing product_groups:manage scope"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.createGroup,
 });
 
-const getGroupRoute = createRoute({
+const getGroupRoute = defineRoute({
   method: "get",
   path: "/{id}",
-  middleware: [requireScope(SCOPES.PRODUCT_GROUPS_READ)],
+  auth: { scope: SCOPES.PRODUCT_GROUPS_READ },
   tags: ["Product Groups"],
   summary: "Get product group",
   description:
     "Returns the group with its immediate children (sub-categories) and productsCount.",
   operationId: "getProductGroup",
-  request: {
-    params: z.object({
-      id: z.string().openapi({ description: "Product group ID", example: "cat_123" }),
-    }),
-  },
+  params: idParams,
   responses: {
     200: {
       description: "Group details with children and product count",
       content: jsonContent(SuccessResponseSchema(ProductCategorySchema)),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing product_groups:read scope"),
-    404: errorResponse("Product group not found"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.getGroup,
 });
 
-const updateGroupRoute = createRoute({
+const updateGroupRoute = defineRoute({
   method: "patch",
   path: "/{id}",
-  middleware: [requireScope(SCOPES.PRODUCT_GROUPS_MANAGE)],
+  auth: { scope: SCOPES.PRODUCT_GROUPS_MANAGE },
   tags: ["Product Groups"],
   summary: "Update product group",
   description:
     "Partial update — only include fields you want to change. Set parentId to null to move a group to the top level; set SEO fields to null to clear them.",
   operationId: "updateProductGroup",
-  request: {
-    params: z.object({
-      id: z.string().openapi({ description: "Product group ID", example: "cat_123" }),
-    }),
-    body: {
-      required: true,
-      content: jsonContent(
-        z.object({
-          ...groupBaseFields,
-          position: z.number().int().min(0).optional(),
-        })
-      ),
-    },
-  },
+  params: idParams,
+  body: updateBodySchema,
   responses: {
     200: {
       description: "Group updated",
       content: jsonContent(SuccessResponseSchema(ProductCategorySchema)),
     },
-    400: errorResponse("Validation error (invalid slug or URL)"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing product_groups:manage scope"),
-    404: errorResponse("Product group not found"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.updateGroup,
 });
 
-const deleteGroupRoute = createRoute({
+const deleteGroupRoute = defineRoute({
   method: "delete",
   path: "/{id}",
-  middleware: [requireScope(SCOPES.PRODUCT_GROUPS_MANAGE)],
+  auth: { scope: SCOPES.PRODUCT_GROUPS_MANAGE },
   tags: ["Product Groups"],
   summary: "Delete product group",
   description:
     "Permanently deletes a product group. Blocked while the group still has active products — reassign or remove those products first.",
   operationId: "deleteProductGroup",
-  request: {
-    params: z.object({
-      id: z.string().openapi({ description: "Product group ID", example: "cat_123" }),
-    }),
-  },
+  params: idParams,
   responses: {
     200: {
       description: "Group deleted",
@@ -198,20 +164,19 @@ const deleteGroupRoute = createRoute({
         })
       ),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing product_groups:manage scope"),
-    404: errorResponse("Product group not found"),
-    422: errorResponse("Product group has existing products - cannot delete"),
+    422: { description: "Product group has existing products - cannot delete" },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.deleteGroup,
 });
+
+// ─── Router ───────────────────────────────────────────────────────────────────
 
 const router = new OpenAPIHono<AppContext>();
 
-router.openapi(listGroupsRoute, h.listGroups);
-router.openapi(createGroupRoute, h.createGroup);
-router.openapi(getGroupRoute, h.getGroup);
-router.openapi(updateGroupRoute, h.updateGroup);
-router.openapi(deleteGroupRoute, h.deleteGroup);
+router.openapi(listGroupsRoute.route, listGroupsRoute.handler);
+router.openapi(createGroupRoute.route, createGroupRoute.handler);
+router.openapi(getGroupRoute.route, getGroupRoute.handler);
+router.openapi(updateGroupRoute.route, updateGroupRoute.handler);
+router.openapi(deleteGroupRoute.route, deleteGroupRoute.handler);
 
 export default router;
