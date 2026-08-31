@@ -156,3 +156,53 @@ export async function placeOrder(
     return { success: false, error: e.message ?? "Network error" };
   }
 }
+
+/**
+ * Upsert an abandoned-checkout record (storefront abandonment tracking).
+ * Mirrors POST /store/abandoned on cod-server — fire-and-forget semantics.
+ * `forwardedHeaders` carries the shopper's User-Agent / forwarding headers so
+ * attribution captured by cod-server reflects the visitor, not this worker.
+ */
+export async function upsertAbandonedOrder(
+  body: Record<string, unknown>,
+  forwardedHeaders?: Record<string, string>
+): Promise<{ success: true; data: { id: string } } | { success: false; error: string }> {
+  try {
+    const res = await fetch(`${COD_SERVER_URL}/store/abandoned`, {
+      method: "POST",
+      headers: { ...storeHeaders(), ...forwardedHeaders },
+      body: JSON.stringify(body),
+    });
+    const json = (await res.json()) as any;
+    if (!res.ok) return { success: false, error: json.error ?? "Tracking failed" };
+    return { success: true, data: { id: json.id } };
+  } catch (e: any) {
+    return { success: false, error: e.message ?? "Network error" };
+  }
+}
+
+/**
+ * Mark an abandoned-checkout session as converted after a successful order.
+ * Mirrors PATCH /store/abandoned/{sessionId}/convert — the server treats this
+ * as fire-and-forget (always 200, errors swallowed server-side).
+ */
+export async function markAbandonedConverted(
+  sessionId: string,
+  orderId: string,
+  orderNumber: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const res = await fetch(`${COD_SERVER_URL}/store/abandoned/${encodeURIComponent(sessionId)}/convert`, {
+      method: "PATCH",
+      headers: storeHeaders(),
+      body: JSON.stringify({ orderId, orderNumber }),
+    });
+    if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as any;
+      return { success: false, error: json.error ?? "Conversion failed" };
+    }
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message ?? "Network error" };
+  }
+}
