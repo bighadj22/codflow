@@ -196,10 +196,13 @@ An hourly cron sweeps pending orders older than 30 minutes to `abandoned`.
 
 - One endpoint = one folder in `src/endpoints/`, following the
   `routes.ts` / `handlers.ts` / `validation.ts` split.
-- Define routes with `@hono/zod-openapi` (`createRoute` on an `OpenAPIHono`
-  router): the route definition is the single source of truth for both request
-  validation and the OpenAPI spec — there are no hand-written spec files to
-  keep in sync. Reuse shared response schemas from `src/openapi/schemas.ts`.
+- Define routes with `defineRoute()` from `src/lib/route-builder` on an
+  `OpenAPIHono` router: the route definition is the single source of truth
+  for both request validation and the OpenAPI spec — there are no
+  hand-written spec files to keep in sync. Every domain is already on this
+  pattern; see `src/endpoints/README.md` for the current state and
+  `.agents/skills/route-builder/NEW-ENDPOINTS.md` for the how-to. Reuse
+  shared response schemas from `src/openapi/schemas.ts`.
 - Shared schema and read queries live in `cod-shared` — do not duplicate them
   in `cod-server/src/db`.
 - Keep `wrangler.toml` free of real credentials; if you add an env var, declare

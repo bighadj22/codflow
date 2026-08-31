@@ -136,22 +136,21 @@ defineRoute({
 
 ---
 
-## Status: READY FOR MIGRATION
+## Status: MIGRATION COMPLETE ✅
 
-**Type Safety:** ✅ FIXED  
-**Tests:** ✅ ALL PASSING (22/22)  
-**Typecheck:** ✅ PASSING  
-**Code Review:** ✅ APPROVED  
+**All 22 endpoint domains** now use `defineRoute()` — no raw `createRoute()`
+remains in `src/endpoints/`. Status history:
 
-The route builder now has proper TypeScript types and is ready for migrating endpoints!
+- 2026-08-23: type safety fixed, route builder ready
+- 2026-08-31 (PR #71): 8 domains migrated (wilayas and orders/products were
+  already done); `auth: "public"` + `headers` added for webhooks
+- 2026-08-31 (PR #72): remaining 11 domains migrated; `bodyContent` added
+  for multipart uploads (images)
 
----
+Auth strategies now in use across the codebase: `"api-key"`, `"admin"`,
+`"store"`, `"public"`, and `{ scope }`. Two domains keep router-level RBAC
+deliberately (activity-logs' throw-based `adminOnly`, delivery-companies'
+`use()` patterns) — see their routes.ts docblocks.
 
-## Next Steps
-
-1. ✅ Type safety fixed
-2. ⏭️ Migrate wilayas endpoint (current prototype)
-3. ⏭️ Document the pattern in AGENTS.md
-4. ⏭️ Choose next endpoint to migrate
-
-See `PROTOTYPE-SUMMARY.md` and `CODE-REVIEW.md` for full details.
+The migration guide (`.agents/skills/route-builder/MIGRATION.md`) is retained
+for reference; new endpoints follow NEW-ENDPOINTS.md directly.
