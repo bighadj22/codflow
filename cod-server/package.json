@@ -34,7 +34,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "@noble/hashes": "^2.3.0",
-    "agents": "^0.21.0",
+    "agents": "^0.22.0",
     "ai": "^7.0.70",
     "better-auth": "^1.7.1",
     "drizzle-orm": "^0.45.2",
