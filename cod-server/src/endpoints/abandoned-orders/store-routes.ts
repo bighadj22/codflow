@@ -6,13 +6,13 @@
  * POST  /store/abandoned               → upsert (create or update) an abandoned record
  * PATCH /store/abandoned/:sessionId/convert → mark as converted after successful order
  *
- * Migrated to @hono/zod-openapi: route definitions are the single source of
- * truth for validation and the OpenAPI spec. These endpoints were previously
- * undocumented entirely.
+ * Built with defineRoute() — the standard route-builder pattern.
  */
 
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { OpenAPIHono, z } from "@hono/zod-openapi";
+import type { Context } from "hono";
 import type { AppContext } from "@/types";
+import { defineRoute } from "@/lib/route-builder";
 import { getDb } from "@/db";
 import {
   upsertAbandonedOrder,
@@ -22,6 +22,8 @@ import {
 const jsonContent = <T extends z.ZodType>(schema: T) => ({
   "application/json": { schema },
 });
+
+// ─── Request schemas ──────────────────────────────────────────────────────────
 
 const upsertSchema = z.object({
   sessionId: z.string().uuid(),
@@ -50,65 +52,15 @@ const convertSchema = z.object({
   orderNumber: z.string().min(1),
 });
 
-const upsertAbandonedRoute = createRoute({
-  method: "post",
-  path: "/abandoned",
-  tags: ["Storefront"],
-  summary: "Track an abandoned checkout",
-  description:
-    "Called silently by the storefront as the customer types contact details. Upserts the abandoned-checkout record keyed by sessionId and captures Meta attribution (_fbc/_fbp) plus client IP/User-Agent for CAPI recovery events.",
-  operationId: "upsertAbandonedOrder",
-  request: {
-    body: {
-      required: true,
-      content: jsonContent(upsertSchema),
-    },
-  },
-  responses: {
-    200: {
-      description: "Record stored (new or updated)",
-      content: jsonContent(
-        z.object({
-          success: z.boolean().openapi({ example: true }),
-          id: z.string().openapi({ description: "Abandoned order record ID" }),
-        })
-      ),
-    },
-  },
-  security: [{ StoreAuth: [] }],
+const sessionIdParams = z.object({
+  sessionId: z.string().openapi({ description: "Storefront session ID from the upsert call" }),
 });
 
-const convertAbandonedRoute = createRoute({
-  method: "patch",
-  path: "/abandoned/{sessionId}/convert",
-  tags: ["Storefront"],
-  summary: "Mark abandoned checkout as converted",
-  description:
-    "Links a completed order back to the original abandoned session (recovery attribution). Intentionally returns 200 even if the session is unknown — conversion tracking is fire-and-forget and must never break checkout.",
-  operationId: "markAbandonedOrderConverted",
-  request: {
-    params: z.object({
-      sessionId: z.string().openapi({ description: "Storefront session ID from the upsert call" }),
-    }),
-    body: {
-      required: true,
-      content: jsonContent(convertSchema),
-    },
-  },
-  responses: {
-    200: {
-      description: "Conversion recorded (fire-and-forget)",
-      content: jsonContent(z.object({ success: z.boolean().openapi({ example: true }) })),
-    },
-  },
-  security: [{ StoreAuth: [] }],
-});
+// ─── Inline handlers ──────────────────────────────────────────────────────────
 
-const router = new OpenAPIHono<AppContext>();
-
-router.openapi(upsertAbandonedRoute, async (c) => {
+async function upsertHandler(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const data = c.req.valid("json");
+  const data = (c.req as any).valid("json");
 
   const ipAddress =
     c.req.header("CF-Connecting-IP") ??
@@ -123,12 +75,12 @@ router.openapi(upsertAbandonedRoute, async (c) => {
   });
 
   return c.json({ success: true, id }, 200);
-});
+}
 
-router.openapi(convertAbandonedRoute, async (c) => {
+async function convertHandler(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
-  const sessionId = c.req.param("sessionId");
-  const { orderId, orderNumber } = c.req.valid("json");
+  const sessionId = c.req.param("sessionId")!;
+  const { orderId, orderNumber } = (c.req as any).valid("json");
 
   // Intentionally returns 200 even if session not found — convert is fire-and-forget
   await markAbandonedOrderConverted(db, sessionId, orderId, orderNumber).catch(
@@ -136,6 +88,59 @@ router.openapi(convertAbandonedRoute, async (c) => {
   );
 
   return c.json({ success: true }, 200);
+}
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
+
+const upsertAbandonedRoute = defineRoute({
+  method: "post",
+  path: "/abandoned",
+  auth: "store",
+  tags: ["Storefront"],
+  summary: "Track an abandoned checkout",
+  description:
+    "Called silently by the storefront as the customer types contact details. Upserts the abandoned-checkout record keyed by sessionId and captures Meta attribution (_fbc/_fbp) plus client IP/User-Agent for CAPI recovery events.",
+  operationId: "upsertAbandonedOrder",
+  body: upsertSchema,
+  responses: {
+    200: {
+      description: "Record stored (new or updated)",
+      content: jsonContent(
+        z.object({
+          success: z.boolean().openapi({ example: true }),
+          id: z.string().openapi({ description: "Abandoned order record ID" }),
+        })
+      ),
+    },
+  },
+  handler: upsertHandler,
 });
+
+const convertAbandonedRoute = defineRoute({
+  method: "patch",
+  path: "/abandoned/{sessionId}/convert",
+  auth: "store",
+  tags: ["Storefront"],
+  summary: "Mark abandoned checkout as converted",
+  description:
+    "Links a completed order back to the original abandoned session (recovery attribution). Intentionally returns 200 even if the session is unknown — conversion tracking is fire-and-forget and must never break checkout.",
+  operationId: "markAbandonedOrderConverted",
+  params: sessionIdParams,
+  body: convertSchema,
+  responses: {
+    200: {
+      description: "Conversion recorded (fire-and-forget)",
+      content: jsonContent(z.object({ success: z.boolean().openapi({ example: true }) })),
+    },
+  },
+  handler: convertHandler,
+});
+
+// ─── Router ───────────────────────────────────────────────────────────────────
+
+const router = new OpenAPIHono<AppContext>();
+
+router.openapi(upsertAbandonedRoute.route, upsertAbandonedRoute.handler);
+router.openapi(convertAbandonedRoute.route, convertAbandonedRoute.handler);
 
 export default router;
