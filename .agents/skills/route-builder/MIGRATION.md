@@ -1,6 +1,10 @@
 # Migrating Existing Endpoints to Route Builder
 
-`defineRoute()` is the standard pattern. Every existing endpoint that still uses raw `createRoute()` ceremony will be migrated. This guide is the process.
+`defineRoute()` is the standard pattern. **The migration is complete — all 22
+domains are converted** (see `cod-server/src/endpoints/README.md`). This guide
+is retained for reference: use it if a `createRoute()` route ever reappears
+(e.g. copied from old code), or as the model for converting any new raw route
+that lands in review.
 
 ## Why Migrate?
 

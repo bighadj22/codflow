@@ -1,61 +1,55 @@
 # Endpoints Directory
 
 Each subdirectory is one API domain. The standard pattern for all routes is
-`defineRoute()` from `@/lib/route-builder`. Two endpoints have completed this
-migration; the rest still use raw `createRoute()` from `@hono/zod-openapi` and
-are pending conversion.
+`defineRoute()` from `@/lib/route-builder`. **All domains have completed this
+migration** — raw `createRoute()` from `@hono/zod-openapi` is no longer used
+anywhere. New endpoints must use `defineRoute()` (see
+`.agents/skills/route-builder/NEW-ENDPOINTS.md`).
 
 ---
 
-## Migration status
-
-### Done — using `defineRoute()` ✅
-
-| Domain | Routes |
-|--------|--------|
-| `wilayas` | 2 |
-| `orders` | 17 |
-| `products` | 15 |
-
-### Pending — still using `createRoute()` ⏳
-
-These endpoints are fully on `@hono/zod-openapi` (validation + spec generation
-works), but have not been converted to `defineRoute()` yet. Convert one at a
-time following `MIGRATION.md` in `.agents/skills/route-builder/`.
+## All domains — on `defineRoute()` ✅
 
 | Domain | Routes | Notes |
 |--------|--------|-------|
-| `abandoned-orders` | 6 | Dashboard CRUD/stats + storefront upsert/convert |
-| `activity-logs` | 2 | Admin-only read |
+| `abandoned-orders` | 6 | Dashboard CRUD/stats + storefront upsert/convert (`auth: "store"` on the storefront router) |
+| `activity-logs` | 2 | Admin-only read; throw-based `adminOnly` middleware preserved for the documented `PERMISSION_DENIED` envelope |
 | `analytics` | 1 | Dashboard status-count stats |
 | `customer-groups` | 7 | Segments + member management |
 | `customer-tags` | 7 | Tags + assignment management |
 | `customers` | 8 | CRUD + orders/groups/tags lookups |
-| `delivery-companies` | 13 | CRUD + stop-desks + webhook config |
+| `delivery-companies` | 13 | CRUD + stop-desks + webhook config; RBAC stays on router-level `use()` patterns (preserves existing gating) |
 | `driver-payments` | 3 | Payment create + history + pending settlement |
 | `drivers` | 8 | Driver CRUD + status + per-wilaya compensations |
-| `images` | 3 | Upload + presign + public serve (plain-Hono exception, see below) |
+| `images` | 3 | Upload (multipart via `bodyContent`) + presign + public serve (plain-Hono exception, see below) |
 | `offers` | 5 | Promotional offer CRUD |
+| `orders` | 17 | Full order lifecycle |
 | `product-groups` | 5 | Category tree CRUD |
+| `products` | 15 | Product + variant CRUD (variants nested, see below) |
 | `reviews` | 3 | Moderation + RBAC |
 | `shipping-profiles` | 10 | Rate cards + wilaya rules + commune overrides |
 | `stock` | 7 | Inventory adjustments, history, thresholds (two sub-routers) |
-| `store` | 9 | Public storefront surface behind X-Store-API-Key |
-| `stores` | 4 | Store settings + Meta pixel config |
-| `users` | 8 | Team management + scopes + API-key rotation |
-| `webhooks` | 3 | Public receivers — no body validation (raw-byte signature contract) |
+| `store` | 9 | Public storefront surface behind X-Store-API-Key (`auth: "store"`) |
+| `stores` | 4 | Store settings + Meta pixel config (`auth: "admin"`) |
+| `users` | 8 | Team management + scopes + API-key rotation (`auth: "admin"`) |
+| `webhooks` | 3 | Public receivers (`auth: "public"`) — no body validation (raw-byte signature contract) |
+| `wilayas` | 2 | Read-only geography |
 
 ---
 
 ## Special cases
 
 - `variants/` — no `routes.ts`; handlers are mounted directly inside `products/routes.ts`.
-- `mcp/` — MCP server surface, not part of the REST API.
-- `images/{key}` public serve — stays plain-Hono (regex param); the `createRoute` documentation stub for it is intentional.
+- `mcp/` — MCP server surface, not part of the REST API (plain Hono by design).
+- `images/{key}` public serve — stays plain-Hono (regex param); the documentation stub for it is intentional.
+- Router-level RBAC (not per-route `auth`): `activity-logs` (throw-based
+  `adminOnly`) and `delivery-companies` (`use()` scope patterns) — both kept
+  deliberately to preserve existing behavior; see each file's docblock.
 
 ---
 
 ## Summary
 
-**3 / 22 domains on `defineRoute()` (14%)**
-19 domains still on `createRoute()` — fully functional, pending conversion.
+**22 / 22 domains on `defineRoute()` (100%)** — migration complete. Any new
+endpoint starts on `defineRoute()` directly; there is no `createRoute()` path
+left to convert.

@@ -5,7 +5,7 @@ description: Build and migrate API routes using the defineRoute() pattern. Use w
 
 # Route Builder Pattern
 
-`defineRoute()` is the **standard pattern** for all endpoints in cod-server. Every new endpoint must use it. Every existing endpoint will be migrated to it.
+`defineRoute()` is the **standard pattern** for all endpoints in cod-server. Every new endpoint must use it. **All existing domains are already migrated** — if you encounter a raw `createRoute()` route, convert it using the migration workflow.
 
 Two workflows:
 1. **Creating new endpoints** — see [NEW-ENDPOINTS.md](NEW-ENDPOINTS.md)
@@ -42,13 +42,26 @@ router.openapi(myRoute.route, myRoute.handler);
 ## Auth Strategies
 
 ```typescript
-auth: "api-key"                            // Any authenticated dashboard user
-auth: "admin"                              // Admin role only
-auth: "store"                              // Store API key (X-Store-API-Key)
-auth: { scope: SCOPES.ORDERS_READ }        // Specific scope (most common)
-auth: { anyOf: [SCOPES.READ, SCOPES.ALL] } // Any of multiple scopes
+auth: "public"                            // No auth — no middleware, security omitted from spec (webhook receivers)
+auth: "api-key"                           // Any authenticated dashboard user
+auth: "admin"                             // Admin role only (stores, users)
+auth: "store"                             // Store API key (X-Store-API-Key) — store/*, abandoned-orders storefront
+auth: { scope: SCOPES.ORDERS_READ }       // Specific scope (most common)
+auth: { anyOf: [SCOPES.READ, SCOPES.ALL] }   // Any of multiple scopes
 auth: { allOf: [SCOPES.READ, SCOPES.ADMIN] } // All scopes required
 ```
+
+Non-JSON request bodies use `bodyContent` (raw content map):
+
+```typescript
+bodyContent: {
+  "multipart/form-data": {
+    schema: z.object({ file: z.instanceof(File).openapi({ type: "string", format: "binary" }) }),
+  },
+}
+```
+
+Header schemas (e.g. svix webhook receivers): `headers: MyHeadersSchema`.
 
 ## What `defineRoute()` generates automatically
 
