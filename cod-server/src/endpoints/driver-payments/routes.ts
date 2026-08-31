@@ -4,40 +4,34 @@
  * Records payment events that settle batches of delivered orders for a
  * driver (COD remittance, fee payment, or net settlement) and exposes the
  * data needed for pre-settlement review.
- *
- * Migrated to @hono/zod-openapi: route definitions below are the single
- * source of truth for validation and the OpenAPI spec. Handlers are
- * unchanged and remain independently mountable/testable.
+ * Built with defineRoute() — the standard route-builder pattern.
  */
 
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AppContext } from "@/types";
-import { requireScope } from "@/rbac/middleware";
+import { defineRoute } from "@/lib/route-builder";
 import { SCOPES } from "../../../../cod-shared/rbac/scopes";
 import * as handlers from "./handlers";
 import { createPaymentSchema } from "./validation";
 import {
   DriverPaymentSchema,
-  ErrorResponseSchema,
+  SuccessWithMessageSchema,
 } from "@/openapi/schemas";
 
 const jsonContent = <T extends z.ZodType>(schema: T) => ({
   "application/json": { schema },
 });
 
-const errorResponse = (description: string) => ({
-  description,
-  content: jsonContent(ErrorResponseSchema),
-});
-
 const driverIdParams = z.object({
   driverId: z.string().openapi({ description: "UUID of the driver" }),
 });
 
-const createPaymentRoute = createRoute({
+// ─── Routes ───────────────────────────────────────────────────────────────────
+
+const createPaymentRoute = defineRoute({
   method: "post",
   path: "/",
-  middleware: [requireScope(SCOPES.DELIVERY_MANAGE)],
+  auth: { scope: SCOPES.DELIVERY_MANAGE },
   tags: ["Driver Payments"],
   summary: "Create driver payment",
   description: `Record a payment event that settles a batch of delivered orders for a driver.
@@ -63,45 +57,31 @@ const createPaymentRoute = createRoute({
 
 \`createdBy\` and \`createdByName\` are derived from the authenticated user and cannot be overridden.`,
   operationId: "createDriverPayment",
-  request: {
-    body: {
-      required: true,
-      content: jsonContent(createPaymentSchema),
-    },
-  },
+  body: createPaymentSchema,
   responses: {
     201: {
       description: "Payment created and orders settled. Returns the new payment record.",
-      content: jsonContent(
-        z.object({
-          success: z.boolean().openapi({ example: true }),
-          data: DriverPaymentSchema,
-          message: z.string().openapi({ example: "Payment recorded successfully" }),
-        })
-      ),
+      content: jsonContent(SuccessWithMessageSchema(DriverPaymentSchema)),
     },
-    400: errorResponse("Validation error — missing required fields, empty orderIds array, or invalid payment type"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing delivery:manage scope"),
-    422: errorResponse(`Business rule violation. Distinguish via the \`code\` field:
+    422: {
+      description: `Business rule violation. Distinguish via the \`code\` field:
 - \`ORDER_NOT_FOUND\` — one or more orders do not exist, are not in \`delivered\` status, or do not belong to this driver
-- \`PAYMENT_ALREADY_SETTLED\` — one or more orders are already settled for the requested payment type. \`context.kind\` is \`"cod"\` (when \`codPaymentId\` is already set) or \`"fee"\` (when \`feePaymentId\` is already set).`),
+- \`PAYMENT_ALREADY_SETTLED\` — one or more orders are already settled for the requested payment type. \`context.kind\` is \`"cod"\` (when \`codPaymentId\` is already set) or \`"fee"\` (when \`feePaymentId\` is already set).`,
+    },
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: handlers.createPayment,
 });
 
-const listPaymentsRoute = createRoute({
+const listPaymentsRoute = defineRoute({
   method: "get",
   path: "/{driverId}",
-  middleware: [requireScope(SCOPES.DELIVERY_READ)],
+  auth: { scope: SCOPES.DELIVERY_READ },
   tags: ["Driver Payments"],
   summary: "List driver payment history",
   description:
     "Returns all payment records for a driver, most recent first. Returns an empty array if the driver has no payments or the driver ID does not exist.",
   operationId: "listDriverPayments",
-  request: {
-    params: driverIdParams,
-  },
+  params: driverIdParams,
   responses: {
     200: {
       description: "Payment history (empty array if driver has no payments)",
@@ -112,16 +92,14 @@ const listPaymentsRoute = createRoute({
         })
       ),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing delivery:read scope"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: handlers.listPayments,
 });
 
-const listPendingOrdersRoute = createRoute({
+const listPendingOrdersRoute = defineRoute({
   method: "get",
   path: "/{driverId}/pending",
-  middleware: [requireScope(SCOPES.DELIVERY_READ)],
+  auth: { scope: SCOPES.DELIVERY_READ },
   tags: ["Driver Payments"],
   summary: "List pending settlement orders",
   description: `Returns delivered orders that still have unsettled COD for a driver.
@@ -130,9 +108,7 @@ Specifically: orders where \`driverId\` matches, \`status = 'delivered'\`, and \
 
 Use this before creating a \`cod_remittance\` or \`net_settlement\` payment to see which orders are eligible and calculate the total. Returns an empty array if the driver has no pending orders or does not exist.`,
   operationId: "listPendingSettlementOrders",
-  request: {
-    params: driverIdParams,
-  },
+  params: driverIdParams,
   responses: {
     200: {
       description:
@@ -150,16 +126,16 @@ Use this before creating a \`cod_remittance\` or \`net_settlement\` payment to s
         })
       ),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Missing delivery:read scope"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: handlers.listPendingOrders,
 });
+
+// ─── Router ───────────────────────────────────────────────────────────────────
 
 const router = new OpenAPIHono<AppContext>();
 
-router.openapi(createPaymentRoute, handlers.createPayment);
-router.openapi(listPaymentsRoute, handlers.listPayments);
-router.openapi(listPendingOrdersRoute, handlers.listPendingOrders);
+router.openapi(createPaymentRoute.route, createPaymentRoute.handler);
+router.openapi(listPaymentsRoute.route, listPaymentsRoute.handler);
+router.openapi(listPendingOrdersRoute.route, listPendingOrdersRoute.handler);
 
 export default router;

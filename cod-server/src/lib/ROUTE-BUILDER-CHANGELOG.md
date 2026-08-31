@@ -1,5 +1,46 @@
 # Route Builder - Change Log
 
+## [Unreleased] - 2026-08-31
+
+### ✅ Added: Public Routes and Header Schemas (webhooks migration)
+
+**Problem:**
+- `auth` was mandatory with no way to express an unauthenticated endpoint
+- Webhook receivers (Yalidine, ZR Express) are public — signature-verified
+  inside their handlers, no API key, no `security` block in the spec
+- `defineRoute()` had no `headers` support; the ZR receiver documents its
+  required `svix-*` headers via `request.headers`
+
+**Added:**
+
+```typescript
+// 1. "public" auth strategy — no middleware, security omitted from the spec
+const webhookRoute = defineRoute({
+  method: "post",
+  path: "/zr_express",
+  auth: "public",
+  headers: z.object({ "svix-id": z.string(), ... }),  // 2. new
+  responses: { ... },
+  handler: handlers.handleZrWebhook,
+});
+
+// 2. headers?: ZodType — passed through to request.headers
+```
+
+**Behavior details:**
+- `auth: "public"` omits the `security` key entirely (NOT `security: []`) —
+  matches raw `createRoute()` routes without a security block, verified by
+  `serve.test.ts` asserting `post.security` is `undefined` on `/webhooks/zr_express`
+- Public routes get no auto-generated 401 and never get 403
+- Backward compatible — existing strategies unchanged
+
+**Testing:**
+- ✅ Typecheck passes
+- ✅ Webhooks route tests pass side-by-side against old and new routers
+- ✅ Full suite green (spec assertions included)
+
+---
+
 ## [Unreleased] - 2026-08-23
 
 ### ✅ Fixed: Type Safety (Issue #1 from Code Review)
