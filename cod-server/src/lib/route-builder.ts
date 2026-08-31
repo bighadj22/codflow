@@ -64,7 +64,8 @@ export interface RouteDefinition {
   operationId?: string;
   query?: ZodType;                            // Query parameters (GET /users?role=admin)
   params?: ZodType;                           // Path parameters (GET /users/:id)
-  body?: ZodType;                             // Request body (POST /users)
+  body?: ZodType;                             // Request body (POST /users, application/json)
+  bodyContent?: Record<string, { schema: ZodType }>; // Raw content map for non-JSON bodies (multipart/form-data)
   headers?: ZodType;                          // Request headers (POST /webhooks with svix-*)
   handler: (c: Context<AppContext>) => any;   // Your handler function
   
@@ -248,7 +249,12 @@ export function defineRoute(def: RouteDefinition): BuiltRoute {
   if (def.query) request.query = def.query;
   if (def.params) request.params = def.params;
   if (def.headers) request.headers = def.headers;
-  if (def.body) request.body = { content: jsonContent(def.body) };
+  if (def.bodyContent) {
+    // Raw content map (e.g. multipart/form-data) — used verbatim
+    request.body = { required: true, content: def.bodyContent };
+  } else if (def.body) {
+    request.body = { content: jsonContent(def.body) };
+  }
   
   // Use custom responses if provided, otherwise generate standard ones
   const responses = def.responses
