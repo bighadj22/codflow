@@ -4,21 +4,17 @@
  * CRM endpoints for managing "Buy X Get Y" promotional offers. Offers are
  * auto-applied server-side when a store order meets the trigger conditions —
  * no coupon code input is required from the customer.
- *
- * Migrated to @hono/zod-openapi: route definitions below are the single
- * source of truth for validation and the OpenAPI spec. Handlers are
- * unchanged and remain independently mountable/testable.
+ * Built with defineRoute() — the standard route-builder pattern.
  */
 
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AppContext } from "@/types";
-import { requireScope } from "@/rbac/middleware";
+import { defineRoute } from "@/lib/route-builder";
 import { SCOPES } from "../../../../cod-shared/rbac/scopes";
 import * as h from "./handlers";
 import { createOfferSchema, updateOfferSchema } from "./validation";
 import {
   OfferSchema,
-  ErrorResponseSchema,
   ListResponseSchema,
   SuccessResponseSchema,
 } from "@/openapi/schemas";
@@ -27,19 +23,16 @@ const jsonContent = <T extends z.ZodType>(schema: T) => ({
   "application/json": { schema },
 });
 
-const errorResponse = (description: string) => ({
-  description,
-  content: jsonContent(ErrorResponseSchema),
-});
-
 const idParams = z.object({
   id: z.string().openapi({ description: "Offer UUID", example: "off_abc123" }),
 });
 
-const listOffersRoute = createRoute({
+// ─── Routes ───────────────────────────────────────────────────────────────────
+
+const listOffersRoute = defineRoute({
   method: "get",
   path: "/",
-  middleware: [requireScope(SCOPES.OFFERS_READ)],
+  auth: { scope: SCOPES.OFFERS_READ },
   tags: ["Offers"],
   summary: "List offers",
   description:
@@ -50,40 +43,33 @@ const listOffersRoute = createRoute({
       description: "List of offers",
       content: jsonContent(ListResponseSchema(OfferSchema)),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Insufficient scope — requires offers:read"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.listOffers,
 });
 
-const getOfferRoute = createRoute({
+const getOfferRoute = defineRoute({
   method: "get",
   path: "/{id}",
-  middleware: [requireScope(SCOPES.OFFERS_READ)],
+  auth: { scope: SCOPES.OFFERS_READ },
   tags: ["Offers"],
   summary: "Get offer",
   description:
     "Get a single offer by ID with fully resolved product and variant references.",
   operationId: "getOffer",
-  request: {
-    params: idParams,
-  },
+  params: idParams,
   responses: {
     200: {
       description: "Offer details",
       content: jsonContent(SuccessResponseSchema(OfferSchema)),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Insufficient scope — requires offers:read"),
-    404: errorResponse("Offer not found (OFFER_NOT_FOUND)"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.getOffer,
 });
 
-const createOfferRoute = createRoute({
+const createOfferRoute = defineRoute({
   method: "post",
   path: "/",
-  middleware: [requireScope(SCOPES.OFFERS_MANAGE)],
+  auth: { scope: SCOPES.OFFERS_MANAGE },
   tags: ["Offers"],
   summary: "Create offer",
   description: `Create a new Buy X Get Y promotional offer.
@@ -95,84 +81,62 @@ const createOfferRoute = createRoute({
 - If the reward item is out of stock, the offer is silently skipped (order still succeeds).
 - The reward is inserted as a \`$0\` order line item; the COD total only reflects paid products + delivery.`,
   operationId: "createOffer",
-  request: {
-    body: {
-      required: true,
-      content: jsonContent(createOfferSchema),
-    },
-  },
+  body: createOfferSchema,
   responses: {
     201: {
       description: "Offer created",
       content: jsonContent(SuccessResponseSchema(OfferSchema)),
     },
-    400: errorResponse(
-      "Validation error (e.g. rewardProductId missing for 'free' discount type)"
-    ),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Insufficient scope — requires offers:manage"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.createOffer,
 });
 
-const updateOfferRoute = createRoute({
+const updateOfferRoute = defineRoute({
   method: "patch",
   path: "/{id}",
-  middleware: [requireScope(SCOPES.OFFERS_MANAGE)],
+  auth: { scope: SCOPES.OFFERS_MANAGE },
   tags: ["Offers"],
   summary: "Update offer",
   description:
     "Partially update an offer. All fields are optional — send only the fields you want to change.",
   operationId: "updateOffer",
-  request: {
-    params: idParams,
-    body: {
-      required: true,
-      content: jsonContent(updateOfferSchema),
-    },
-  },
+  params: idParams,
+  body: updateOfferSchema,
   responses: {
     200: {
       description: "Updated offer",
       content: jsonContent(SuccessResponseSchema(OfferSchema)),
     },
-    400: errorResponse("Validation error"),
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Insufficient scope — requires offers:manage"),
-    404: errorResponse("Offer not found (OFFER_NOT_FOUND)"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.updateOffer,
 });
 
-const deleteOfferRoute = createRoute({
+const deleteOfferRoute = defineRoute({
   method: "delete",
   path: "/{id}",
-  middleware: [requireScope(SCOPES.OFFERS_MANAGE)],
+  auth: { scope: SCOPES.OFFERS_MANAGE },
   tags: ["Offers"],
   summary: "Delete offer",
   description: "Permanently delete an offer. Already-placed orders are not affected.",
   operationId: "deleteOffer",
-  request: {
-    params: idParams,
-  },
+  params: idParams,
   responses: {
     200: {
       description: "Offer deleted",
       content: jsonContent(z.object({ success: z.boolean().openapi({ example: true }) })),
     },
-    401: errorResponse("Missing or invalid API key"),
-    403: errorResponse("Insufficient scope — requires offers:manage"),
-    404: errorResponse("Offer not found (OFFER_NOT_FOUND)"),
   },
-  security: [{ ApiKeyAuth: [] }],
+  handler: h.deleteOffer,
 });
+
+// ─── Router ───────────────────────────────────────────────────────────────────
 
 const router = new OpenAPIHono<AppContext>();
 
-router.openapi(listOffersRoute, h.listOffers);
-router.openapi(getOfferRoute, h.getOffer);
-router.openapi(createOfferRoute, h.createOffer);
-router.openapi(updateOfferRoute, h.updateOffer);
-router.openapi(deleteOfferRoute, h.deleteOffer);
+router.openapi(listOffersRoute.route, listOffersRoute.handler);
+router.openapi(getOfferRoute.route, getOfferRoute.handler);
+router.openapi(createOfferRoute.route, createOfferRoute.handler);
+router.openapi(updateOfferRoute.route, updateOfferRoute.handler);
+router.openapi(deleteOfferRoute.route, deleteOfferRoute.handler);
 
 export default router;
