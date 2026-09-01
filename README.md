@@ -1,6 +1,6 @@
 # CodFlow
 
-![CodFlow Banner](./imgs/codflow-banner.png)
+![CodFlow](./imgs/logo-codflow-light.svg)
 
 **The open-source, COD-first e-commerce platform for Algeria — built agentic-ready.**
 
@@ -310,9 +310,7 @@ cd ../cod-client && npm run typecheck
 | **[AGENTS.md](./AGENTS.md)** | Repository instructions for AI coding assistants |
 ### 🎬 Video Tutorial
 
-[![How to edit your CodFlow theme](https://img.youtube.com/vi/zZGWdEeUXVo/maxresdefault.jpg)](https://youtu.be/zZGWdEeUXVo)
-
-*How to edit your CodFlow theme — [watch on YouTube](https://youtu.be/zZGWdEeUXVo)*
+**[▶️ Watch: How to edit your CodFlow theme](https://youtu.be/zZGWdEeUXVo)**
 
 ---
 
