@@ -6,6 +6,7 @@
     "cod-shared",
     "cod-server",
     "cod-client",
+    "cod-client-astro",
     "cod-astro/theme01"
   ],
   "engines": {

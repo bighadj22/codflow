@@ -1,0 +1,316 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-link: var(--link);
+  --color-topbar: var(--topbar);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-overlay: var(--overlay);
+  --font-sans: var(--font-active);
+  --font-display: var(--font-active);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.06);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.08);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.12);
+}
+
+:root {
+  --font-active: var(--font-cairo);
+  --background: #f6f6f7;
+  --foreground: #202223;
+  --card: #ffffff;
+  --card-foreground: #202223;
+  --popover: #ffffff;
+  --popover-foreground: #202223;
+  --primary: #202223;
+  --primary-foreground: #ffffff;
+  --secondary: #e1e3e5;
+  --secondary-foreground: #202223;
+  --muted: #f1f2f3;
+  --muted-foreground: #6d7175;
+  --accent: #ede9fe;
+  --accent-foreground: #5b21b6;
+  --destructive: #d82c0d;
+  --destructive-foreground: #ffffff;
+  --success: #6d28d9;
+  --success-foreground: #ffffff;
+  --warning: #916a00;
+  --warning-foreground: #202223;
+  --border: #e1e3e5;
+  --input: #8c9196;
+  --ring: #2c6ecb;
+  --sidebar: #ebebeb;
+  --sidebar-foreground: #202223;
+  --sidebar-border: #d2d5d8;
+  --topbar: #1a1a1a;
+  --link: #2c6ecb;
+  --brand: #6d28d9;
+  --brand-foreground: #ffffff;
+  --overlay: rgb(15 17 16 / 0.42);
+
+  --status-new-bg: #f1f2f3;
+  --status-new-text: #5c6064;
+  --status-new-border: #d2d5d8;
+  --status-confirmed-bg: #ede9fe;
+  --status-confirmed-text: #5b21b6;
+  --status-confirmed-border: #c4b5fd;
+  --status-preparing-bg: #fff4d6;
+  --status-preparing-text: #916a00;
+  --status-preparing-border: #e8c96d;
+  --status-ready-bg: #e0f0ff;
+  --status-ready-text: #245ea8;
+  --status-ready-border: #9fc1e8;
+  --status-assigned-bg: #eee8ff;
+  --status-assigned-text: #5d3ca6;
+  --status-assigned-border: #c7b7ef;
+  --status-dispatched-bg: #e4f2f4;
+  --status-dispatched-text: #176f78;
+  --status-dispatched-border: #a2d4d9;
+  --status-out-bg: #fff1e8;
+  --status-out-text: #a04b13;
+  --status-out-border: #e6b696;
+  --status-delivered-bg: #f5f3ff;
+  --status-delivered-text: #5b21b6;
+  --status-delivered-border: #c4b5fd;
+  --status-returned-bg: #fff0f0;
+  --status-returned-text: #b42318;
+  --status-returned-border: #e7aaa5;
+  --status-cancelled-bg: #f1f2f3;
+  --status-cancelled-text: #6d7175;
+  --status-cancelled-border: #d2d5d8;
+}
+
+.dark {
+  /* Neutral black canvas, elevated surfaces step to charcoal, purple appears
+     only as the secondary accent (brand actions, focus chips, status tints). */
+  --background: #0a0a0b;
+  --foreground: #ededf0;
+  --card: #121214;
+  --card-foreground: #ededf0;
+  --popover: #17171a;
+  --popover-foreground: #ededf0;
+  --primary: #ededf0;
+  --primary-foreground: #101012;
+  --secondary: #232327;
+  --secondary-foreground: #ededf0;
+  --muted: #1a1a1e;
+  --muted-foreground: #a0a0a8;
+  --accent: #6d28d933;
+  --accent-foreground: #c4b5fd;
+  --destructive: #ff8f85;
+  --destructive-foreground: #2a0e0a;
+  --success: #a78bfa;
+  --success-foreground: #1e1b4b;
+  --warning: #ebcb6f;
+  --warning-foreground: #241c04;
+  --border: #232327;
+  --input: #3a3a41;
+  --ring: #8ab4f8;
+  --sidebar: #0d0d0f;
+  --sidebar-foreground: #ededf0;
+  --sidebar-border: #1e1e22;
+  --topbar: #08080a;
+  --link: #86b6fa;
+  --brand: #6d28d9;
+  --brand-foreground: #ffffff;
+  --overlay: rgb(0 0 0 / 0.62);
+
+  --status-new-bg: #ffffff0f;
+  --status-new-text: #c9ceca;
+  --status-new-border: #ffffff1f;
+  --status-confirmed-bg: #6d28d924;
+  --status-confirmed-text: #c4b5fd;
+  --status-confirmed-border: #6d28d94d;
+  --status-preparing-bg: #e8c96d1a;
+  --status-preparing-text: #f0d489;
+  --status-preparing-border: #e8c96d4d;
+  --status-ready-bg: #8ab4f81a;
+  --status-ready-text: #aecdf9;
+  --status-ready-border: #8ab4f84d;
+  --status-assigned-bg: #a78bfa1a;
+  --status-assigned-text: #cdbcf9;
+  --status-assigned-border: #a78bfa4d;
+  --status-dispatched-bg: #5fbfc71a;
+  --status-dispatched-text: #93d6db;
+  --status-dispatched-border: #5fbfc74d;
+  --status-out-bg: #f08a441a;
+  --status-out-text: #f4be92;
+  --status-out-border: #f08a444d;
+  --status-delivered-bg: #6d28d924;
+  --status-delivered-text: #c4b5fd;
+  --status-delivered-border: #6d28d94d;
+  --status-returned-bg: #f2a19a1a;
+  --status-returned-text: #f6bbb3;
+  --status-returned-border: #f2a19a4d;
+  --status-cancelled-bg: #ffffff0a;
+  --status-cancelled-text: #9ba39d;
+  --status-cancelled-border: #ffffff17;
+}
+
+html[lang="en"],
+html[lang="en"] body,
+html[lang="fr"],
+html[lang="fr"] body {
+  --font-active: var(--font-latin), var(--font-cairo);
+  font-family:
+    var(--font-latin), var(--font-cairo), ui-sans-serif, system-ui, sans-serif;
+}
+
+html[lang="ar"],
+html[lang="ar"] body {
+  font-family: var(--font-cairo), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply scroll-smooth antialiased;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-size: 15px;
+    letter-spacing: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--link) 22%, transparent);
+    color: var(--foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+    background-color: color-mix(
+      in srgb,
+      var(--muted-foreground) 35%,
+      transparent
+    );
+  }
+}
+
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+[dir="rtl"] input[type="search"] {
+  text-align: right;
+}
+
+[dir="rtl"] .pagination-controls {
+  direction: rtl;
+}
+
+/* View transitions: a calm fade-and-rise so navigation feels alive without noise. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 240ms;
+    animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  ::view-transition-old(root) {
+    animation-name: cf-fade-out;
+  }
+
+  ::view-transition-new(root) {
+    animation-name: cf-fade-in;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-pulse {
+    animation: none;
+  }
+
+  .active\:translate-y-px:active {
+    transform: none;
+  }
+}
+
+@keyframes cf-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes cf-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

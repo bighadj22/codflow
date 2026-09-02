@@ -9,15 +9,54 @@ import {
 import { getDb } from "@/db";
 
 /**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ */
+export const listCustomersSchema = customerFiltersSchema;
+export const getCustomerDetailsSchema = z.object({
+  customerId: z.string().uuid().describe("The unique UUID of the customer to retrieve"),
+});
+export const findCustomerByPhoneSchema = z.object({
+  phone: z.string().regex(/^0[5-7]\d{8}$/, "Invalid Algerian phone number").describe("Algerian phone number starting with 05, 06, or 07"),
+});
+export const getCustomerOrderHistorySchema = z.object({
+  customerId: z.string().uuid().describe("The unique UUID of the customer"),
+});
+export const getCustomerMembershipsSchema = z.object({
+  customerId: z.string().uuid().describe("The UUID of the customer"),
+});
+export const createNewCustomerSchema = createCustomerSchema;
+export const updateCustomerProfileSchema = z.object({
+  customerId: z.string().uuid().describe("The UUID of the customer to update"),
+  updates: updateCustomerSchema,
+});
+export const deleteCustomerSchema = z.object({
+  customerId: z.string().uuid().describe("The UUID of the customer to delete"),
+});
+
+export const CUSTOMER_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  listCustomers: listCustomersSchema.shape,
+  getCustomerDetails: getCustomerDetailsSchema.shape,
+  findCustomerByPhone: findCustomerByPhoneSchema.shape,
+  getCustomerOrderHistory: getCustomerOrderHistorySchema.shape,
+  getCustomerMemberships: getCustomerMembershipsSchema.shape,
+  createNewCustomer: createNewCustomerSchema.shape,
+  updateCustomerProfile: updateCustomerProfileSchema.shape,
+  deleteCustomer: deleteCustomerSchema.shape,
+};
+
+/**
  * AI Tools for Customer Management
- * 
+ *
  * These tools allow the AI Agent to interact directly with the customers database
  * logic by reusing existing queries and validation schemas.
- * 
+ *
  * Two-Layer Validation Pattern:
  * - Layer 1 (LLM-level): Permissive input schema accepts any object to prevent SDK crashes
  * - Layer 2 (App-level): Strict validation inside execute() with graceful error handling
- * 
+ *
  * This ensures the AI agent can recover from validation errors without breaking the conversation.
  */
 export const getCustomerTools = (db: ReturnType<typeof getDb>) => ({
@@ -70,11 +109,7 @@ export const getCustomerTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        customerId: z.string().uuid().describe("The unique UUID of the customer to retrieve"),
-      });
-      
-      const parsed = validationSchema.safeParse(args);
+      const parsed = getCustomerDetailsSchema.safeParse(args);
       
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -109,11 +144,7 @@ export const getCustomerTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        phone: z.string().regex(/^0[5-7]\d{8}$/, "Invalid Algerian phone number").describe("Algerian phone number starting with 05, 06, or 07"),
-      });
-      
-      const parsed = validationSchema.safeParse(args);
+      const parsed = findCustomerByPhoneSchema.safeParse(args);
       
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -188,12 +219,7 @@ export const getCustomerTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        customerId: z.string().uuid().describe("The UUID of the customer to update"),
-        updates: updateCustomerSchema,
-      });
-      
-      const parsed = validationSchema.safeParse(args);
+      const parsed = updateCustomerProfileSchema.safeParse(args);
       
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -239,11 +265,7 @@ export const getCustomerTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        customerId: z.string().uuid().describe("The unique UUID of the customer"),
-      });
-      
-      const parsed = validationSchema.safeParse(args);
+      const parsed = getCustomerOrderHistorySchema.safeParse(args);
       
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -284,11 +306,7 @@ export const getCustomerTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        customerId: z.string().uuid().describe("The UUID of the customer"),
-      });
-      
-      const parsed = validationSchema.safeParse(args);
+      const parsed = getCustomerMembershipsSchema.safeParse(args);
       
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -326,11 +344,7 @@ export const getCustomerTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        customerId: z.string().uuid().describe("The UUID of the customer to delete"),
-      });
-      
-      const parsed = validationSchema.safeParse(args);
+      const parsed = deleteCustomerSchema.safeParse(args);
       
       if (!parsed.success) {
         const errorDetails = parsed.error.issues

@@ -12,15 +12,15 @@ System map and technical design.
 │                                                                  │
 │  ┌─────────────┐     ┌──────────────┐     ┌─────────────────┐  │
 │  │ Storefront  │     │   Backend    │     │   Dashboard     │  │
-│  │ (Astro 7)   │──▶  │   (Hono 4)   │ ◀── │  (Next.js 16)   │  │
-│  └─────────────┘ API └───┬─────┬────┘ API └─────────────────┘  │
+│  │ (Astro 7)   │──▶  │   (Hono 4)   │ ◀── │  (Astro 7)      │  │
+│  └─────────────┘ API └───┬─────┬────┘ JWT └─────────────────┘  │
 │                          │     │                                │
 │                    /webhooks   │ CodCapiWorkflow                │
 │                   carriers     └──────▶ Meta CAPI              │
 │                                                                  │
 │  ┌───────────────────┐  ┌────────┐  ┌──────────────────────┐  │
-│  │   D1 (SQLite)     │  │R2 (CDN)│  │  Durable Objects     │  │
-│  │   + KV + Workflows│  │Images  │  │  (MCP Agents)        │  │
+│  │   D1 (SQLite)     │  │R2 (CDN)│  │   KV + OAuth         │  │
+│  │                   │  │Images  │  │   (MCP provider)     │  │
 │  └───────────────────┘  └────────┘  └──────────────────────┘  │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -33,7 +33,8 @@ System map and technical design.
 codflow-os/
 ├── cod-shared/         # Shared schema, queries, RBAC scopes
 ├── cod-server/         # Backend API (Cloudflare Worker + Hono)
-├── cod-client/         # Dashboard (Next.js + OpenNext)
+├── cod-client-astro/   # Dashboard (Astro, prerendered + auth worker)
+├── cod-client/         # Legacy dashboard (Next.js — reference only)
 └── cod-astro/theme01/  # Storefront (Astro SSR)
 ```
 
@@ -49,9 +50,10 @@ import { SCOPES } from "../../cod-shared/rbac/scopes";
 
 | Package | Stack | Runtime |
 | :--- | :--- | :--- |
-| **cod-astro** | Astro 7, Tailwind v4 | Cloudflare Workers + Static Assets |
+| **cod-astro/theme01** | Astro 7, Tailwind v4 | Cloudflare Workers + Static Assets |
 | **cod-server** | Hono 4, Drizzle ORM, Better Auth | Cloudflare Workers + D1 + R2 + KV |
-| **cod-client** | Next.js 16, React 19, OpenNext | Cloudflare Workers |
+| **cod-client-astro** | Astro 7 (prerendered), React 19 islands | Cloudflare Workers + Static Assets + D1 + KV |
+| **cod-client** *(legacy)* | Next.js 16, React 19, OpenNext | Cloudflare Workers |
 | **cod-shared** | Drizzle schema, RBAC, errors | Source-shared (no build) |
 
 ---
@@ -114,13 +116,20 @@ cod-server/src/endpoints/
 
 ---
 
-## Dashboard (cod-client)
+## Dashboard (cod-client-astro)
 
-**Framework:** Next.js 16 (App Router)  
-**Rendering:** Server Components + Server Actions  
-**Auth:** Better Auth with httpOnly cookies
+**Framework:** Astro 7 (prerendered static + auth worker)  
+**Rendering:** Pages are prerendered shells; React islands hydrate on the
+client and fetch data through the API seam  
+**Auth:** Better Auth on the Worker surface (`/api/auth/*`), sharing
+cod-server's D1; islands carry a short-lived JWT (`set-auth-jwt`) that
+cod-server verifies against its JWKS
 
-All dashboard pages call the backend API with JWT authentication. RBAC is enforced server-side in `cod-server`.
+All dashboard data flows browser → cod-server REST API with JWT
+authentication. RBAC is enforced server-side in `cod-server`.
+
+> `cod-client` (Next.js) is the **legacy** dashboard, kept as a behavior
+> reference until removal. New dashboard work goes in `cod-client-astro`.
 
 ---
 
@@ -154,7 +163,7 @@ audit_logs                     # Admin actions
 ## Authentication
 
 **Better Auth 1.7:**
-- Password-based (Argon2 hashing)
+- Password-based (scrypt hashing)
 - JWT tokens (ES256 signing)
 - RBAC scopes (defined in `cod-shared/rbac/scopes.ts`)
 
@@ -190,20 +199,27 @@ interface CarrierAdapter {
 
 ## MCP Agent System
 
-AI agents connect via OAuth + WebSocket:
+AI agents connect via OAuth (RFC 9728 + dynamic client registration, backed
+by `@cloudflare/workers-oauth-provider`):
 
 ```
-1. OAuth client credentials flow
-   └─▶ POST /api/oauth/token (returns JWT with scopes)
+1. Agent discovers the authorization server
+   └─▶ GET /.well-known/oauth-protected-resource (RFC 9728)
 
-2. Connect to MCP server
-   └─▶ WebSocket: wss://api.yourdomain.com/mcp
+2. Agent registers + authorizes (browser → dashboard login relay)
+   └─▶ POST /oauth/register (DCR) → /authorize (dashboard sign-in +
+        consent via MCP login-ticket) → token exchange
 
-3. Execute tools (orders, products, etc.)
-   └─▶ RBAC enforced per tool
+3. Connect to MCP server
+   └─▶ POST /mcp (Streamable HTTP) with the opaque access token
+
+4. Execute tools (orders, products, etc.)
+   └─▶ RBAC enforced per tool; dangerous tools require HMAC-sealed
+        confirmation (stateless elicitation)
 ```
 
-Each agent gets a stateful Durable Object session.
+Access tokens live in the `OAUTH_KV` namespace; the MCP handler itself is
+stateless (no Durable Object sessions).
 
 ---
 
@@ -211,7 +227,7 @@ Each agent gets a stateful Durable Object session.
 
 All three workers deploy to Cloudflare's global edge:
 - **cod-server** → `https://api.yourdomain.com`
-- **cod-client** → `https://admin.yourdomain.com`
+- **cod-client-astro** → `https://dashboard.yourdomain.com`
 - **cod-astro** → `https://shop.yourdomain.com`
 
 Shared resources: D1, R2, KV (same Cloudflare account).

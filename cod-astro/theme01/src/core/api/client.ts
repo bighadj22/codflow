@@ -158,6 +158,74 @@ export async function placeOrder(
 }
 
 /**
+ * Send a WhatsApp OTP for the storefront checkout verification step.
+ * Mirrors POST /store/otp/send on cod-server. On "unavailable" the server
+ * returns a signed bypassToken — checkout proceeds unverified (fail-open).
+ */
+export async function sendOtp(
+  phone: string
+): Promise<
+  | { success: true; data: { status: "sent"; requestId: string; expiresAt: number; maxAttempts: number } }
+  | { success: true; data: { status: "unavailable"; reason: string; bypassToken: string } }
+  | { success: false; error: string; code?: string; windowSeconds?: number }
+> {
+  try {
+    const res = await fetch(`${COD_SERVER_URL}/store/otp/send`, {
+      method: "POST",
+      headers: storeHeaders(),
+      body: JSON.stringify({ phone }),
+    });
+    const json = (await res.json()) as any;
+    if (!res.ok) {
+      return {
+        success: false,
+        error: json.error ?? json.message ?? "Could not send the code",
+        code: json.code,
+        windowSeconds: json.context?.windowSeconds,
+      };
+    }
+    return { success: true, data: json.data };
+  } catch (e: any) {
+    return { success: false, error: e.message ?? "Network error" };
+  }
+}
+
+/**
+ * Verify the WhatsApp OTP code the customer typed.
+ * Mirrors POST /store/otp/verify on cod-server. On success returns the
+ * signed otpToken that travels with the order submission.
+ */
+export async function verifyOtp(
+  phone: string,
+  requestId: string,
+  code: string
+): Promise<
+  | { success: true; data: { status: "verified"; otpToken: string } }
+  | { success: false; error: string; code?: string; attemptsRemaining?: number; terminal?: boolean }
+> {
+  try {
+    const res = await fetch(`${COD_SERVER_URL}/store/otp/verify`, {
+      method: "POST",
+      headers: storeHeaders(),
+      body: JSON.stringify({ phone, requestId, code }),
+    });
+    const json = (await res.json()) as any;
+    if (!res.ok) {
+      return {
+        success: false,
+        error: json.error ?? json.message ?? "Could not verify the code",
+        code: json.code,
+        attemptsRemaining: json.context?.attemptsRemaining,
+        terminal: json.context?.terminal,
+      };
+    }
+    return { success: true, data: json.data };
+  } catch (e: any) {
+    return { success: false, error: e.message ?? "Network error" };
+  }
+}
+
+/**
  * Upsert an abandoned-checkout record (storefront abandonment tracking).
  * Mirrors POST /store/abandoned on cod-server — fire-and-forget semantics.
  * `forwardedHeaders` carries the shopper's User-Agent / forwarding headers so

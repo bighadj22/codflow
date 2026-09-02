@@ -1,0 +1,62 @@
+{
+  "page_title": "Product Groups",
+  "add_group": "Add Group",
+  "groups_count": "groups",
+  "search_placeholder": "Search groups...",
+  "success_deleted": "Group deleted",
+  "error_load": "Could not load product groups",
+  "error_not_found": "Product group not found",
+  "error_generic": "Something went wrong. Please try again.",
+  "table": {
+    "name": "Name",
+    "parent": "Parent Group",
+    "products": "Products",
+    "status": "Status",
+    "created_at": "Created"
+  },
+  "actions": {
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "empty_state": {
+    "title": "No groups yet",
+    "description": "Create groups to categorize and organize your products for better catalog management.",
+    "action": "Add Your First Group"
+  },
+  "form": {
+    "title_add": "Add Group",
+    "title_edit": "Edit Group",
+    "name_label": "Name (English)",
+    "name_ar_label": "Name (Arabic)",
+    "name_placeholder": "e.g., Clothing",
+    "name_ar_placeholder": "مثال: ملابس",
+    "slug_label": "Slug",
+    "description_label": "Description",
+    "description_ar_label": "Description (Arabic)",
+    "parent_label": "Parent Group",
+    "parent_placeholder": "None (top-level)",
+    "image_label": "Group Image",
+    "image_help": "Upload an image to represent this category in the store",
+    "section_image": "Image",
+    "section_seo": "SEO Settings",
+    "meta_title_label": "Meta Title",
+    "meta_title_placeholder": "SEO title for search engines",
+    "meta_title_help": "Recommended: 50-60 characters",
+    "meta_description_label": "Meta Description",
+    "meta_description_placeholder": "Brief description for search results",
+    "meta_description_help": "Recommended: 150-160 characters",
+    "meta_keywords_label": "Meta Keywords",
+    "meta_keywords_placeholder": "keyword1, keyword2, keyword3",
+    "meta_keywords_help": "Comma-separated keywords for search engines",
+    "active_label": "Active",
+    "error_name_required": "Name is required",
+    "error_save_failed": "Failed to save",
+    "cancel": "Cancel",
+    "save": "Save Group",
+    "saving": "Saving...",
+    "success_add": "Group created successfully",
+    "success_edit": "Group updated successfully",
+    "delete_confirm": "Delete this group? Products in it will become ungrouped.",
+    "cannot_delete": "Cannot delete group with products"
+  }
+}

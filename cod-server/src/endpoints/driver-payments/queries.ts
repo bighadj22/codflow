@@ -6,7 +6,7 @@ import type { CreatePaymentInput } from "./validation";
 import { BusinessLogicError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 
-// Re-export pure read queries from the shared module so cod-client can
+// Re-export pure read queries from the shared module so the dashboard can
 // consume them directly from D1.
 export { getDriverPayments, getPendingSettlementOrders } from "../../../../cod-shared/queries/driver-payments";
 

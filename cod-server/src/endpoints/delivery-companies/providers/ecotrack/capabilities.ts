@@ -1,13 +1,17 @@
 /**
  * EcoTrack Provider Capabilities
- * 
- * Auto-generated from test data analysis
- * Source: scripts/extract-capabilities.ts
- * 
- * Test Results: 12/13 passed (92%)
- * Confidence: 7 high, 3 medium, 1 low
- * 
- * Note: Update after validation WORKS (documentation was wrong!)
+ *
+ * Describes the EcoTrack ADAPTER integration (what our code can drive), not
+ * the raw carrier API surface. Living source of truth for behavior:
+ * adapter.test.ts (characterization tests against the official Postman
+ * contract) and ../../../../../.agents/skills/Ecotrack/CONFORMANCE.md.
+ *
+ * Platform notes the flags below encode:
+ *   - update after validation is a silent no-op at the carrier (answers
+ *     success=true, ignores changes) — the handler blocks it client-side,
+ *     so the adapter integration does not support it
+ *   - order types 2/3/4 (Échange/PICKUP/Recouvrement) exist in the platform
+ *     API but the integration always dispatches type=1 (Livraison)
  */
 
 import type { ProviderCapabilities } from "../capabilities";
@@ -30,9 +34,9 @@ export const ECOTRACK_CAPABILITIES: ProviderCapabilities = {
   // Source: Test "Update Parcel BEFORE Validation"
   canUpdateBeforeValidation: true,
   
-  // Source: Test "Try Update AFTER Validation"
-  // ✅ WORKS! Documentation said it doesn't, but test proved it does
-  canUpdateAfterValidation: true,
+  // Source: Test "Try Update AFTER Validation - Should FAIL"
+  // Carrier silently ignores updates on validated orders (success=true, no change).
+  canUpdateAfterValidation: false,
   
   // Source: Test "Delete Parcel BEFORE Validation - Should WORK"
   canDeleteBeforeValidation: true,

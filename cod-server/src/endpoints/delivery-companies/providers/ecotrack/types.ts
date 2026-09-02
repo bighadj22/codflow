@@ -6,6 +6,170 @@
  * Used by: Packers (https://packers.ecotrack.dz) and any other EcoTrack-platform company.
  */
 
+// ─── Desks ────────────────────────────────────────────────────────────────────
+// GET /api/v1/get/desks — the sender's own desk + the carrier's other stations.
+// ⚠️ No postal/station codes here: dispatch's Station Code authority stays
+// get/communes (code_postal). This data is DISPLAY enrichment (address,
+// phones, map, hours) — it cannot join reliably to the communes-based
+// stop-desk rows (name matching across sources is fuzzy).
+
+export interface EcotrackDeskLocation {
+  wilaya?: string;
+  commune?: string;
+  adresse?: string;
+  phone?: string;
+  phone2?: string;
+  email?: string;
+  map?: string | null;
+}
+
+export interface EcotrackMyDesk {
+  hub_id?: number;
+  hub_name?: string;
+  location?: EcotrackDeskLocation;
+  working_hours?: Array<{ days?: string; hours?: string }>;
+}
+
+export interface EcotrackOtherDesk {
+  name?: string;
+  phone?: string | null;
+  phone2?: string | null;
+  code_wilaya?: string;
+  wilaya?: string;
+  commune?: string;
+  adresse?: string | null;
+  map?: string | null;
+}
+
+export interface EcotrackDesksResponse {
+  my_desk?: EcotrackMyDesk;
+  other_desks?: EcotrackOtherDesk[];
+}
+
+// ─── Returns ──────────────────────────────────────────────────────────────────
+// POST /api/v1/ask/for/order/return?tracking=  (query params)
+// Only while the parcel is in delivery; the courier MAY ignore the request.
+
+export interface EcotrackAskReturnResponse {
+  success?: boolean;
+  /** 10003 = return cannot be requested for this order. */
+  error?: number;
+  message?: string;
+}
+
+// POST /api/v1/valid/returns  (JSON body {trackings: [...]})
+// Sender confirms physical reception of returned parcels.
+// {returned:"fail"} = nothing eligible (already received / not transferred).
+
+export interface EcotrackValidReturnsResponse {
+  returned?: "success" | "fail";
+}
+
+// ─── Token Validation ─────────────────────────────────────────────────────────
+// GET /api/v1/validate/token?api_token={token}
+// ⚠️ Auth exception: the token travels as a QUERY PARAM — the Bearer header
+// alone does NOT authenticate this endpoint.
+
+export interface EcotrackValidateTokenResponse {
+  success?: boolean;
+  /** VALID_TOKEN | INVALID_TOKEN | TOKEN_NOT_ALLOWED */
+  message?: string;
+}
+
+// ─── Wilayas ──────────────────────────────────────────────────────────────────
+// GET /api/v1/get/wilayas — plain array of the wilayas THIS tenant serves.
+// Absent ids = not served (create/order with such a wilaya answers error 10002).
+
+export interface EcotrackWilaya {
+  wilaya_id: number;
+  wilaya_name: string;
+}
+
+export type EcotrackWilayasResponse = EcotrackWilaya[];
+
+// ─── Bulk Tracking ────────────────────────────────────────────────────────────
+// GET /api/v1/get/trackings/info?trackings[]=a&trackings[]=b  (max 100)
+//
+// ⚠️ UNVERIFIED SHAPE: the Postman collection documents no success example
+// (only a 422). dzship's guide warns the endpoint "answers list-style queries"
+// where a lazy client can attach the wrong parcel's status — so the adapter
+// parses defensively (array rows with a tracking field OR an object keyed by
+// tracking) and matches entries to REQUESTED tracking numbers only, never
+// positionally. `status` here is the tenant-drifted French display wording —
+// pass through raw; mapping to our statuses happens in the reconciliation layer.
+
+export interface EcotrackBulkTrackingEntry {
+  tracking: string;
+  status?: string;
+  activity?: EcotrackTrackingActivity[];
+  [key: string]: unknown;
+}
+
+// ─── Orders List ──────────────────────────────────────────────────────────────
+// GET /api/v1/get/orders?page=&start_date=&end_date=&tracking=
+// Laravel pagination, 40/page, default window = last 90 days, archived excluded.
+
+export interface EcotrackOrderRow {
+  tracking: string;
+  reference: string | null;
+  client: string;
+  phone: string;
+  phone_2: string | null;
+  adresse: string;
+  commune: string;
+  wilaya_id: number;
+  montant: string;
+  tarif_prestation: string;
+  tarif_retour: string;
+  type_id: number;
+  created_at: string;
+  payment_id: number | null;
+  return_id: number | null;
+  /** Status enum key (e.g. "prete_a_expedier") — NOT the French display wording. */
+  status: string;
+  products: string | null;
+}
+
+export interface EcotrackOrdersPage {
+  current_page: number;
+  data: EcotrackOrderRow[];
+  last_page: number;
+  per_page: number;
+  total: number;
+  from: number | null;
+  to: number | null;
+}
+
+// ─── Orders Status Filter ─────────────────────────────────────────────────────
+// GET /api/v1/get/orders/status?api_token=…&trackings=a,b,c&status=en_livraison,…
+// ⚠️ Auth exception: api_token travels as a QUERY PARAM — Bearer alone does not
+// authenticate this endpoint. Max 100 trackings per request.
+
+export interface EcotrackOrderStatusActivity {
+  reason?: string;
+  details?: string;
+  station?: string;
+  driver?: string;
+  date?: string;
+  time?: string;
+  postponed_to?: string | null;
+}
+
+export interface EcotrackOrderStatusEntry {
+  status?: string;
+  order_id?: string;
+  desk_phone?: string;
+  desk_commune?: string;
+  desk_map_link?: string;
+  desk_address?: string;
+  driver_phone?: string;
+  activity?: EcotrackOrderStatusActivity[];
+}
+
+export interface EcotrackOrdersStatusResponse {
+  data: Record<string, EcotrackOrderStatusEntry>;
+}
+
 // ─── Create Order ─────────────────────────────────────────────────────────────
 // POST /api/v1/create/order  — sent as query params, no request body
 
@@ -60,6 +224,8 @@ export interface EcotrackCreateOrderResponse {
   success?: boolean;
   /** Tracking number, e.g. "ECTNYH2407062554" */
   tracking?: string;
+  /** Business error code on success=false (10002 = wilaya not served, …). */
+  error?: number;
   message?: string;
   errors?: Record<string, string[]>;
 }
@@ -69,6 +235,7 @@ export interface EcotrackCreateOrderResponse {
 
 export interface EcotrackValidateOrderResponse {
   success?: boolean;
+  error?: number;
   message?: string;
 }
 
@@ -112,6 +279,8 @@ export interface EcotrackUpdateOrderParams {
 
 export interface EcotrackUpdateOrderResponse {
   success?: boolean;
+  /** Business error code on success=false (10001 = order not modifiable). */
+  error?: number;
   message?: string;
   errors?: Record<string, string[]>;
 }
@@ -123,6 +292,7 @@ export interface EcotrackUpdateOrderResponse {
 
 export interface EcotrackDeleteOrderResponse {
   success?: boolean;
+  error?: number;
   delete?: "success" | "fail";
   message?: string;
 }
@@ -133,6 +303,7 @@ export interface EcotrackDeleteOrderResponse {
 
 export interface EcotrackAddMajResponse {
   success?: boolean;
+  error?: number;
   message?: string;
 }
 

@@ -1,0 +1,77 @@
+{
+  "page_title": "Agents IA",
+  "page_subtitle": "Connectez Claude, ChatGPT et d'autres assistants IA à votre espace de travail.",
+  "tabs": {
+    "connect": "Connecter",
+    "mine": "Vos connexions",
+    "team": "Équipe"
+  },
+  "url_card": {
+    "label": "Votre URL MCP",
+    "hint": "Collez cette URL dans Claude Desktop, Claude.ai ou ChatGPT pour connecter un agent IA à votre espace.",
+    "copy": "Copier",
+    "copied": "Copié"
+  },
+  "snippet": {
+    "heading": "Configuration rapide",
+    "description": "Choisissez votre application IA pour obtenir la configuration prête à coller.",
+    "tab_claude_desktop": "Claude Desktop",
+    "tab_claude_web": "Claude.ai",
+    "tab_chatgpt": "ChatGPT",
+    "tab_other": "Autre",
+    "copy_snippet": "Copier l'extrait",
+    "claude_desktop_instructions": "Dans Claude Desktop, ouvrez Paramètres → Connecteurs → Ajouter un connecteur personnalisé, puis collez cette URL et connectez-vous avec CodFlow :",
+    "claude_desktop_alt": "Ou connexion locale via mcp-remote — collez ceci dans Paramètres → Développeur → Modifier la configuration :",
+    "claude_web_instructions": "Dans Claude.ai, ouvrez Personnaliser → Connecteurs → « + » → Ajouter un connecteur personnalisé, puis collez cette URL :",
+    "chatgpt_instructions": "Dans ChatGPT, activez le Mode développeur (Paramètres → Connecteurs → Paramètres avancés), puis créez un connecteur et collez cette URL :",
+    "other_instructions": "Tout client compatible MCP peut se connecter via mcp-remote :"
+  },
+  "my_connections": {
+    "title": "Vos connexions",
+    "empty_title": "Aucun agent IA connecté pour le moment",
+    "empty_description": "Lorsque vous collerez votre URL MCP dans une application IA, votre connexion apparaîtra ici.",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "connected_at": "Connecté {date}",
+    "last_used": "Dernière utilisation {when}",
+    "never_used": "Jamais utilisé",
+    "scope_count_one": "{count} permission",
+    "scope_count_other": "{count} permissions",
+    "show_permissions": "Voir les permissions",
+    "hide_permissions": "Masquer les permissions",
+    "revoke": "Révoquer l'accès",
+    "revoke_confirm_title": "Révoquer l'accès ?",
+    "revoke_confirm_description": "{app} sera déconnecté et ne pourra plus accéder à votre espace tant que vous ne l'autoriserez pas à nouveau.",
+    "revoke_cancel": "Annuler",
+    "revoke_confirm": "Oui, révoquer",
+    "revoke_success": "Accès révoqué.",
+    "revoke_error": "Impossible de révoquer l'accès. Veuillez réessayer."
+  },
+  "team_connections": {
+    "title": "Connexions de l'équipe",
+    "description": "Vue administrateur de toutes les connexions d'agents IA de chaque membre.",
+    "column_member": "Membre",
+    "column_app": "Application",
+    "column_status": "Statut",
+    "column_last_used": "Dernière utilisation",
+    "column_action": "Action",
+    "empty_title": "Aucune connexion d'équipe pour le moment",
+    "empty_description": "Lorsque votre équipe commencera à connecter des agents IA, vous les verrez ici.",
+    "revoke": "Révoquer"
+  },
+  "help": {
+    "title": "Qu'est-ce que c'est ?",
+    "paragraph_1": "MCP (Model Context Protocol) permet aux agents IA d'accéder à votre espace de travail en toute sécurité. Vous contrôlez ce qu'ils peuvent faire avec des permissions granulaires.",
+    "paragraph_2": "Lorsqu'un agent IA essaie d'effectuer une action sensible — comme supprimer un client ou créer un paiement — il vous sera demandé de confirmer dans l'application IA avant que quoi que ce soit ne se passe.",
+    "paragraph_3": "Vous pouvez révoquer l'accès à tout moment ; l'agent perd tout accès immédiatement."
+  },
+  "time": {
+    "just_now": "à l'instant",
+    "minutes_ago_one": "il y a {count} minute",
+    "minutes_ago_other": "il y a {count} minutes",
+    "hours_ago_one": "il y a {count} heure",
+    "hours_ago_other": "il y a {count} heures",
+    "days_ago_one": "il y a {count} jour",
+    "days_ago_other": "il y a {count} jours"
+  }
+}

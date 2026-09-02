@@ -1112,6 +1112,27 @@ export const storePixelConfig = sqliteTable("store_pixel_config", {
 });
 
 /**
+ * Per-store WhatsApp OTP verification configuration (dzverify provider).
+ * One row per store. No row = verification disabled (safe default).
+ * Kept separate from `stores` — checkout verification is a distinct concern,
+ * and the API key is merchant integration config (like carrier tokens), never
+ * a worker secret.
+ */
+export const storeOtpConfig = sqliteTable("store_otp_config", {
+  id: text("id").primaryKey(),
+  storeId: text("store_id")
+    .notNull()
+    .unique()
+    .references(() => stores.id, { onDelete: "cascade" }),
+  apiKey: text("api_key").notNull(),
+  /** WhatsApp message language for OTP sends: en | fr | ar. */
+  language: text("language", { enum: ["en", "fr", "ar"] }).notNull().default("ar"),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/**
  * Audit log for every CAPI event attempt sent by CodCapiWorkflow.
  * status: 'sent' | 'failed' | 'skipped'
  * metaEventId: fbtrace_id from Meta response (present on success only).
@@ -1189,10 +1210,13 @@ export const jwkss = sqliteTable("jwkss", {
   crv:        text("crv"),
 });
 
-// ─── @better-auth/oauth-provider ──────────────────────────────────────────────
-// OAuth 2.1 Authorization Server tables. Only used by cod-client (acting as
-// the auth server for MCP clients). cod-server only reads these indirectly —
-// it verifies issued tokens against the JWKS above.
+// ─── @better-auth/oauth-provider (LEGACY — no longer written) ────────────────
+// These tables backed the decommissioned Better Auth OAuth 2.1 Authorization
+// Server plugin that used to issue MCP tokens from the dashboards. MCP OAuth
+// moved to `@cloudflare/workers-oauth-provider` on cod-server (clients, grants,
+// tokens, and props now live in the OAUTH_KV namespace, not D1). The tables are
+// kept for historical data; nothing writes to them anymore. Do not drop without
+// confirming no deployment still references them.
 //
 // Array columns (`string[]` in Better Auth's model) are stored as JSON text.
 // Better Auth's Drizzle adapter serialises/deserialises automatically.

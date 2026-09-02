@@ -1,0 +1,54 @@
+{
+  "header": {
+    "title": "Dashboard",
+    "subtitle": "Store performance overview"
+  },
+  "stats": {
+    "total_orders": "Total Orders",
+    "revenue": "Revenue",
+    "customers": "Customers",
+    "delivered": "Delivered",
+    "active_orders": "Active",
+    "returned": "Returned"
+  },
+  "status_breakdown": {
+    "title": "Order Status",
+    "subtitle": "Distribution by status"
+  },
+  "recent_orders": {
+    "title": "Recent Orders",
+    "subtitle": "Latest Transactions",
+    "new_order": "New Order",
+    "view_all": "View All",
+    "empty": "No orders yet",
+    "col_order": "Order",
+    "col_customer": "Customer",
+    "col_status": "Status",
+    "col_price": "Price",
+    "col_date": "Date"
+  },
+  "order_statuses": {
+    "new": "New",
+    "preparing": "Preparing",
+    "ready": "Ready",
+    "assigned": "Assigned",
+    "out_for_delivery": "Out for Delivery",
+    "delivered": "Delivered",
+    "returned": "Returned",
+    "cancelled": "Cancelled"
+  },
+  "status_tooltips": {
+    "total_orders": "Total number of orders across all statuses",
+    "new": "Order just received, awaiting review and confirmation",
+    "confirmed": "Order confirmed by the team, ready to be prepared",
+    "unreachable": "Customer could not be reached for order confirmation",
+    "preparing": "Order is being picked and packed for delivery",
+    "ready": "Order is packed and waiting to be picked up or dispatched",
+    "assigned": "A driver has been assigned to pick up and deliver this order",
+    "dispatched": "Order has been handed off to a delivery company",
+    "out_for_delivery": "Order is on its way and will be delivered soon",
+    "delivered": "Order was successfully delivered to the customer",
+    "returned": "Customer refused or returned the order at the door",
+    "cancelled": "Order was cancelled and will not be processed"
+  }
+}

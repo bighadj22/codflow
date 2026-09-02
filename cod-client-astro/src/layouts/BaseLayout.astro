@@ -1,0 +1,65 @@
+---
+import "../styles/fonts.css";
+import "../styles/globals.css";
+import { ClientRouter } from "astro:transitions";
+import { ToastHost } from "@/components/ui/ToastHost";
+
+interface Props {
+  title?: string;
+  lang?: "ar" | "en" | "fr";
+}
+
+const { title = "CodFlow", lang = "ar" } = Astro.props;
+const dir = lang === "ar" ? "rtl" : "ltr";
+---
+
+<!doctype html>
+<html lang={lang} dir={dir}>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <ClientRouter />
+    <script is:inline>
+      // Locale + theme live client-side, but prerendered shells ship ar/rtl/light
+      // defaults. Re-apply prefs before first paint AND after every ClientRouter
+      // swap (astro:after-swap fires synchronously pre-paint, so dir never fights).
+      // https://docs.astro.build/en/guides/view-transitions/
+      var applyDocumentPrefs = function () {
+        try {
+          var l = localStorage.getItem("locale");
+          if (!l || ["ar", "en", "fr"].indexOf(l) === -1) {
+            var m = document.cookie.match(/(?:^|; )locale=(ar|en|fr)/);
+            l = m ? m[1] : "ar";
+          }
+          document.documentElement.lang = l;
+          document.documentElement.dir = l === "ar" ? "rtl" : "ltr";
+          var t = localStorage.getItem("theme");
+          if (t !== "light" && t !== "dark") t = "light";
+          document.documentElement.classList.toggle("dark", t === "dark");
+          document.documentElement.style.colorScheme = t;
+        } catch (e) {}
+      };
+      applyDocumentPrefs();
+      // is:inline scripts re-execute on every swap — bind the listener once.
+      if (!window.__codflowPrefsBound) {
+        window.__codflowPrefsBound = true;
+        document.addEventListener("astro:after-swap", applyDocumentPrefs);
+      }
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen bg-background font-sans text-foreground antialiased">
+    <!--
+      THESIS: CodFlow is a merchant workbench, not a marketing dashboard; utility wins over decoration.
+      OWN-WORLD: A quiet neutral canvas, compact bordered surfaces, and one commerce-green action color.
+      STORY: Merchants scan orders, make a decision, and move shipments forward without visual noise.
+      FIRST VIEWPORT: Persistent navigation at left, utility search above, page title and order work surface below.
+      FORM: Shopify Admin / Polaris-inspired operational shell, rebuilt for CodFlow's COD workflow.
+      FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+    -->
+    <ToastHost client:only="react" transition:persist="codflow-toast-host" />
+    <slot />
+  </body>
+</html>

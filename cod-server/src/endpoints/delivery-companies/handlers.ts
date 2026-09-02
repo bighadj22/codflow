@@ -12,6 +12,8 @@ import { companyStopDesks, wilayas } from "@/db/schema";
 import * as queries from "./queries";
 import * as validation from "./validation";
 import { getProvider, isEcotrackCompany } from "./providers/registry";
+import { EcotrackProvider } from "./providers/ecotrack/adapter";
+import { reconcileEcotrackOrders, DEFAULT_MAX_PAGES } from "./providers/ecotrack/reconcile";
 import { NotFoundError, ValidationError, BusinessLogicError, ConflictError, ExternalApiError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 
@@ -250,6 +252,138 @@ export async function syncCompanyStopDesks(c: Context<AppContext>) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to fetch stop desks from provider API";
     console.error(`[sync-stop-desks] failed company=${id}:`, msg);
+    throw new ExternalApiError(company.name, msg, { companyId: id, code: company.code });
+  }
+}
+
+/**
+ * POST /delivery-companies/:id/test-connection
+ * Verify the company's stored credentials against its carrier API.
+ * A negative check outcome (invalid token, API access disabled) is a
+ * successful execution — HTTP 200 with ok:false — not an error.
+ * Transport failures (timeout, carrier down) surface as 502.
+ */
+export async function testCompanyConnection(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const { id } = (c.req as any).valid?.("param") ?? { id: c.req.param("id")! };
+
+  const company = await queries.getDeliveryCompanyRaw(db, id);
+  if (!company) throw new NotFoundError("Delivery company", id);
+
+  if (!company.apiToken) {
+    throw new ValidationError(
+      `${company.name} is not connected — add API credentials first`,
+      ERROR_CODES.MISSING_API_CREDENTIALS,
+      { companyId: id }
+    );
+  }
+
+  let provider;
+  try {
+    provider = getProvider(company);
+  } catch (err) {
+    throw new BusinessLogicError(
+      err instanceof Error ? err.message : "Provider not available",
+      ERROR_CODES.PROVIDER_NOT_SUPPORTED,
+      { companyId: id, code: company.code }
+    );
+  }
+
+  if (typeof provider.verifyConnection !== "function") {
+    throw new BusinessLogicError(
+      `The ${company.code} provider does not support connection testing`,
+      ERROR_CODES.OPERATION_NOT_SUPPORTED,
+      { provider: company.code }
+    );
+  }
+
+  const startMs = Date.now();
+  let result;
+  try {
+    result = await provider.verifyConnection();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Connection check failed";
+    console.error(`[test-connection] failed company=${id}:`, msg);
+    throw new ExternalApiError(company.name, msg, { companyId: id, code: company.code });
+  }
+
+  console.info(
+    `[test-connection] company=${id} code=${company.code} ok=${result.ok} (${Date.now() - startMs}ms)`,
+  );
+  return c.json({
+    success: true,
+    data: {
+      companyId: id,
+      companyName: company.name,
+      companyCode: company.code,
+      ...result,
+    },
+  }, 200);
+}
+
+/**
+ * POST /delivery-companies/:id/reconcile-orders
+ * Pull-based drift repair for EcoTrack-family carriers (the platform has no
+ * webhooks). Pages the carrier's order list, maps statuses, and applies
+ * forward-only fixes through the shared webhook rank guard. Unmapped carrier
+ * statuses are skipped and sampled — never guessed.
+ */
+export async function reconcileCompanyOrders(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const { id } = (c.req as any).valid?.("param") ?? { id: c.req.param("id")! };
+
+  const company = await queries.getDeliveryCompanyRaw(db, id);
+  if (!company) throw new NotFoundError("Delivery company", id);
+
+  if (!company.apiToken) {
+    throw new ValidationError(
+      `${company.name} is not connected — add API credentials first`,
+      ERROR_CODES.MISSING_API_CREDENTIALS,
+      { companyId: id }
+    );
+  }
+
+  if (!isEcotrackCompany(company.code)) {
+    throw new BusinessLogicError(
+      `Reconciliation is EcoTrack-only — ${company.code} pushes status via webhooks`,
+      ERROR_CODES.OPERATION_NOT_SUPPORTED,
+      { companyId: id, code: company.code }
+    );
+  }
+
+  let provider;
+  try {
+    provider = getProvider(company);
+  } catch (err) {
+    throw new BusinessLogicError(
+      err instanceof Error ? err.message : "Provider not available",
+      ERROR_CODES.PROVIDER_NOT_SUPPORTED,
+      { companyId: id, code: company.code }
+    );
+  }
+  if (!(provider instanceof EcotrackProvider)) {
+    throw new BusinessLogicError(
+      `Provider mismatch for ${company.code}`,
+      ERROR_CODES.PROVIDER_NOT_SUPPORTED,
+      { companyId: id, code: company.code }
+    );
+  }
+
+  const maxPagesParam = c.req.query("maxPages");
+  const maxPages = maxPagesParam
+    ? Math.min(Math.max(1, Number(maxPagesParam) || DEFAULT_MAX_PAGES), DEFAULT_MAX_PAGES)
+    : DEFAULT_MAX_PAGES;
+
+  try {
+    const summary = await reconcileEcotrackOrders(db, provider, company.code, { maxPages });
+
+    console.info(
+      `[reconcile] company=${id} code=${company.code} pages=${summary.pagesFetched} seen=${summary.ordersSeen} updated=${summary.updated} unmapped=${summary.skippedUnmapped}`,
+    );
+    return c.json({ success: true, data: summary }, 200);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Reconciliation failed";
+    console.error(`[reconcile] failed company=${id}:`, msg);
     throw new ExternalApiError(company.name, msg, { companyId: id, code: company.code });
   }
 }

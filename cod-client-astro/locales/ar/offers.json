@@ -1,0 +1,83 @@
+{
+  "page_title": "العروض الترويجية",
+  "add_offer": "إنشاء عرض",
+  "offers_count": "عرض",
+  "search_placeholder": "البحث عن عرض...",
+  "error_load": "تعذر تحميل العروض",
+  "error_not_found": "العرض غير موجود",
+  "error_generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+  "error_expired": "انتهت صلاحية هذا العرض",
+  "error_not_active": "هذا العرض غير نشط",
+  "table": {
+    "name": "اسم العرض",
+    "trigger": "شرط التفعيل",
+    "reward": "المكافأة",
+    "status": "الحالة",
+    "type": "النوع",
+    "schedule": "المدة",
+    "actions": "الإجراءات"
+  },
+  "status": {
+    "active": "نشط",
+    "inactive": "معطَّل"
+  },
+  "empty_state": {
+    "title": "لا توجد عروض نشطة",
+    "description": "أنشئ عروضاً جذابة مثل «اشترِ X واحصل على Y» أو «شحن مجاني» لزيادة المبيعات ومكافأة عملائك.",
+    "action": "أنشئ عرضك الأول"
+  },
+  "actions": {
+    "edit": "تعديل",
+    "delete": "حذف",
+    "activate": "تفعيل",
+    "deactivate": "تعطيل"
+  },
+  "discount_type": {
+    "free": "منتج مجاني",
+    "free_shipping": "شحن مجاني"
+  },
+  "form": {
+    "title_add": "إنشاء عرض جديد",
+    "title_edit": "تعديل العرض",
+    "name_label": "اسم العرض",
+    "name_placeholder": "مثال: اشترِ 2 واحصل على 1 مجاناً",
+    "discount_type_label": "نوع العرض",
+    "free_shipping_note": "سيحصل العميل على شحن مجاني عند استيفاء شرط الكمية",
+    "section_trigger": "شرط التفعيل",
+    "trigger_product_label": "المنتَج المشغِّل",
+    "trigger_product_placeholder": "اختر المنتَج",
+    "trigger_variant_label": "المتغيِّر المشغِّل",
+    "trigger_variant_any": "أي متغيِّر",
+    "trigger_qty_label": "الكمية الدنيا للشراء",
+    "trigger_qty_hint": "يجب على العميل طلب هذه الكمية على الأقل",
+    "section_reward": "المكافأة",
+    "reward_product_label": "المنتَج المجاني",
+    "reward_product_placeholder": "اختر المنتَج",
+    "reward_variant_label": "المتغيِّر المجاني",
+    "reward_variant_same": "نفس متغيِّر الطلب",
+    "reward_variant_any": "المتغيِّر الافتراضي",
+    "reward_qty_label": "الكمية المجانية",
+    "section_schedule": "الجدولة (اختياري)",
+    "starts_at_label": "يبدأ في",
+    "ends_at_label": "ينتهي في",
+    "status_label": "حالة العرض",
+    "status_active": "نشط",
+    "status_inactive": "معطَّل",
+    "save": "حفظ العرض",
+    "saving": "جارٍ الحفظ...",
+    "cancel": "إلغاء",
+    "success_add": "تم إنشاء العرض بنجاح",
+    "success_edit": "تم تحديث العرض بنجاح",
+    "error_save": "فشل الحفظ، يرجى المحاولة مجدداً",
+    "delete_confirm": "حذف هذا العرض نهائياً؟",
+    "error_name_required": "اسم العرض مطلوب",
+    "error_trigger_product_required": "يرجى اختيار المنتَج المشغِّل",
+    "error_reward_product_required": "يرجى اختيار المنتَج المجاني",
+    "error_trigger_qty": "الكمية الدنيا يجب أن تكون 1 على الأقل",
+    "error_reward_qty": "الكمية المجانية يجب أن تكون 1 على الأقل"
+  },
+  "buy_x_get_y": "اشترِ {x} واحصل على {y} مجاناً",
+  "buy_x_free_shipping": "اشترِ {x} ← شحن مجاني",
+  "any_variant": "أي متغيِّر",
+  "free_shipping_reward": "شحن مجاني 🚚"
+}

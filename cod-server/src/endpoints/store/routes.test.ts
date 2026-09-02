@@ -15,6 +15,9 @@ import * as queries from "./queries";
 vi.mock("@/db", () => ({ getDb: vi.fn(() => mockDb) }));
 vi.mock("./queries");
 vi.mock("@/lib/capi", () => ({ sendCapiEvent: vi.fn(async () => ({ success: true })) }));
+// OTP verification defaults to disabled in these fixtures — the gate must be
+// inert (no config row), exactly like a store that never enabled the feature.
+vi.mock("../../../../cod-shared/queries/otp-config");
 
 const NOW = new Date().toISOString();
 

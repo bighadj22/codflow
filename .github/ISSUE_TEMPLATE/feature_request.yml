@@ -36,7 +36,7 @@ body:
       description: Which part of the project would this touch?
       options:
         - cod-server (API / Workers)
-        - cod-client (dashboard)
+        - cod-client-astro (dashboard)
         - cod-astro/theme01 (storefront)
         - cod-shared (schema / queries)
         - Documentation

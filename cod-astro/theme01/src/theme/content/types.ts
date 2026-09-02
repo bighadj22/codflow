@@ -103,7 +103,23 @@ export interface StoreFrontContent {
   formSubmit: string;
   formConfirmNote: string;
 
-  // ── Order summary ─────────────────────────────────────────────────────────
+  // ── WhatsApp OTP verification ─────────────────────────────────────────────
+  otpTitle: string;
+  otpSubtitle: string;
+  otpInputLabel: string;
+  otpInputPlaceholder: string;
+  otpVerifyBtn: string;
+  otpVerifying: string;
+  otpResendIn: string;
+  otpResend: string;
+  otpChangePhone: string;
+  otpErrorWrong: string;
+  otpErrorAttempts: string;
+  otpErrorExpired: string;
+  otpErrorRate: string;
+  otpErrorGeneric: string;
+
+  // ── Order summary ──────────────────────────────────────────────────────────
   qtyLabel: string;
   qtyUnit: string;
   shippingLabel: string;

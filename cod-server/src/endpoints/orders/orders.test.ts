@@ -512,9 +512,181 @@ describe("Orders — targeted business-logic tests", () => {
         expect.anything(), "ord_1", "out_for_delivery", expect.anything(), expect.anything()
       );
     });
+
+    it("sends the COD total (price + deliveryFee) as the carrier amount", async () => {
+      // orderRow: price 9000, deliveryFee 600 → carrier must collect 9600
+      vi.mocked(queries.getOrderById).mockResolvedValue(orderRow({ status: "ready" }) as any);
+      vi.mocked(deliveryCompanyQueries.getDeliveryCompanyRaw).mockResolvedValue(
+        companyRow({ autoValidate: false }) as any
+      );
+      vi.mocked(shipments.createShipmentRecord).mockResolvedValue("shp_1" as any);
+      vi.mocked(shipments.logApiCall).mockResolvedValue(undefined as any);
+      vi.mocked(queries.updateOrderTracking).mockResolvedValue(undefined as any);
+      vi.mocked(queries.updateOrderStatus).mockResolvedValue(undefined as any);
+
+      const mockProvider = {
+        createShipment: vi.fn(async () => ({
+          trackingNumber: "TRK001",
+          labelUrl: null,
+          rawResponse: "{}",
+        })),
+        validateShipment: vi.fn(async () => true),
+      };
+      vi.mocked(registry.getProvider).mockReturnValue(mockProvider as any);
+      vi.mocked(registry.isEcotrackCompany).mockReturnValue(false);
+
+      mockDb = {
+        select: vi.fn(() => ({
+          from: vi.fn(() => ({
+            where: vi.fn(() => ({
+              get: vi.fn(async () => ({ name: "Alger", nameAr: "الجزائر" })),
+            })),
+          })),
+        })),
+        insert: vi.fn(() => ({ values: vi.fn(async () => undefined) })),
+        update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(async () => undefined) })) })),
+      };
+
+      const res = await app.request("/api/orders/ord_1/dispatch", { method: "POST" });
+
+      expect(res.status).toBe(201);
+      expect(mockProvider.createShipment).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 9600 })
+      );
+    });
   });
 
   // ─── 6. cancelShipment: company.active not checked ────────────────────────
+
+  describe("POST /api/orders/{id}/ask-return", () => {
+    it("returns 422 when the order is not out_for_delivery", async () => {
+      vi.mocked(queries.getOrderById).mockResolvedValue(
+        orderRow({ trackingNumber: "TRK001", status: "dispatched" }) as any
+      );
+
+      const res = await app.request("/api/orders/ord_1/ask-return", { method: "POST" });
+
+      expect(res.status).toBe(422);
+      const body: any = await res.json();
+      expect(body.code).toBe(ERROR_CODES.INVALID_STATUS_TRANSITION);
+    });
+
+    it("requests the return and does NOT change the order status (carrier may ignore)", async () => {
+      vi.mocked(queries.getOrderById).mockResolvedValue(
+        orderRow({ trackingNumber: "TRK001", status: "out_for_delivery" }) as any
+      );
+      vi.mocked(deliveryCompanyQueries.getDeliveryCompanyRaw).mockResolvedValue(
+        companyRow({ code: "dhd_ecotrack" }) as any
+      );
+      vi.mocked(registry.isEcotrackCompany).mockReturnValue(true);
+
+      const mockProvider = {
+        askReturn: vi.fn(async () => true),
+      };
+      vi.mocked(registry.getProvider).mockReturnValue(mockProvider as any);
+      vi.mocked(shipments.logApiCall).mockResolvedValue(undefined as any);
+
+      const res = await app.request("/api/orders/ord_1/ask-return", { method: "POST" });
+
+      expect(res.status).toBe(200);
+      expect(mockProvider.askReturn).toHaveBeenCalledWith("TRK001");
+      const body: any = await res.json();
+      expect(body.message).toMatch(/may take up to a day/i);
+      expect(queries.updateOrderStatus).not.toHaveBeenCalled();
+    });
+
+    it("surfaces carrier business rejections (10003) as 502 EXTERNAL_API_ERROR", async () => {
+      vi.mocked(queries.getOrderById).mockResolvedValue(
+        orderRow({ trackingNumber: "TRK001", status: "out_for_delivery" }) as any
+      );
+      vi.mocked(deliveryCompanyQueries.getDeliveryCompanyRaw).mockResolvedValue(
+        companyRow({ code: "dhd_ecotrack" }) as any
+      );
+      vi.mocked(registry.isEcotrackCompany).mockReturnValue(true);
+
+      vi.mocked(registry.getProvider).mockReturnValue({
+        askReturn: vi.fn(async () => {
+          throw new Error("EcoTrack 10003: Le retour ne peut pas etre demandé pour cette commande");
+        }),
+      } as any);
+      vi.mocked(shipments.logApiCall).mockResolvedValue(undefined as any);
+
+      const res = await app.request("/api/orders/ord_1/ask-return", { method: "POST" });
+
+      expect(res.status).toBe(502);
+      const body: any = await res.json();
+      expect(body.code).toBe(ERROR_CODES.EXTERNAL_API_FAILURE);
+    });
+  });
+
+  describe("POST /api/orders/{id}/confirm-return-reception", () => {
+    function outForDeliverySetup(providerOverrides: Record<string, unknown> = {}) {
+      vi.mocked(queries.getOrderById).mockResolvedValue(
+        orderRow({ trackingNumber: "TRK001", status: "out_for_delivery" }) as any
+      );
+      vi.mocked(deliveryCompanyQueries.getDeliveryCompanyRaw).mockResolvedValue(
+        companyRow({ code: "dhd_ecotrack" }) as any
+      );
+      vi.mocked(registry.isEcotrackCompany).mockReturnValue(true);
+      vi.mocked(shipments.logApiCall).mockResolvedValue(undefined as any);
+      vi.mocked(queries.updateOrderStatus).mockResolvedValue(undefined as any);
+
+      const mockProvider = {
+        validateReturns: vi.fn(async () => true),
+        ...providerOverrides,
+      };
+      vi.mocked(registry.getProvider).mockReturnValue(mockProvider as any);
+      return mockProvider;
+    }
+
+    it("returns 422 when the order is not out_for_delivery (forward-only)", async () => {
+      vi.mocked(queries.getOrderById).mockResolvedValue(
+        orderRow({ trackingNumber: "TRK001", status: "delivered" }) as any
+      );
+
+      const res = await app.request("/api/orders/ord_1/confirm-return-reception", { method: "POST" });
+
+      expect(res.status).toBe(422);
+      const body: any = await res.json();
+      expect(body.code).toBe(ERROR_CODES.INVALID_STATUS_TRANSITION);
+    });
+
+    it("confirms at the carrier and flips the order to returned via the normal status path", async () => {
+      const mockProvider = outForDeliverySetup();
+
+      const res = await app.request("/api/orders/ord_1/confirm-return-reception", { method: "POST" });
+
+      expect(res.status).toBe(200);
+      expect(mockProvider.validateReturns).toHaveBeenCalledWith(["TRK001"]);
+      expect(queries.updateOrderStatus).toHaveBeenCalledWith(
+        expect.anything(), "ord_1", "returned", expect.anything(), expect.anything()
+      );
+    });
+
+    it("returns 422 WITHOUT touching the order when the carrier reports nothing eligible", async () => {
+      outForDeliverySetup({ validateReturns: vi.fn(async () => false) });
+
+      const res = await app.request("/api/orders/ord_1/confirm-return-reception", { method: "POST" });
+
+      expect(res.status).toBe(422);
+      const body: any = await res.json();
+      expect(body.code).toBe(ERROR_CODES.SHIPMENT_UPDATE_FAILED);
+      expect(queries.updateOrderStatus).not.toHaveBeenCalled();
+    });
+
+    it("surfaces carrier transport failures as 502 without touching the order", async () => {
+      outForDeliverySetup({
+        validateReturns: vi.fn(async () => {
+          throw new Error("EcoTrack HTTP 500 — response is not valid JSON");
+        }),
+      });
+
+      const res = await app.request("/api/orders/ord_1/confirm-return-reception", { method: "POST" });
+
+      expect(res.status).toBe(502);
+      expect(queries.updateOrderStatus).not.toHaveBeenCalled();
+    });
+  });
 
   describe("POST /api/orders/{id}/cancel-shipment", () => {
     it("proceeds even when delivery company is inactive (active flag not checked)", async () => {

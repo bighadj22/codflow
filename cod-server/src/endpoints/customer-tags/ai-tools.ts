@@ -9,6 +9,44 @@ import {
 import { getDb } from "@/db";
 
 /**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ */
+export const listCustomerTagsSchema = customerTagFiltersSchema;
+export const getCustomerTagDetailsSchema = z.object({
+  tagId: z.string().uuid().describe("UUID of the customer tag"),
+  withCustomers: z.boolean().optional().default(false).describe("Include full list of assigned customers"),
+});
+export const createCustomerTagToolSchema = createCustomerTagSchema;
+export const updateCustomerTagToolSchema = z.object({
+  tagId: z.string().uuid().describe("UUID of the tag to update"),
+  updates: updateCustomerTagSchema,
+});
+export const deleteCustomerTagSchema = z.object({
+  tagId: z.string().uuid().describe("UUID of the customer tag to delete"),
+});
+export const assignTagToCustomerSchema = z.object({
+  tagId: z.string().uuid().describe("UUID of the customer tag"),
+  customerId: z.string().uuid().describe("UUID of the customer to tag"),
+});
+export const unassignTagFromCustomerSchema = z.object({
+  tagId: z.string().uuid().describe("UUID of the customer tag"),
+  customerId: z.string().uuid().describe("UUID of the customer to untag"),
+});
+
+export const CUSTOMER_TAG_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  listCustomerTags: listCustomerTagsSchema.shape,
+  getCustomerTagDetails: getCustomerTagDetailsSchema.shape,
+  createCustomerTag: createCustomerTagToolSchema.shape,
+  updateCustomerTag: updateCustomerTagToolSchema.shape,
+  deleteCustomerTag: deleteCustomerTagSchema.shape,
+  assignTagToCustomer: assignTagToCustomerSchema.shape,
+  unassignTagFromCustomer: unassignTagFromCustomerSchema.shape,
+};
+
+/**
  * AI Tools for Customer Tag Management
  *
  * Customer tags are lightweight labels applied to individual customers
@@ -38,7 +76,7 @@ export const getCustomerTagTools = (db: ReturnType<typeof getDb>) => ({
       "Optional: search (string), limit (1-100, default 50), offset (default 0).",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const parsed = customerTagFiltersSchema.safeParse(args);
+      const parsed = listCustomerTagsSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
           .map((e: any) => `${e.path.join(".")}: ${e.message}`)
@@ -65,10 +103,7 @@ export const getCustomerTagTools = (db: ReturnType<typeof getDb>) => ({
       "Required: tagId (UUID). Optional: withCustomers (boolean, default false).",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        tagId: z.string().uuid().describe("UUID of the customer tag"),
-        withCustomers: z.boolean().optional().default(false).describe("Include full list of assigned customers"),
-      });
+      const validationSchema = getCustomerTagDetailsSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -100,7 +135,7 @@ export const getCustomerTagTools = (db: ReturnType<typeof getDb>) => ({
       "Optional: color (hex color string e.g. '#64748b', default #64748b).",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const parsed = createCustomerTagSchema.safeParse(args);
+      const parsed = createCustomerTagToolSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
           .map((e: any) => `${e.path.join(".")}: ${e.message}`)
@@ -129,10 +164,7 @@ export const getCustomerTagTools = (db: ReturnType<typeof getDb>) => ({
       "color must be a valid hex string e.g. '#22c55e'.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        tagId: z.string().uuid().describe("UUID of the tag to update"),
-        updates: updateCustomerTagSchema,
-      });
+      const validationSchema = updateCustomerTagToolSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -162,9 +194,7 @@ export const getCustomerTagTools = (db: ReturnType<typeof getDb>) => ({
       "This action is irreversible.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        tagId: z.string().uuid().describe("UUID of the customer tag to delete"),
-      });
+      const validationSchema = deleteCustomerTagSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -204,10 +234,7 @@ export const getCustomerTagTools = (db: ReturnType<typeof getDb>) => ({
       "Both the tag and the customer must exist.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        tagId: z.string().uuid().describe("UUID of the customer tag"),
-        customerId: z.string().uuid().describe("UUID of the customer to tag"),
-      });
+      const validationSchema = assignTagToCustomerSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -241,10 +268,7 @@ export const getCustomerTagTools = (db: ReturnType<typeof getDb>) => ({
       "If the customer does not have this tag, the operation completes silently.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        tagId: z.string().uuid().describe("UUID of the customer tag"),
-        customerId: z.string().uuid().describe("UUID of the customer to untag"),
-      });
+      const validationSchema = unassignTagFromCustomerSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues

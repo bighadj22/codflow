@@ -105,6 +105,22 @@ export const en: StoreFrontContent = {
   formSubmit: "Confirm order",
   formConfirmNote: "Our team will call to confirm your order within 24 hours",
 
+  // ── WhatsApp OTP verification ─────────────────────────────────────────────
+  otpTitle: "Verify your phone",
+  otpSubtitle: "We sent a 6-digit code to your WhatsApp",
+  otpInputLabel: "Verification code",
+  otpInputPlaceholder: "••••••",
+  otpVerifyBtn: "Confirm code",
+  otpVerifying: "Verifying...",
+  otpResendIn: "Resend in",
+  otpResend: "Resend code",
+  otpChangePhone: "Change phone number",
+  otpErrorWrong: "Wrong code — check WhatsApp and try again",
+  otpErrorAttempts: "Attempts left:",
+  otpErrorExpired: "This code has expired — request a new one",
+  otpErrorRate: "Too many requests — please wait a moment and try again",
+  otpErrorGeneric: "Could not send the code — please try again",
+
   // ── Order summary ─────────────────────────────────────────────────────────
   qtyLabel: "Quantity",
   qtyUnit: "unit(s)",

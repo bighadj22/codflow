@@ -7,6 +7,7 @@ import { NotFoundError, ValidationError, ConflictError, BusinessLogicError } fro
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 import { getPixelConfig } from "../../../../cod-shared/queries/pixel-config";
 import { sendCapiEvent } from "@/lib/capi";
+import { assertOtpVerification } from "./otp-gate";
 
 async function sendCapiLeadMirror(
   db: ReturnType<typeof getDb>,
@@ -115,6 +116,8 @@ export async function createStoreOrder(c: Context<AppContext>) {
   if (stockError) {
     throw new BusinessLogicError(stockError, ERROR_CODES.INSUFFICIENT_STOCK);
   }
+
+  await assertOtpVerification(c, db, data);
 
   const customer = await queries.findOrCreateCustomer(db, {
     phone: data.phone,

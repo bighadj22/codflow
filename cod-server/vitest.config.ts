@@ -6,8 +6,11 @@ export default defineConfig({
     globals: true,
     
     // Test file patterns
+    // cod-shared tests run through this package (no vitest setup there);
+    // the include is relative to this config, hence the ../cod-shared path.
     include: [
-      'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}'
+      'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}',
+      '../cod-shared/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}',
     ],
     exclude: [
       '**/node_modules/**',
@@ -24,7 +27,15 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       VITEST: 'true'
-    }
+    },
+
+    // Inline the provider so Vite rewrites its `cloudflare:workers` import
+    // to the test stub (Node's native loader cannot handle `cloudflare:`).
+    server: {
+      deps: {
+        inline: ['@cloudflare/workers-oauth-provider'],
+      },
+    },
   },
 
   // Path aliases for server code
@@ -33,6 +44,9 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
       '@/db': resolve(__dirname, './src/db'),
       '@/types': resolve(__dirname, './src/types'),
+      // Stub the Workers runtime module so @cloudflare/workers-oauth-provider
+      // can load under Node in unit tests (see src/test-utils/cloudflare-workers.ts).
+      'cloudflare:workers': resolve(__dirname, './src/test-utils/cloudflare-workers.ts'),
     }
   },
 

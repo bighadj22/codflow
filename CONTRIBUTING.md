@@ -24,11 +24,12 @@ Algerian market, built as a monorepo of four packages running on Cloudflare.
 
 ```
 codflow-os/
-├── cod-server/   # Backend API  — Cloudflare Worker (Hono + D1 + R2)
-├── cod-client/   # Merchant dashboard — Next.js 16 + OpenNext on Cloudflare
-├── cod-astro/    # Customer storefront — Astro, trilingual (AR/FR/EN)
-│   └── theme01/  #   the default theme (theme layer is swappable)
-└── cod-shared/   # Source-shared TS — D1 schema, RBAC scopes, read queries
+├── cod-server/        # Backend API  — Cloudflare Worker (Hono + D1 + R2)
+├── cod-client-astro/  # Merchant dashboard — Astro (prerendered + auth worker)
+├ cod-client/          # LEGACY dashboard (Next.js) — reference only, slated for removal
+├── cod-astro/         # Customer storefront — Astro, trilingual (AR/FR/EN)
+│   └── theme01/       #   the default theme (theme layer is swappable)
+└── cod-shared/        # Source-shared TS — D1 schema, RBAC scopes, read queries
 ```
 
 npm workspaces: one root `package.json` and a single root `package-lock.json`.
@@ -38,11 +39,12 @@ Install once at the repo root (`npm ci`) — never add per-package lockfiles.
 
 ### Package scripts
 
-| Package            | Dev          | Test        | Build       |
-|--------------------|--------------|-------------|-------------|
-| `cod-server`       | `npm run dev`| `npm test`  | `npm run build:ci` |
-| `cod-client`       | `npm run dev`| `npm test`  | `opennextjs-cloudflare build` |
-| `cod-astro/theme01`| `npm run dev`| `npm test`  | `astro build` |
+| Package             | Dev          | Test        | Build       |
+|---------------------|--------------|-------------|-------------|
+| `cod-server`        | `npm run dev`| `npm test`  | `npm run build:ci` |
+| `cod-client-astro`  | `npm run dev`| `npm test`  | `npm run build` |
+| `cod-astro/theme01` | `npm run dev`| `npm test`  | `npm run build` |
+| `cod-client` *(legacy)* | —        | `npm test`  | — |
 
 Run package scripts either from inside the package directory or with
 `npm run <script> --workspace <package-name>` from the repo root.
@@ -113,15 +115,16 @@ npm ci
 
 ```bash
 wrangler login
-wrangler d1 create codflow-db
+wrangler d1 create codflow-os-db
 wrangler r2 bucket create codflow-images
-wrangler kv namespace create RATE_LIMIT_KV   # only needed for cod-client
+wrangler kv namespace create RATE_LIMIT
+wrangler kv namespace create OAUTH_KV
 ```
 
 ### 3. Configure
 
 Every package ships a Cloudflare config with placeholder values
-(`wrangler.toml` in cod-server/cod-client, `wrangler.jsonc` in
+(`wrangler.toml` in cod-server/cod-client-astro, `wrangler.jsonc` in
 cod-astro/theme01) and a **`.dev.vars.example`**. Copy the example files and
 paste your own resource IDs:
 
@@ -129,13 +132,15 @@ paste your own resource IDs:
 # backend
 cd cod-server
 cp .dev.vars.example .dev.vars
-# paste your database_id / bucket_name into wrangler.toml
+cp wrangler.toml.example wrangler.toml
+# paste your database_id / bucket_name / kv ids into wrangler.toml
 
 # dashboard
-cd ../cod-client
+cd ../cod-client-astro
+cp wrangler.toml.example wrangler.toml   # same D1 database_id as cod-server + your KV id
+cp .env.example .env
 cp .dev.vars.example .dev.vars
-# paste database_id + kv id into wrangler.toml
-# generate a secret: openssl rand -base64 32  →  BETTER_AUTH_SECRET
+# generate a secret: openssl rand -hex 32  →  BETTER_AUTH_SECRET (same as cod-server's)
 
 # storefront
 cd ../cod-astro/theme01
@@ -155,26 +160,28 @@ npm run db:setup:local      # migrate + seed demo store (products, categories…
 ### 5. Create an admin account
 
 ```bash
-cd cod-client
-ADMIN_EMAIL=you@example.com ADMIN_NAME=You node scripts/seed-admin.mjs
+cd cod-client-astro
+ADMIN_EMAIL=you@example.com ADMIN_NAME=You npm run seed:admin
 ```
 
 The script prints a generated password + API key. Without this you cannot sign
-into the dashboard (the first sign-up would default to `staff`).
+into the dashboard — sign-up is disabled by design, admins are provisioned.
 
 ---
 
 ## Local development
 
-Open **four terminals**, one per package (D1 state is shared through
+Open **three terminals**, one per package (D1 state is shared through
 `<repo-root>/.wrangler-shared` so they read the same local database):
 
 | # | Command               | What runs                                 |
 |---|-----------------------|-------------------------------------------|
-| 1 | `cd cod-server && npm run dev`          | API on `http://localhost:8787` (+ OpenAPI at `/api`) |
-| 2 | `cd cod-client && npm run dev`          | Dashboard on `http://localhost:3000` (auth) / `8788` (worker) |
-| 3 | `cd cod-astro/theme01 && npm run dev`   | Storefront on `http://localhost:4321`     |
-| 4 | *(optional)* `wrangler d1 execute codflow-db --local --command "…"` | Inspect the shared DB |
+| 1 | `cd cod-server && npm run dev`              | API on `http://localhost:8787` (+ OpenAPI at `/api`) |
+| 2 | `cd cod-client-astro && npm run dev`        | Dashboard on `http://localhost:4321` |
+| 3 | `cd cod-astro/theme01 && npm run dev`       | Storefront on `http://localhost:4321` — run `astro dev --port 4322` when the dashboard is up |
+
+Inspect the shared DB any time:
+`wrangler d1 execute codflow-os-db --local --persist-to ../.wrangler-shared --command "…"`
 
 ---
 
@@ -182,15 +189,16 @@ Open **four terminals**, one per package (D1 state is shared through
 
 **There is no hardcoded configuration.** URLs, domains, database IDs, and bucket
 names are placeholders in each package's Cloudflare config (`wrangler.toml` in
-cod-server/cod-client, `wrangler.jsonc` in cod-astro/theme01); secrets go in
-gitignored `.dev.vars` files or `wrangler secret put` in production.
+cod-server/cod-client-astro, `wrangler.jsonc` in cod-astro/theme01); secrets go
+in gitignored `.dev.vars` files or `wrangler secret put` in production.
 
 | Variable | Owner | Purpose |
 |----------|-------|---------|
 | `WORKER_URL`, `MEDIA_DOMAIN`, `R2_BUCKET_NAME`, `BETTER_AUTH_URL`, `WORKER_SELF_URL` | `cod-server` | public URLs + R2 (see `src/types/env.ts`) |
-| `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_WORKER_URL` | `cod-client` | dashboard origin + API origin (auth base URL, MCP audience, email sender domain) |
+| `PUBLIC_APP_URL`, `PUBLIC_API_URL`, `PUBLIC_TRUSTED_ORIGINS` | `cod-client-astro` (wrangler `[vars]`) | dashboard origin, API origin, auth cookie origins |
+| `PUBLIC_API_URL` | `cod-client-astro` (`.env`, build time) | API origin baked into the client bundle |
 | `COD_SERVER_URL`, `STORE_API_KEY`, `MEDIA_DOMAIN` | `cod-astro/theme01` | backend base URL + store key + media CDN |
-| `BETTER_AUTH_SECRET`, R2 creds, `CF_ACCOUNT_ID` | all | secrets — never in a wrangler config file |
+| `BETTER_AUTH_SECRET`, `MCP_LOGIN_TICKET_SECRET`, R2 creds, `CF_ACCOUNT_ID` | all | secrets — never in a wrangler config file |
 
 ---
 
@@ -199,8 +207,8 @@ gitignored `.dev.vars` files or `wrangler secret put` in production.
 ### The `cod-shared` boundary
 
 - **D1 schema** lives in `cod-shared/db/schema.ts` — one source of truth.
-- **Read queries** live in `cod-shared/queries/*.ts`. Both `cod-server` handlers
-  and `cod-client` server actions import from there.
+- **Read queries** live in `cod-shared/queries/*.ts`; `cod-server` handlers
+  consume them (and re-export per domain).
 - **RBAC scopes** live in `cod-shared/rbac/scopes.ts`.
 
 > Do **not** duplicate schema or query logic inside a package. If you touch a
@@ -223,13 +231,15 @@ orders/
 - New env vars must be declared in **three** places: `src/types/env.ts`,
   `wrangler.toml`, and this guide / the `cod-server/README.md`.
 
-### Dashboard reads vs writes (`cod-client`)
+### Dashboard (`cod-client-astro`)
 
-- **Reads** → server actions read D1 directly via `cod-shared/queries/*` (after `requirePermission`).
-- **Writes** → always go through the cod-server REST API via `apiClient`.
-- Only `fetchCompanyStopDesks`, `getShipmentTracking`, `getPixelConfig` may
-  call the API directly via `apiClient.get`. Don't add new direct `apiClient.get`
-  calls to `actions/*.ts` outside those. (Enforced by `npm run check:reads`.)
+- **All data flows through the API seam** (`src/lib/api.ts`) — browser →
+  cod-server REST with a short-lived JWT. Components never call `fetch`
+  directly.
+- Pages are prerendered shells; interactive regions are React islands.
+  Auth lives on the Worker surface (`/api/auth/*`) only.
+- UI strings come from `locales/{ar,en,fr}/*.json` via `useT(namespace)` —
+  never hardcoded. The i18n guard test enforces three-locale parity.
 
 ### Storefront (`cod-astro/theme01`)
 
@@ -254,10 +264,15 @@ orders/
 Run the full suite of a package before pushing:
 
 ```bash
-cd cod-server        && npm test       # 698 tests
-cd cod-client        && npm test       # 141 tests
+cd cod-server        && npm test       # 1386 tests
+cd cod-client-astro  && npm test       # 139 tests
 cd cod-astro/theme01 && npm test       # property + behavior tests
 ```
+
+- New endpoints must ship with tests (`handlers.test.ts`, `validation.test.ts`).
+- Property tests for the storefront scripts use `fast-check`.
+- If a test is genuinely obsolete (e.g. it documents a bug in a feature that was
+  removed), **delete it** — never leave an intentionally failing test in the tree.
 
 - New endpoints must ship with tests (`handlers.test.ts`, `validation.test.ts`).
 - Property tests for the storefront scripts use `fast-check`.
@@ -295,9 +310,9 @@ cd cod-astro/theme01 && npm test       # property + behavior tests
 ## Getting help
 
 - Start a discussion / open an issue on the repository.
-- Read the per-package READMEs: `cod-server/README.md`, `cod-client/README.md`,
-  `cod-astro/theme01/THEME_GUIDE.md`, and the endpoint docs under
-  `cod-server/src/endpoints/*/README.md`.
+- Read the per-package READMEs: `cod-server/README.md`,
+  `cod-client-astro/README.md`, `cod-astro/theme01/THEME_GUIDE.md`, and the
+  endpoint docs under `cod-server/src/endpoints/*/README.md`.
 - Coding agents should read the repo instructions: `AGENTS.md` (root) and
   `cod-astro/theme01/AGENTS.md` (storefront).
 

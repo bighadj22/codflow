@@ -10,6 +10,61 @@ import {
 import { getDb } from "@/db";
 
 /**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ *
+ * communeId uses the communes table's canonical `c-XX-YYY` format (e.g. c-16-163,
+ * Algiers) — NOT a UUID. There are 1551 seeded communes, all in this format.
+ */
+export const listShippingProfilesSchema = z.object({});
+export const getShippingProfileSchema = z.object({
+  profileId: z.string().min(1).describe("ID of the shipping profile"),
+});
+export const getDefaultShippingRulesSchema = z.object({});
+export const createShippingProfileToolSchema = createProfileSchema;
+export const updateShippingProfileToolSchema = z.object({
+  profileId: z.string().min(1).describe("ID of the shipping profile to update"),
+  updates: updateProfileSchema,
+});
+export const deleteShippingProfileSchema = z.object({
+  profileId: z.string().min(1).describe("ID of the shipping profile to delete"),
+});
+export const setShippingProfileRulesToolSchema = z.object({
+  profileId: z.string().min(1).describe("ID of the shipping profile"),
+  rules: bulkRulesSchema.shape.rules,
+});
+export const listCommuneOverridesSchema = z.object({
+  profileId: z.string().min(1).describe("ID of the shipping profile"),
+  wilayaId: z.number().int().min(1).max(58).describe("Wilaya integer ID (1–58)"),
+});
+export const setShippingCommuneOverrideToolSchema = z.object({
+  profileId: z.string().min(1).describe("ID of the shipping profile"),
+  wilayaId: z.number().int().min(1).max(58).describe("Wilaya integer ID (1–58)"),
+  communeId: z.string().regex(/^c-\d{2}-\d{3}$/, "communeId must match the communes table format c-XX-YYY (e.g. c-01-001)").describe("Commune ID in the communes table format c-XX-YYY (e.g. c-16-163)"),
+  override: communeOverrideSchema,
+});
+export const resetShippingCommuneOverrideSchema = z.object({
+  profileId: z.string().min(1).describe("ID of the shipping profile"),
+  wilayaId: z.number().int().min(1).max(58).describe("Wilaya integer ID (1–58)"),
+  communeId: z.string().regex(/^c-\d{2}-\d{3}$/, "communeId must match the communes table format c-XX-YYY (e.g. c-01-001)").describe("Commune ID (c-XX-YYY) whose override should be reset"),
+});
+
+export const SHIPPING_PROFILE_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  listShippingProfiles: listShippingProfilesSchema.shape,
+  getShippingProfile: getShippingProfileSchema.shape,
+  getDefaultShippingRules: getDefaultShippingRulesSchema.shape,
+  createShippingProfile: createShippingProfileToolSchema.shape,
+  updateShippingProfile: updateShippingProfileToolSchema.shape,
+  deleteShippingProfile: deleteShippingProfileSchema.shape,
+  setShippingProfileRules: setShippingProfileRulesToolSchema.shape,
+  listCommuneOverrides: listCommuneOverridesSchema.shape,
+  setShippingCommuneOverride: setShippingCommuneOverrideToolSchema.shape,
+  resetShippingCommuneOverride: resetShippingCommuneOverrideSchema.shape,
+};
+
+/**
  * AI Tools for Shipping Profile Management
  *
  * Shipping profiles define what the CUSTOMER pays for delivery.
@@ -69,9 +124,7 @@ export const getShippingProfileTools = (db: ReturnType<typeof getDb>) => ({
       "Use this before updating rules or inspecting commune overrides.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        profileId: z.string().min(1).describe("ID of the shipping profile"),
-      });
+      const validationSchema = getShippingProfileSchema;
 
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
@@ -151,10 +204,7 @@ export const getShippingProfileTools = (db: ReturnType<typeof getDb>) => ({
       "Set notes: null to clear the notes field.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        profileId: z.string().min(1).describe("ID of the shipping profile to update"),
-        updates: updateProfileSchema,
-      });
+      const validationSchema = updateShippingProfileToolSchema;
 
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
@@ -192,9 +242,7 @@ export const getShippingProfileTools = (db: ReturnType<typeof getDb>) => ({
       "This action is irreversible.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        profileId: z.string().min(1).describe("ID of the shipping profile to delete"),
-      });
+      const validationSchema = deleteShippingProfileSchema;
 
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
@@ -251,10 +299,7 @@ export const getShippingProfileTools = (db: ReturnType<typeof getDb>) => ({
       "Send rules: [] to clear all rules for the profile.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        profileId: z.string().min(1).describe("ID of the shipping profile"),
-        rules: bulkRulesSchema.shape.rules,
-      });
+      const validationSchema = setShippingProfileRulesToolSchema;
 
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
@@ -304,10 +349,7 @@ export const getShippingProfileTools = (db: ReturnType<typeof getDb>) => ({
       "The profile must already have a rule for this wilaya — use setShippingProfileRules to add one first.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        profileId: z.string().min(1).describe("ID of the shipping profile"),
-        wilayaId: z.number().int().min(1).max(58).describe("Wilaya integer ID (1–58)"),
-      });
+      const validationSchema = listCommuneOverridesSchema;
 
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
@@ -346,7 +388,7 @@ export const getShippingProfileTools = (db: ReturnType<typeof getDb>) => ({
   setShippingCommuneOverride: tool({
     description:
       "Sets or updates a commune-level delivery override on top of a wilaya rule. " +
-      "Required: profileId (string), wilayaId (integer 1–58), communeId (UUID). " +
+      "Required: profileId (string), wilayaId (integer 1–58), communeId (c-XX-YYY, e.g. c-16-163). " +
       "Override fields (all optional, all nullable): homeEnabled (boolean or null), " +
       "stopDeskEnabled (boolean or null), homePrice (number >= 0 or null), stopDeskPrice (number >= 0 or null). " +
       "null = inherit from the wilaya rule at fee-resolution time. " +
@@ -354,12 +396,7 @@ export const getShippingProfileTools = (db: ReturnType<typeof getDb>) => ({
       "The profile must already have a rule for this wilaya.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        profileId: z.string().min(1).describe("ID of the shipping profile"),
-        wilayaId: z.number().int().min(1).max(58).describe("Wilaya integer ID (1–58)"),
-        communeId: z.string().uuid().describe("UUID of the commune"),
-        override: communeOverrideSchema,
-      });
+      const validationSchema = setShippingCommuneOverrideToolSchema;
 
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
@@ -370,7 +407,7 @@ export const getShippingProfileTools = (db: ReturnType<typeof getDb>) => ({
           success: false,
           error:
             `Invalid arguments: ${errorDetails}. ` +
-            `Expected: profileId (string), wilayaId (int 1–58), communeId (UUID), ` +
+            `Expected: profileId (string), wilayaId (int 1–58), communeId (c-XX-YYY), ` +
             `override object with optional nullable fields: homeEnabled (boolean|null), ` +
             `stopDeskEnabled (boolean|null), homePrice (number >= 0 | null), stopDeskPrice (number >= 0 | null).`,
         };
@@ -400,15 +437,11 @@ export const getShippingProfileTools = (db: ReturnType<typeof getDb>) => ({
   resetShippingCommuneOverride: tool({
     description:
       "Removes a commune-level override — the commune reverts to inheriting the wilaya rule defaults. " +
-      "Required: profileId (string), wilayaId (integer 1–58), communeId (UUID). " +
+      "Required: profileId (string), wilayaId (integer 1–58), communeId (c-XX-YYY, e.g. c-16-163). " +
       "Returns an error if no override exists for this commune.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        profileId: z.string().min(1).describe("ID of the shipping profile"),
-        wilayaId: z.number().int().min(1).max(58).describe("Wilaya integer ID (1–58)"),
-        communeId: z.string().uuid().describe("UUID of the commune to reset"),
-      });
+      const validationSchema = resetShippingCommuneOverrideSchema;
 
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
@@ -417,7 +450,7 @@ export const getShippingProfileTools = (db: ReturnType<typeof getDb>) => ({
           .join("; ");
         return {
           success: false,
-          error: `Invalid arguments: ${errorDetails}. Expected: profileId (string), wilayaId (int 1–58), communeId (UUID).`,
+          error: `Invalid arguments: ${errorDetails}. Expected: profileId (string), wilayaId (int 1–58), communeId (c-XX-YYY).`,
         };
       }
 

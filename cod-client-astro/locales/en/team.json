@@ -1,0 +1,186 @@
+{
+  "header": {
+    "title": "Team Management",
+    "subtitle": "Manage team members, permissions, and roles"
+  },
+  "error_load": "Could not load team members",
+  "invite_user": "Invite User",
+  "team_members": "Team Members",
+  "joined": "Joined",
+  "manage_permissions": "Manage Permissions",
+  "generate_api_key": "Generate API Key",
+  "revoke_api_key": "Revoke API Key",
+  "rotate_api_key": "Rotate API Key",
+  "rotate_key_dialog": {
+    "confirm_title": "Rotate API Key for {name}?",
+    "confirm_description": "The current key will be immediately invalidated. The new key is shown once — copy it before closing.",
+    "confirm_button": "Rotate Key",
+    "result_title": "New API Key",
+    "result_subtitle": "Key rotated for {name}",
+    "warning": "This key will not be shown again. Copy it now and share it securely.",
+    "done": "Done"
+  },
+  "search_placeholder": "Search team members...",
+  "table": {
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "status": "Status",
+    "permissions": "Permissions",
+    "scopes": "scopes",
+    "joined": "Joined"
+  },
+  "actions": {
+    "view": "View",
+    "edit": "Edit"
+  },
+  "filters": {
+    "role": "Role",
+    "status": "Status"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "suspended": "Suspended"
+  },
+  "empty_state": {
+    "title": "No team members found"
+  },
+  "status_updated": "Status updated successfully",
+  "status_update_failed": "Failed to update status",
+  "role_updated": "Role updated successfully",
+  "role_update_failed": "Failed to update role",
+  "api_key_generated": "API key generated successfully",
+  "api_key_copied": "API key copied to clipboard",
+  "api_key_generation_failed": "Failed to generate API key",
+  "api_key_revoked": "API key revoked successfully",
+  "api_key_revoke_failed": "Failed to revoke API key",
+  "invite_dialog": {
+    "title": "Invite New User",
+    "name": "Name",
+    "name_placeholder": "Enter user name",
+    "email": "Email",
+    "email_placeholder": "Enter email address",
+    "role": "Role",
+    "cancel": "Cancel",
+    "send_invite": "Send Invite",
+    "sending": "Sending...",
+    "success": "Invite sent successfully",
+    "error": "Failed to send invite",
+    "validation_error": "Please fill in all required fields"
+  },
+  "view_activity": "View Activity",
+  "activity_log": {
+    "title": "Activity Log",
+    "subtitle": "All actions performed by this member",
+    "empty": "No activity recorded yet",
+    "load_more": "Load more",
+    "filters": {
+      "all": "All",
+      "orders": "Orders",
+      "customers": "Customers",
+      "drivers": "Drivers",
+      "products": "Products",
+      "team": "Team",
+      "reviews": "Reviews",
+      "type": "Type"
+    },
+    "stats": {
+      "actions": "actions",
+      "last_active": "last active"
+    },
+    "actions": {
+      "order.created": "Created a new order",
+      "order.status_changed": "Changed order status",
+      "order.driver_assigned": "Assigned driver to order",
+      "order.dispatched": "Dispatched order to company",
+      "order.deleted": "Deleted an order",
+      "customer.created": "Added a new customer",
+      "customer.updated": "Updated customer info",
+      "customer.deleted": "Deleted a customer",
+      "driver.created": "Added a new driver",
+      "driver.updated": "Updated driver info",
+      "driver.status_changed": "Changed driver status",
+      "driver.deleted": "Deleted a driver",
+      "product.created": "Added a new product",
+      "product.updated": "Updated product info",
+      "product.status_changed": "Changed product status",
+      "product.deleted": "Deleted a product",
+      "user.created": "Added a team member",
+      "user.updated": "Updated member info",
+      "user.role_changed": "Changed member role",
+      "user.scope_granted": "Granted permission",
+      "user.scope_revoked": "Revoked permission",
+      "user.api_key_generated": "Generated API key",
+      "user.api_key_revoked": "Revoked API key",
+      "review.approved": "Approved a review",
+      "review.rejected": "Rejected a review",
+      "review.deleted": "Deleted a review"
+    },
+    "table": {
+      "action": "Action",
+      "type": "Type",
+      "details": "Details",
+      "time": "Time"
+    },
+    "search_placeholder": "Search activities...",
+    "loading": "Loading..."
+  },
+  "scope_dialog": {
+    "title": "Manage Permissions",
+    "cancel": "Cancel",
+    "save_changes": "Save Changes",
+    "saving": "Saving...",
+    "success": "Permissions updated successfully",
+    "error": "Failed to update permissions",
+    "will_grant": "Will grant",
+    "will_revoke": "Will revoke",
+    "security_warning": "Granting broad scopes may affect system security",
+    "admin_full_access": "Admin users have all permissions by default"
+  },
+  "scope_categories": {
+    "dashboard": "Dashboard",
+    "orders": "Orders",
+    "customers": "Customers",
+    "customerGroups": "Customer Groups",
+    "customerTags": "Customer Tags",
+    "products": "Products",
+    "delivery": "Delivery",
+    "productGroups": "Product Groups",
+    "stock": "Stock",
+    "reviews": "Reviews",
+    "offers": "Offers",
+    "abandonedOrders": "Abandoned Orders",
+    "mcp": "AI Agents (MCP)",
+    "settings": "Settings"
+  },
+  "scope_actions": {
+    "view": "View",
+    "read": "Read",
+    "create": "Create",
+    "update": "Update",
+    "delete": "Delete",
+    "assign": "Assign",
+    "manage": "Manage",
+    "dispatch": "Dispatch",
+    "team": "Team",
+    "integrations": "Integrations",
+    "notifications": "Notifications",
+    "verification": "Verification"
+  },
+  "invite_dialog_extra": {
+    "permissions_label": "Permissions",
+    "n_selected": "{{count}} selected",
+    "admin_full_access": "Admins have full access to all features — no scope selection needed.",
+    "api_key_label": "API Key",
+    "temp_password_label": "Temporary Password",
+    "api_key_warning": "This API key will not be shown again. Copy it now and share it securely with the team member.",
+    "temp_password_warning": "Share the temporary password with the user so they can sign in for the first time.",
+    "success_title": "Member Added",
+    "success_subtitle": "Onboard new team member"
+  },
+  "error_member_not_found": "Team member not found",
+  "error_duplicate_email": "A user with this email already exists",
+  "error_permission_denied": "Admin access required",
+  "error_generic": "Something went wrong. Please try again."
+}

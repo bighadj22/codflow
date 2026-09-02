@@ -1,0 +1,77 @@
+{
+  "page_title": "وكلاء الذكاء الاصطناعي",
+  "page_subtitle": "اربط Claude و ChatGPT وغيرها من مساعدي الذكاء الاصطناعي بمساحة عملك.",
+  "tabs": {
+    "connect": "الاتصال",
+    "mine": "اتصالاتك",
+    "team": "الفريق"
+  },
+  "url_card": {
+    "label": "رابط MCP الخاص بك",
+    "hint": "الصق هذا الرابط في Claude Desktop أو Claude.ai أو ChatGPT لربط وكيل ذكاء اصطناعي بمساحة عملك.",
+    "copy": "نسخ",
+    "copied": "تم النسخ"
+  },
+  "snippet": {
+    "heading": "إعداد سريع",
+    "description": "اختر تطبيق الذكاء الاصطناعي الذي تستخدمه للحصول على الإعداد الجاهز للنسخ.",
+    "tab_claude_desktop": "Claude Desktop",
+    "tab_claude_web": "Claude.ai",
+    "tab_chatgpt": "ChatGPT",
+    "tab_other": "أخرى",
+    "copy_snippet": "نسخ المقتطف",
+    "claude_desktop_instructions": "في Claude Desktop، افتح الإعدادات ← الموصّلات ← إضافة موصّل مخصص، ثم الصق هذا الرابط وسجّل الدخول بحساب CodFlow:",
+    "claude_desktop_alt": "أو الاتصال محليًا عبر mcp-remote — الصق ما يلي في الإعدادات ← المطوّر ← تعديل الإعدادات:",
+    "claude_web_instructions": "في Claude.ai، افتح تخصيص ← الموصّلات ← + ← إضافة موصّل مخصص، ثم الصق هذا الرابط:",
+    "chatgpt_instructions": "في ChatGPT، فعّل وضع المطوّر (الإعدادات ← الموصّلات ← إعدادات متقدمة)، ثم أنشئ موصّلًا والصق هذا الرابط:",
+    "other_instructions": "يمكن لأي عميل متوافق مع MCP الاتصال عبر mcp-remote:"
+  },
+  "my_connections": {
+    "title": "اتصالاتك",
+    "empty_title": "لم تربط أي وكيل ذكاء اصطناعي بعد",
+    "empty_description": "عندما تلصق رابط MCP الخاص بك في تطبيق ذكاء اصطناعي، سيظهر الاتصال هنا.",
+    "active": "نشط",
+    "inactive": "غير نشط",
+    "connected_at": "تم الاتصال {date}",
+    "last_used": "آخر استخدام {when}",
+    "never_used": "لم يُستخدم بعد",
+    "scope_count_one": "صلاحية واحدة",
+    "scope_count_other": "{count} صلاحية",
+    "show_permissions": "عرض الصلاحيات",
+    "hide_permissions": "إخفاء الصلاحيات",
+    "revoke": "إلغاء الصلاحية",
+    "revoke_confirm_title": "إلغاء الصلاحية؟",
+    "revoke_confirm_description": "سيتم فصل {app} ولن يتمكن من الوصول إلى مساحة عملك حتى تمنحه الصلاحية من جديد.",
+    "revoke_cancel": "إلغاء",
+    "revoke_confirm": "نعم، إلغاء الصلاحية",
+    "revoke_success": "تم إلغاء الصلاحية.",
+    "revoke_error": "تعذر إلغاء الصلاحية. يرجى المحاولة مجدداً."
+  },
+  "team_connections": {
+    "title": "اتصالات الفريق",
+    "description": "عرض إداري لجميع اتصالات وكلاء الذكاء الاصطناعي لكل عضو في الفريق.",
+    "column_member": "عضو الفريق",
+    "column_app": "التطبيق",
+    "column_status": "الحالة",
+    "column_last_used": "آخر استخدام",
+    "column_action": "الإجراء",
+    "empty_title": "لا توجد اتصالات للفريق بعد",
+    "empty_description": "عندما يبدأ فريقك في ربط وكلاء ذكاء اصطناعي، ستراهم هنا.",
+    "revoke": "إلغاء"
+  },
+  "help": {
+    "title": "ما هذا؟",
+    "paragraph_1": "يسمح MCP (بروتوكول سياق النموذج) لوكلاء الذكاء الاصطناعي بالوصول إلى مساحة عملك بأمان. أنت تتحكم فيما يمكنهم فعله من خلال صلاحيات دقيقة.",
+    "paragraph_2": "عندما يحاول وكيل ذكاء اصطناعي تنفيذ إجراء حساس — مثل حذف عميل أو إنشاء دفعة — سيُطلب منك التأكيد داخل تطبيق الذكاء الاصطناعي قبل تنفيذه.",
+    "paragraph_3": "يمكنك إلغاء الصلاحية في أي وقت؛ يفقد الوكيل جميع صلاحيات الوصول فوراً."
+  },
+  "time": {
+    "just_now": "الآن",
+    "minutes_ago_one": "منذ دقيقة",
+    "minutes_ago_other": "منذ {count} دقيقة",
+    "hours_ago_one": "منذ ساعة",
+    "hours_ago_other": "منذ {count} ساعة",
+    "days_ago_one": "منذ يوم",
+    "days_ago_other": "منذ {count} يوم"
+  }
+}

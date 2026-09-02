@@ -76,6 +76,8 @@ export const ACTIONS = {
   MCP_TOOL_DECLINED:       "mcp.tool_declined",
   /** User or admin revoked an MCP client's access from the /mcp page. */
   MCP_CONNECTION_REVOKED:  "mcp.connection_revoked",
+  /** Admin deleted a registered MCP client and revoked all its grants. */
+  MCP_CLIENT_DELETED:      "mcp.client_deleted",
 } as const;
 
 export type ActivityAction = (typeof ACTIONS)[keyof typeof ACTIONS];

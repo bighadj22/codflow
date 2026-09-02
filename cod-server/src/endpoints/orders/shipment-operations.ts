@@ -85,6 +85,10 @@ export async function updateShipmentInfo(c: Context<AppContext>) {
 
   // Packers requires ALL of these fields on every update call — even if only one field changes.
   // We pre-fill from the order record and let the body override individual fields.
+  // amount (montant at the carrier) is the COD total: price + delivery fee.
+  // When the merchant did not send an explicit amount we do NOT sync price back
+  // (the pre-filled COD differs from the product subtotal whenever a fee exists).
+  const codAmount = order.price + (order.deliveryFee ?? 0);
   const input = {
     customerName: (body.customerName as string | undefined) ?? order.customerName,
     phone:        (body.phone        as string | undefined) ?? order.phone,
@@ -92,7 +96,7 @@ export async function updateShipmentInfo(c: Context<AppContext>) {
     address:      (body.address      as string | undefined) ?? order.address ?? "",
     commune:      (body.commune      as string | undefined) ?? communeRow?.name ?? "",
     wilayaId:     body.wilayaId != null ? Number(body.wilayaId) : (order.wilayaId ?? undefined),
-    amount:       body.amount   != null ? Number(body.amount)   : (order.price ?? undefined),
+    amount:       body.amount   != null ? Number(body.amount)   : codAmount,
     remarks:      body.remarks  as string | undefined,
     fragile:      body.fragile  != null ? Boolean(body.fragile) : undefined,
     weight:       body.weight   != null ? Number(body.weight)   : undefined,
@@ -131,7 +135,7 @@ export async function updateShipmentInfo(c: Context<AppContext>) {
     await syncOrderAfterCarrierUpdate(db, orderId, {
       customerName: input.customerName !== order.customerName ? input.customerName : undefined,
       phone:        input.phone        !== order.phone        ? input.phone        : undefined,
-      price:        input.amount       !== order.price        ? input.amount       : undefined,
+      price:        body.amount != null ? Number(body.amount) : undefined,
     });
 
     await logApiCall(db, {
@@ -263,6 +267,202 @@ export async function cancelShipment(c: Context<AppContext>) {
     });
     throw new ExternalApiError(company.code, errorMessage, { orderId });
   }
+}
+
+/**
+ * POST /orders/:id/ask-return
+ * Ask the carrier to return a parcel that is currently in delivery.
+ * This is a REQUEST, not a state change — the carrier may ignore it
+ * (platform-documented), so the order status stays out_for_delivery until
+ * the return is confirmed via /confirm-return-reception or tracking shows it.
+ * Supported providers: ecotrack. Others return OPERATION_NOT_SUPPORTED.
+ */
+export async function askShipmentReturn(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const orderId = c.req.param("id")!;
+
+  const order = await queries.getOrderById(db, orderId);
+  if (!order) throw new NotFoundError("Order", orderId);
+
+  if (!order.trackingNumber) {
+    throw new BusinessLogicError(
+      "Order has no tracking number — dispatch it first",
+      ERROR_CODES.REQUIRED_FIELD_MISSING,
+      { orderId }
+    );
+  }
+
+  if (order.status !== "out_for_delivery") {
+    throw new BusinessLogicError(
+      `Return can only be requested while the parcel is in delivery — current status: ${order.status}`,
+      ERROR_CODES.INVALID_STATUS_TRANSITION,
+      { orderId, currentStatus: order.status }
+    );
+  }
+
+  if (!order.companyId) throw new ValidationError("Order has no delivery company assigned", ERROR_CODES.REQUIRED_FIELD_MISSING);
+
+  const company = await getDeliveryCompanyRaw(db, order.companyId);
+  if (!company) throw new NotFoundError("Delivery company", order.companyId);
+
+  let provider;
+  try {
+    provider = getProvider(company);
+  } catch (err) {
+    throw new BusinessLogicError(err instanceof Error ? err.message : "Provider not available", ERROR_CODES.PROVIDER_NOT_SUPPORTED, { companyId: order.companyId });
+  }
+
+  if (typeof provider.askReturn !== "function") {
+    throw new BusinessLogicError(
+      `The ${company.code} provider does not support return requests`,
+      ERROR_CODES.OPERATION_NOT_SUPPORTED,
+      { provider: company.code }
+    );
+  }
+
+  const startMs = Date.now();
+  try {
+    await provider.askReturn(order.trackingNumber);
+    const durationMs = Date.now() - startMs;
+
+    await logApiCall(db, {
+      companyId: company.id,
+      orderId,
+      action: "ask_return",
+      method: "POST",
+      endpoint: "/api/v1/ask/for/order/return",
+      httpStatus: 200,
+      success: true,
+      durationMs,
+    });
+
+    const actor = c.get("user");
+    await logActivity(db, actor, ACTIONS.ORDER_STATUS_CHANGED, {
+      type: "order", id: orderId, label: order.orderNumber,
+    }, { action: "ask_return", trackingNumber: order.trackingNumber });
+
+    console.info(`[shipment] return requested order=${orderId} tracking=${order.trackingNumber} via ${company.code}`);
+    return c.json({
+      success: true,
+      message: "Return requested — the courier may take up to a day to action it (they can decline). Track the parcel for the return outcome.",
+    }, 200);
+  } catch (err) {
+    const durationMs = Date.now() - startMs;
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    await logApiCall(db, {
+      companyId: company.id,
+      orderId,
+      action: "ask_return",
+      method: "POST",
+      endpoint: "/api/v1/ask/for/order/return",
+      success: false,
+      errorMessage,
+      durationMs,
+    });
+    throw new ExternalApiError(company.code, errorMessage, { orderId });
+  }
+}
+
+/**
+ * POST /orders/:id/confirm-return-reception
+ * Confirm at the carrier that the merchant physically received the returned
+ * parcel (EcoTrack POST /api/v1/valid/returns), then flip the order to
+ * "returned" through the normal status path (inventory restore, customer
+ * stats, history — all handled by updateOrderStatus).
+ * Forward-only: only callable from out_for_delivery.
+ * Supported providers: ecotrack. Others return OPERATION_NOT_SUPPORTED.
+ */
+export async function confirmReturnReception(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const orderId = c.req.param("id")!;
+
+  const order = await queries.getOrderById(db, orderId);
+  if (!order) throw new NotFoundError("Order", orderId);
+
+  if (!order.trackingNumber) {
+    throw new BusinessLogicError(
+      "Order has no tracking number — dispatch it first",
+      ERROR_CODES.REQUIRED_FIELD_MISSING,
+      { orderId }
+    );
+  }
+
+  if (order.status !== "out_for_delivery") {
+    throw new BusinessLogicError(
+      `Return reception can only be confirmed from out_for_delivery — current status: ${order.status}`,
+      ERROR_CODES.INVALID_STATUS_TRANSITION,
+      { orderId, currentStatus: order.status }
+    );
+  }
+
+  if (!order.companyId) throw new ValidationError("Order has no delivery company assigned", ERROR_CODES.REQUIRED_FIELD_MISSING);
+
+  const company = await getDeliveryCompanyRaw(db, order.companyId);
+  if (!company) throw new NotFoundError("Delivery company", order.companyId);
+
+  let provider;
+  try {
+    provider = getProvider(company);
+  } catch (err) {
+    throw new BusinessLogicError(err instanceof Error ? err.message : "Provider not available", ERROR_CODES.PROVIDER_NOT_SUPPORTED, { companyId: order.companyId });
+  }
+
+  if (typeof provider.validateReturns !== "function") {
+    throw new BusinessLogicError(
+      `The ${company.code} provider does not support confirming return reception`,
+      ERROR_CODES.OPERATION_NOT_SUPPORTED,
+      { provider: company.code }
+    );
+  }
+
+  const startMs = Date.now();
+  let confirmed: boolean;
+  try {
+    confirmed = await provider.validateReturns([order.trackingNumber]);
+  } catch (err) {
+    const durationMs = Date.now() - startMs;
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    await logApiCall(db, {
+      companyId: company.id,
+      orderId,
+      action: "confirm_return_reception",
+      method: "POST",
+      endpoint: "/api/v1/valid/returns",
+      success: false,
+      errorMessage,
+      durationMs,
+    });
+    throw new ExternalApiError(company.code, errorMessage, { orderId });
+  }
+
+  const durationMs = Date.now() - startMs;
+  await logApiCall(db, {
+    companyId: company.id,
+    orderId,
+    action: "confirm_return_reception",
+    method: "POST",
+    endpoint: "/api/v1/valid/returns",
+    httpStatus: 200,
+    success: confirmed,
+    durationMs,
+  });
+
+  if (!confirmed) {
+    throw new BusinessLogicError(
+      "The carrier reports nothing eligible for return confirmation — the parcel may not be transferred to a return state yet, or was already confirmed. Check its tracking events.",
+      ERROR_CODES.SHIPMENT_UPDATE_FAILED,
+      { orderId, trackingNumber: order.trackingNumber, provider: company.code }
+    );
+  }
+
+  const actor = c.get("user");
+  await queries.updateOrderStatus(db, orderId, "returned", actor?.id, actor?.name ?? undefined);
+  await logActivity(db, actor, ACTIONS.ORDER_STATUS_CHANGED, {
+    type: "order", id: orderId, label: order.orderNumber,
+  }, { action: "confirm_return_reception", trackingNumber: order.trackingNumber });
+
+  console.info(`[shipment] return reception confirmed order=${orderId} tracking=${order.trackingNumber} via ${company.code}`);
+  return c.json({ success: true, message: "Return reception confirmed at the carrier — order marked returned" }, 200);
 }
 
 /**

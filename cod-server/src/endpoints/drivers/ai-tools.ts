@@ -5,20 +5,52 @@ import {
   driverFiltersSchema,
   createDriverSchema,
   updateDriverSchema,
-  updateDriverStatusSchema,
+  updateDriverStatusSchema as updateDriverStatusInputSchema,
 } from "./validation";
 import { getDb } from "@/db";
 
 /**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ */
+export const listDriversSchema = driverFiltersSchema;
+export const getDriverDetailsSchema = z.object({
+  driverId: z.string().uuid().describe("The unique UUID of the driver to retrieve"),
+});
+export const createNewDriverSchema = createDriverSchema;
+export const updateDriverProfileSchema = z.object({
+  driverId: z.string().uuid().describe("The UUID of the driver to update"),
+  updates: updateDriverSchema,
+});
+export const updateDriverStatusSchema = z.object({
+  driverId: z.string().uuid().describe("The UUID of the driver"),
+  status: updateDriverStatusInputSchema.shape.status,
+});
+export const deleteDriverSchema = z.object({
+  driverId: z.string().uuid().describe("The UUID of the driver to delete"),
+});
+
+export const DRIVER_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  listDrivers: listDriversSchema.shape,
+  getDriverDetails: getDriverDetailsSchema.shape,
+  createNewDriver: createNewDriverSchema.shape,
+  updateDriverProfile: updateDriverProfileSchema.shape,
+  updateDriverStatus: updateDriverStatusSchema.shape,
+  deleteDriver: deleteDriverSchema.shape,
+};
+
+/**
  * AI Tools for Driver Management
- * 
+ *
  * These tools allow the AI Agent to interact directly with the drivers database
  * logic by reusing existing queries and validation schemas.
- * 
+ *
  * Two-Layer Validation Pattern:
  * - Layer 1 (LLM-level): Permissive input schema accepts any object to prevent SDK crashes
  * - Layer 2 (App-level): Strict validation inside execute() with graceful error handling
- * 
+ *
  * This ensures the AI agent can recover from validation errors without breaking the conversation.
  */
 export const getDriverTools = (db: ReturnType<typeof getDb>) => ({
@@ -28,7 +60,7 @@ export const getDriverTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation with graceful error handling
-      const parsed = driverFiltersSchema.safeParse(args);
+      const parsed = listDriversSchema.safeParse(args);
       
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -71,11 +103,7 @@ export const getDriverTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        driverId: z.string().uuid().describe("The unique UUID of the driver to retrieve"),
-      });
-      
-      const parsed = validationSchema.safeParse(args);
+      const parsed = getDriverDetailsSchema.safeParse(args);
       
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -110,7 +138,7 @@ export const getDriverTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const parsed = createDriverSchema.safeParse(args);
+      const parsed = createNewDriverSchema.safeParse(args);
       
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -143,12 +171,7 @@ export const getDriverTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        driverId: z.string().uuid().describe("The UUID of the driver to update"),
-        updates: updateDriverSchema,
-      });
-      
-      const parsed = validationSchema.safeParse(args);
+      const parsed = updateDriverProfileSchema.safeParse(args);
       
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -187,12 +210,7 @@ export const getDriverTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        driverId: z.string().uuid().describe("The UUID of the driver"),
-        status: updateDriverStatusSchema.shape.status,
-      });
-      
-      const parsed = validationSchema.safeParse(args);
+      const parsed = updateDriverStatusSchema.safeParse(args);
       
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -231,11 +249,7 @@ export const getDriverTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        driverId: z.string().uuid().describe("The UUID of the driver to delete"),
-      });
-      
-      const parsed = validationSchema.safeParse(args);
+      const parsed = deleteDriverSchema.safeParse(args);
       
       if (!parsed.success) {
         const errorDetails = parsed.error.issues

@@ -8,6 +8,8 @@
  * Base URL: configurable per account (from company.apiEndpoint)
  *
  * Endpoints used:
+ *  verifyConnection   → GET    /api/v1/validate/token     (query-param auth)
+ *  getWilayas         → GET    /api/v1/get/wilayas
  *  createShipment     → POST   /api/v1/create/order      (query params, no body)
  *  validateShipment   → POST   /api/v1/valid/order?tracking=&ask_collection=
  *  getLabelUrl        → GET    /api/v1/get/order/label?tracking=  (returns PDF)
@@ -23,8 +25,9 @@ import type {
   ShipmentRemark,
   TrackingEvent,
   StopDesk,
+  ConnectionCheck,
 } from "../types";
-import { flattenErrorBag } from "../utils";
+import { EcoTrackApiError, ecotrackBusinessError, ecotrackHttpError } from "./errors";
 import type {
   EcotrackCreateOrderResponse,
   EcotrackValidateOrderResponse,
@@ -36,6 +39,19 @@ import type {
   EcotrackCommunesResponse,
   EcotrackBulkCreateBody,
   EcotrackBulkCreateResult,
+  EcotrackValidateTokenResponse,
+  EcotrackWilaya,
+  EcotrackWilayasResponse,
+  EcotrackBulkTrackingEntry,
+  EcotrackOrdersPage,
+  EcotrackOrderStatusEntry,
+  EcotrackOrdersStatusResponse,
+  EcotrackTrackingActivity,
+  EcotrackAskReturnResponse,
+  EcotrackValidReturnsResponse,
+  EcotrackMyDesk,
+  EcotrackOtherDesk,
+  EcotrackDesksResponse,
 } from "./types";
 
 export class EcotrackProvider implements DeliveryProvider {
@@ -56,86 +72,288 @@ export class EcotrackProvider implements DeliveryProvider {
     };
   }
 
-  private async get<TRes>(path: string): Promise<TRes> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method: "GET",
-      headers: this.headers(),
-    });
-    let json: unknown;
-    try {
-      json = await res.json();
-    } catch {
-      throw new Error(`EcoTrack HTTP ${res.status} — response is not valid JSON`);
-    }
-    if (!res.ok) {
-      throw new Error((json as { message?: string }).message ?? `EcoTrack HTTP ${res.status}`);
-    }
-    return json as TRes;
-  }
-
   /**
-   * POST with query params only — EcoTrack single-order endpoints use no request body.
-   * `pathWithQuery` should already include the full query string.
+   * Single HTTP entry point for every EcoTrack endpoint.
+   * Single-order endpoints pass only `pathWithQuery` (query params, no body);
+   * `body` is set exclusively by the JSON-body endpoints (create/orders,
+   * valid/returns). All failures throw EcoTrackApiError with the business
+   * code, HTTP status, or rate-limit flag attached.
    */
-  private async postParams<TRes>(pathWithQuery: string): Promise<TRes> {
-    const res = await fetch(`${this.baseUrl}${pathWithQuery}`, {
-      method: "POST",
-      headers: this.headers(),
-    });
-    let json: unknown;
-    try {
-      json = await res.json();
-    } catch {
-      throw new Error(`EcoTrack HTTP ${res.status} — response is not valid JSON`);
-    }
-    if (!res.ok) {
-      throw new Error((json as { message?: string }).message ?? `EcoTrack HTTP ${res.status}`);
-    }
-    return json as TRes;
-  }
+  private async request<TRes>(
+    method: string,
+    pathWithQuery: string,
+    body?: string
+  ): Promise<TRes> {
+    const init: RequestInit = { method, headers: this.headers() };
+    if (body !== undefined) init.body = body;
 
-  /**
-   * DELETE with query params — used by delete/order endpoint.
-   */
-  private async deleteParams<TRes>(pathWithQuery: string): Promise<TRes> {
-    const res = await fetch(`${this.baseUrl}${pathWithQuery}`, {
-      method: "DELETE",
-      headers: this.headers(),
-    });
+    const res = await fetch(`${this.baseUrl}${pathWithQuery}`, init);
     let json: unknown;
     try {
       json = await res.json();
     } catch {
-      throw new Error(`EcoTrack HTTP ${res.status} — response is not valid JSON`);
+      throw new EcoTrackApiError(
+        `EcoTrack HTTP ${res.status} — response is not valid JSON`,
+        { statusCode: res.status }
+      );
     }
     if (!res.ok) {
-      throw new Error((json as { message?: string }).message ?? `EcoTrack HTTP ${res.status}`);
-    }
-    return json as TRes;
-  }
-
-  /**
-   * POST with JSON body — used by bulk create endpoint.
-   */
-  private async postJson<TRes>(path: string, body: unknown): Promise<TRes> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method: "POST",
-      headers: this.headers(),
-      body: JSON.stringify(body),
-    });
-    let json: unknown;
-    try {
-      json = await res.json();
-    } catch {
-      throw new Error(`EcoTrack HTTP ${res.status} — response is not valid JSON`);
-    }
-    if (!res.ok) {
-      throw new Error((json as { message?: string }).message ?? `EcoTrack HTTP ${res.status}`);
+      throw ecotrackHttpError(res.status, json);
     }
     return json as TRes;
   }
 
   // ─── DeliveryProvider interface ───────────────────────────────────────────────
+
+  /**
+   * Verify the stored credentials via GET /api/v1/validate/token.
+   *
+   * ⚠️ Auth exception: this endpoint takes the token as a QUERY PARAM —
+   * the Bearer header alone does not authenticate it.
+   *
+   * Enriches a valid check with the tenant's served wilaya ids (best-effort:
+   * a territory failure never fails the connection check).
+   */
+  async verifyConnection(): Promise<ConnectionCheck> {
+    const params = new URLSearchParams({ api_token: this.apiToken });
+    const res = await this.request<EcotrackValidateTokenResponse>(
+      "GET",
+      `/api/v1/validate/token?${params.toString()}`
+    );
+
+    if (res.success && res.message === "VALID_TOKEN") {
+      const details: Record<string, unknown> = {};
+      try {
+        const wilayas = await this.getWilayas();
+        details.servedWilayaIds = wilayas.map((w) => w.wilaya_id);
+        details.servedWilayaCount = wilayas.length;
+      } catch {
+        // Territory lookup is enrichment — a failure must not fail the check.
+      }
+      return {
+        ok: true,
+        code: "valid",
+        message: "Token is valid",
+        ...(Object.keys(details).length > 0 ? { details } : {}),
+      };
+    }
+
+    if (res.message === "TOKEN_NOT_ALLOWED") {
+      return {
+        ok: false,
+        code: "not_allowed",
+        message: "Public API access is disabled for this account — enable it in the courier's dashboard",
+      };
+    }
+
+    return {
+      ok: false,
+      code: "invalid_token",
+      message: res.message ?? "Token is invalid",
+    };
+  }
+
+  /**
+   * List the wilayas this tenant serves (GET /api/v1/get/wilayas).
+   * Absent ids = not served; creating an order for them answers error 10002.
+   */
+  async getWilayas(): Promise<EcotrackWilaya[]> {
+    const res = await this.request<EcotrackWilayasResponse>("GET", "/api/v1/get/wilayas");
+    return Array.isArray(res) ? res : [];
+  }
+
+  /**
+   * Fetch tracking history for up to 100 parcels in one call
+   * (GET /api/v1/get/trackings/info?trackings[]=…).
+   *
+   * ⚠️ Success shape is UNVERIFIED (no documented example). Parses defensively:
+   * an array of rows carrying a `tracking` field, or an object keyed by
+   * tracking (with or without a `data` wrapper). Entries are matched to the
+   * REQUESTED tracking numbers only — never positionally (dzship warns a lazy
+   * "take the first row" client attaches the wrong parcel's status).
+   *
+   * `status` is the tenant-drifted French display wording — returned raw.
+   */
+  async getTrackingsBulk(trackingNumbers: string[]): Promise<EcotrackBulkTrackingEntry[]> {
+    if (trackingNumbers.length === 0) return [];
+    if (trackingNumbers.length > 100) {
+      throw new Error("EcoTrack: bulk tracking limit is 100 trackings per request");
+    }
+
+    const params = new URLSearchParams();
+    for (const tracking of trackingNumbers) {
+      params.append("trackings[]", tracking);
+    }
+    const res = await this.request<unknown>(
+      "GET",
+      `/api/v1/get/trackings/info?${params.toString()}`
+    );
+
+    const requested = new Set(trackingNumbers);
+    const entries: EcotrackBulkTrackingEntry[] = [];
+
+    const absorb = (tracking: unknown, row: unknown) => {
+      if (typeof tracking !== "string" || !requested.has(tracking)) return;
+      const obj = (row ?? {}) as Record<string, unknown>;
+      entries.push({
+        tracking,
+        status: typeof obj.status === "string" ? obj.status : undefined,
+        activity: Array.isArray(obj.activity) ? (obj.activity as EcotrackTrackingActivity[]) : undefined,
+      });
+    };
+
+    if (Array.isArray(res)) {
+      for (const row of res) {
+        const tracking = (row as Record<string, unknown>).tracking;
+        absorb(tracking, row);
+      }
+    } else if (res != null && typeof res === "object") {
+      const container =
+        "data" in (res as Record<string, unknown>) &&
+        (res as Record<string, unknown>).data != null &&
+        typeof (res as Record<string, unknown>).data === "object" &&
+        !Array.isArray((res as Record<string, unknown>).data)
+          ? ((res as Record<string, unknown>).data as Record<string, unknown>)
+          : (res as Record<string, unknown>);
+      for (const [tracking, row] of Object.entries(container)) {
+        absorb(tracking, row);
+      }
+    }
+
+    return entries;
+  }
+
+  /**
+   * List this account's in-process orders with their current statuses
+   * (GET /api/v1/get/orders). Laravel pagination: 40/page, default window =
+   * last 90 days, archived orders excluded. Pass `tracking` to look up one order.
+   */
+  async getOrders(options?: {
+    page?: number;
+    startDate?: string;
+    endDate?: string;
+    tracking?: string;
+  }): Promise<EcotrackOrdersPage> {
+    const params = new URLSearchParams();
+    if (options?.page != null)      params.set("page", String(options.page));
+    if (options?.startDate)         params.set("start_date", options.startDate);
+    if (options?.endDate)           params.set("end_date", options.endDate);
+    if (options?.tracking)          params.set("tracking", options.tracking);
+
+    const query = params.size > 0 ? `?${params.toString()}` : "";
+    const res = await this.request<Partial<EcotrackOrdersPage>>(
+      "GET",
+      `/api/v1/get/orders${query}`
+    );
+
+    return {
+      current_page: res.current_page ?? 1,
+      data: Array.isArray(res.data) ? res.data : [],
+      last_page: res.last_page ?? 1,
+      per_page: res.per_page ?? 40,
+      total: res.total ?? (Array.isArray(res.data) ? res.data.length : 0),
+      from: res.from ?? null,
+      to: res.to ?? null,
+    };
+  }
+
+  /**
+   * Filter orders by status for up to 100 trackings
+   * (GET /api/v1/get/orders/status).
+   *
+   * ⚠️ Auth exception: this endpoint authenticates via an `api_token` QUERY
+   * PARAM — the Bearer header alone is not accepted.
+   *
+   * Statuses use the sender-dashboard enum keys (prete_a_expedier, en_livraison,
+   * retour_recu, annule, all, …); defaults to `all`.
+   */
+  async getOrdersStatus(
+    trackingNumbers: string[],
+    statuses?: string[]
+  ): Promise<Record<string, EcotrackOrderStatusEntry>> {
+    if (trackingNumbers.length === 0) return {};
+    if (trackingNumbers.length > 100) {
+      throw new Error("EcoTrack: status filter limit is 100 trackings per request");
+    }
+
+    const params = new URLSearchParams({ api_token: this.apiToken });
+    params.set("trackings", trackingNumbers.join(","));
+    params.set("status", (statuses && statuses.length > 0 ? statuses : ["all"]).join(","));
+
+    const res = await this.request<Partial<EcotrackOrdersStatusResponse>>(
+      "GET",
+      `/api/v1/get/orders/status?${params.toString()}`
+    );
+
+    if (res.data != null && typeof res.data === "object" && !Array.isArray(res.data)) {
+      return res.data as Record<string, EcotrackOrderStatusEntry>;
+    }
+    return {};
+  }
+
+  /**
+   * Ask the carrier to return a parcel that is currently in delivery
+   * (POST /api/v1/ask/for/order/return?tracking=).
+   *
+   * ⚠️ This is a REQUEST, not a state change — the courier may ignore it
+   * (platform-documented). Error 10003 throws when the parcel is not in a
+   * returnable state.
+   */
+  async askReturn(trackingNumber: string): Promise<boolean> {
+    const params = new URLSearchParams({ tracking: trackingNumber });
+    const res = await this.request<EcotrackAskReturnResponse>(
+      "POST",
+      `/api/v1/ask/for/order/return?${params.toString()}`
+    );
+    if (res.success === false) {
+      throw ecotrackBusinessError(
+        res,
+        "EcoTrack: return cannot be requested for this parcel"
+      );
+    }
+    return true;
+  }
+
+  /**
+   * Confirm physical reception of returned parcels
+   * (POST /api/v1/valid/returns — one of the only two JSON-body endpoints).
+   *
+   * Returns true when the carrier confirmed reception; false when nothing
+   * was eligible (already received, not transferred, or out of scope).
+   */
+  async validateReturns(trackingNumbers: string[]): Promise<boolean> {
+    if (trackingNumbers.length === 0) return false;
+
+    const res = await this.request<EcotrackValidReturnsResponse>(
+      "POST",
+      "/api/v1/valid/returns",
+      JSON.stringify({ trackings: trackingNumbers })
+    );
+    return res.returned === "success";
+  }
+
+  /**
+   * Fetch the sender's own desk and the carrier's other stations
+   * (GET /api/v1/get/desks) — address, phones, map links, working hours.
+   *
+   * ⚠️ Display enrichment ONLY: this endpoint publishes no station codes, so
+   * dispatch's Station Code authority remains get/communes (code_postal).
+   * Do not feed this into the stop-desk sync.
+   */
+  async getDesks(): Promise<{
+    myDesk: EcotrackMyDesk | null;
+    otherDesks: EcotrackOtherDesk[];
+  }> {
+    const res = await this.request<Partial<EcotrackDesksResponse>>(
+      "GET",
+      "/api/v1/get/desks"
+    );
+
+    return {
+      myDesk: res.my_desk ?? null,
+      otherDesks: Array.isArray(res.other_desks) ? res.other_desks : [],
+    };
+  }
 
   /**
    * Create a shipment.
@@ -165,13 +383,13 @@ export class EcotrackProvider implements DeliveryProvider {
     if (input.weight != null)     params.set("weight",       String(input.weight));
     if (input.fragile != null)    params.set("fragile",      input.fragile ? "1" : "0");
 
-    const res = await this.postParams<EcotrackCreateOrderResponse>(
+    const res = await this.request<EcotrackCreateOrderResponse>(
+      "POST",
       `/api/v1/create/order?${params.toString()}`
     );
 
     if (!res.success || !res.tracking) {
-      const detail = flattenErrorBag(res.errors);
-      throw new Error(detail ?? res.message ?? "EcoTrack: create order failed");
+      throw ecotrackBusinessError(res, "EcoTrack: create order failed");
     }
 
     return {
@@ -193,11 +411,12 @@ export class EcotrackProvider implements DeliveryProvider {
     if (askCollection != null) {
       params.set("ask_collection", askCollection ? "1" : "0");
     }
-    const res = await this.postParams<EcotrackValidateOrderResponse>(
+    const res = await this.request<EcotrackValidateOrderResponse>(
+      "POST",
       `/api/v1/valid/order?${params.toString()}`
     );
     if (res.success === false) {
-      throw new Error(res.message ?? "EcoTrack: validate failed");
+      throw ecotrackBusinessError(res, "EcoTrack: validate failed");
     }
     return true;
   }
@@ -228,14 +447,13 @@ export class EcotrackProvider implements DeliveryProvider {
     if (input.amount       != null) params.set("montant",  String(input.amount));
     if (input.remarks      != null) params.set("remarque", input.remarks);
     if (input.fragile      != null) params.set("fragile",  input.fragile ? "1" : "0");
-    if (input.weight       != null) params.set("weight",   String(input.weight));
 
-    const res = await this.postParams<EcotrackUpdateOrderResponse>(
+    const res = await this.request<EcotrackUpdateOrderResponse>(
+      "POST",
       `/api/v1/update/order?${params.toString()}`
     );
     if (res.success === false) {
-      const detail = flattenErrorBag(res.errors);
-      throw new Error(detail ?? res.message ?? "EcoTrack: update order failed");
+      throw ecotrackBusinessError(res, "EcoTrack: update order failed");
     }
     return true;
   }
@@ -247,11 +465,15 @@ export class EcotrackProvider implements DeliveryProvider {
    */
   async deleteShipment(trackingNumber: string): Promise<boolean> {
     const params = new URLSearchParams({ tracking: trackingNumber });
-    const res = await this.deleteParams<EcotrackDeleteOrderResponse>(
+    const res = await this.request<EcotrackDeleteOrderResponse>(
+      "DELETE",
       `/api/v1/delete/order?${params.toString()}`
     );
     if (res.delete === "fail" || res.success === false) {
-      throw new Error(res.message ?? "EcoTrack: shipment cannot be deleted — it may already be validated");
+      throw ecotrackBusinessError(
+        res,
+        "EcoTrack: shipment cannot be deleted — it may already be validated"
+      );
     }
     return true;
   }
@@ -263,11 +485,12 @@ export class EcotrackProvider implements DeliveryProvider {
    */
   async addRemark(trackingNumber: string, content: string): Promise<boolean> {
     const params = new URLSearchParams({ tracking: trackingNumber, content });
-    const res = await this.postParams<EcotrackAddMajResponse>(
+    const res = await this.request<EcotrackAddMajResponse>(
+      "POST",
       `/api/v1/add/maj?${params.toString()}`
     );
     if (res.success === false) {
-      throw new Error(res.message ?? "EcoTrack: failed to add remark");
+      throw ecotrackBusinessError(res, "EcoTrack: failed to add remark");
     }
     return true;
   }
@@ -281,7 +504,8 @@ export class EcotrackProvider implements DeliveryProvider {
    */
   async getRemarks(trackingNumber: string): Promise<ShipmentRemark[]> {
     const params = new URLSearchParams({ tracking: trackingNumber });
-    const res = await this.get<EcotrackGetMajResponse>(
+    const res = await this.request<EcotrackGetMajResponse>(
+      "GET",
       `/api/v1/get/maj?${params.toString()}`
     );
     const entries = Array.isArray(res) ? res : [];
@@ -304,7 +528,8 @@ export class EcotrackProvider implements DeliveryProvider {
    */
   async getTrackingInfo(trackingNumber: string): Promise<TrackingEvent[]> {
     const params = new URLSearchParams({ tracking: trackingNumber });
-    const res = await this.get<EcotrackTrackingInfoResponse>(
+    const res = await this.request<EcotrackTrackingInfoResponse>(
+      "GET",
       `/api/v1/get/tracking/info?${params.toString()}`
     );
     const events = res.activity ?? [];
@@ -351,7 +576,11 @@ export class EcotrackProvider implements DeliveryProvider {
     });
 
     const body: EcotrackBulkCreateBody = { orders: ordersObj as EcotrackBulkCreateBody["orders"] };
-    const res = await this.postJson<EcotrackBulkCreateResult>("/api/v1/create/orders", body);
+    const res = await this.request<EcotrackBulkCreateResult>(
+      "POST",
+      "/api/v1/create/orders",
+      JSON.stringify(body)
+    );
 
     return inputs.map((input, i) => {
       const key = input.reference ?? String(i);
@@ -395,7 +624,7 @@ export class EcotrackProvider implements DeliveryProvider {
    * twice in both columns for Packers.
    */
   async getStopDesks(): Promise<StopDesk[]> {
-    const res = await this.get<EcotrackCommunesResponse>("/api/v1/get/communes");
+    const res = await this.request<EcotrackCommunesResponse>("GET", "/api/v1/get/communes");
     return Object.values(res)
       .filter((c) => c != null && c.has_stop_desk === 1)
       .map((c) => ({

@@ -1,6 +1,6 @@
 # cod-shared
 
-**The single source of truth shared by `cod-server` and `cod-client`.**
+**The single source of truth shared by `cod-server` and `cod-client-astro`.**
 
 `cod-shared` holds everything the backend and dashboard must agree on:
 
@@ -35,10 +35,11 @@ Before `cod-shared` existed, the schema and logic lived in the server and the
 dashboard maintained its own copies. That meant a column added in one place was
 silently missing in the other. Today:
 
-- `cod-server` and `cod-client` bind the **same D1 instance with the same
-  table definitions** — they literally cannot drift.
-- The dashboard reads D1 directly through the same query functions the backend
-  uses, so behavior matches in both places.
+- `cod-server` and `cod-client-astro` bind the **same D1 instance with the
+  same table definitions** — they literally cannot drift.
+- The dashboard's better-auth tables live in the same schema its Worker
+  authenticates against, and the API serves reads through the same shared
+  query functions everywhere.
 - RBAC scopes and error codes have a single canonical definition.
 
 ---
@@ -85,8 +86,8 @@ Both apps re-export the shared schema so feature code never imports raw
 `cod-shared` paths:
 
 ```ts
-// cod-server:  src/db/schema.ts  →  export * from "../../../cod-shared/db/schema";
-// cod-client:  db/schema.ts      →  export * from "../../cod-shared/db/schema";
+// cod-server:       src/db/schema.ts  →  export * from "../../../cod-shared/db/schema";
+// cod-client-astro: consumes cod-shared/db/client + schema via relative imports in src/lib/auth/server.ts
 
 // in feature code, via the "@/" alias:
 import { users } from "@/db/schema";
@@ -124,9 +125,10 @@ export async function listOrders(db: AppDb, filters: OrderFilters = {}) { … }
 export async function getOrderById(db: AppDb, orderId: string) { … }
 ```
 
-`cod-server` handlers and `cod-client` server actions **both** import these —
-writes (create/update/status transitions) run in the server, and the dashboard's
-reads call the same functions against the same D1 binding.
+`cod-server` handlers import these — writes (create/update/status transitions)
+run in the server, and reads call the same functions against the same D1
+binding. The Astro dashboard goes through the REST API seam (no direct query
+imports), so every dashboard read also lands on these functions.
 
 Available modules: `abandoned-orders`, `activity-logs`, `analytics`,
 `customer-groups`, `customer-tags`, `customers`, `delivery-companies`,
@@ -135,8 +137,7 @@ Available modules: `abandoned-orders`, `activity-logs`, `analytics`,
 `stock`, `store`, `stores`, `users`, `variants`, `webhooks`, `wilayas`.
 
 > **If you touch a domain's reads, update the shared query — never write a
-> local copy inside a package.** (The `cod-client` `check:reads` script
-> enforces this.)
+> local copy inside a package.**
 
 ---
 
@@ -199,12 +200,9 @@ Everything is plain relative imports — no bundler trickery, no publish step:
   // cod-server/src/db/index.ts
   export * from "../../../cod-shared/db/client";
   ```
-- **`cod-client`** — the `cod-shared/*` path alias maps to `../cod-shared/*`,
-  and `db/index.ts` / `db/schema.ts` re-export the same modules. Imports look like:
-  ```ts
-  import { SCOPES } from "@/../cod-shared/rbac/scopes";
-  import { listAbandonedOrders } from "@/../cod-shared/queries/abandoned-orders";
-  ```
+- **`cod-client-astro`** — imports `cod-shared/db/client` + `cod-shared/db/schema`
+  in the auth surface (`src/lib/auth/server.ts`). All business data goes
+  through the cod-server REST API seam (`src/lib/api.ts`), not direct queries.
 
 Both apps also expose convenience aliases (`@/db`, `@/db/schema`) so feature
 code rarely imports `cod-shared` paths directly.
@@ -214,7 +212,7 @@ code rarely imports `cod-shared` paths directly.
 ## Migrations workflow
 
 Migrations are generated and applied **from `cod-server` only** — the D1
-binding in `cod-client` shares the same database but owns no migrations.
+binding in `cod-client-astro` shares the same database but owns no migrations.
 
 ```bash
 # 1. Edit the schema here:  cod-shared/db/schema.ts
@@ -236,7 +234,7 @@ See `cod-server/README.md` for the full database section.
 ## Rules & conventions
 
 1. **One source of truth.** Schema, scopes, and shared queries live here — no
-   local copies in `cod-server` or `cod-client`.
+   local copies in `cod-server` or `cod-client-astro`.
 2. **No build step, no publishing.** Consume via relative imports; never add a
    bundler or make this an npm package.
 3. **No environment access.** Queries receive `db` (and any config) as

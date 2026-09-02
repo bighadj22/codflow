@@ -304,6 +304,93 @@ const toggleStopDeskRoute = defineRoute({
   handler: handlers.toggleCompanyStopDesk,
 });
 
+const testConnectionRoute = defineRoute({
+  method: "post",
+  path: "/{id}/test-connection",
+  auth: "api-key",
+  tags: ["Delivery Companies"],
+  summary: "Test carrier connection",
+  description:
+    "Verifies the company's stored credentials against its carrier API. " +
+    "A negative outcome (invalid token, API access disabled) returns 200 with ok:false — the check itself succeeded. " +
+    "Provider support: ecotrack (all 82 companies) ✅ | others ❌ OPERATION_NOT_SUPPORTED.",
+  params: idParams,
+  responses: {
+    200: {
+      description: "Connection check executed",
+      content: jsonContent(
+        z.object({
+          success: z.boolean(),
+          data: z.object({
+            companyId: z.string(),
+            companyName: z.string(),
+            companyCode: z.string(),
+            ok: z.boolean().openapi({ description: "Whether the credentials are usable" }),
+            code: z.string().openapi({
+              description: "Outcome code: valid | invalid_token | not_allowed",
+              example: "valid",
+            }),
+            message: z.string().openapi({ example: "Token is valid" }),
+            details: z.record(z.string(), z.unknown()).optional().openapi({
+              description:
+                "Provider enrichment — EcoTrack includes servedWilayaIds + servedWilayaCount when reachable.",
+            }),
+          }),
+        })
+      ),
+    },
+    400: { description: "Company not connected — no API token stored" },
+    422: { description: "Provider does not support connection testing" },
+    502: { description: "External API failure (carrier unreachable)" },
+  },
+  handler: handlers.testCompanyConnection,
+});
+
+const reconcileOrdersRoute = defineRoute({
+  method: "post",
+  path: "/{id}/reconcile-orders",
+  auth: "api-key",
+  tags: ["Delivery Companies"],
+  summary: "Reconcile order statuses from the carrier (EcoTrack only)",
+  description:
+    "Pull-based drift repair for EcoTrack-family carriers (the platform has no webhooks). " +
+    "Pages the carrier's order list (up to 10 pages × 40 orders per run — rate-limit safe), maps carrier statuses to ours, " +
+    "and applies forward-only fixes through the shared webhook rank guard (an order can never move backwards; Delivered/Returned/Cancelled are terminal). " +
+    "Unmapped carrier statuses are skipped and sampled in the response — never guessed. " +
+    "Non-EcoTrack providers (webhook-driven) answer OPERATION_NOT_SUPPORTED.",
+  params: idParams,
+  query: z.object({
+    maxPages: z.coerce.number().int().min(1).max(10).optional().openapi({
+      description: "Pages to fetch per run (1 page = 40 orders = 1 API call)",
+      example: 10,
+    }),
+  }),
+  responses: {
+    200: {
+      description: "Reconciliation summary",
+      content: jsonContent(
+        z.object({
+          success: z.boolean(),
+          data: z.object({
+            pagesFetched: z.number().int(),
+            ordersSeen: z.number().int(),
+            updated: z.number().int(),
+            unchanged: z.number().int(),
+            notFound: z.number().int(),
+            skippedUnmapped: z.number().int(),
+            unmappedSamples: z.array(z.string()),
+            morePagesRemain: z.boolean(),
+          }),
+        })
+      ),
+    },
+    400: { description: "Company not connected — no API token stored" },
+    422: { description: "Non-EcoTrack provider (webhook-driven — reconciliation not needed)" },
+    502: { description: "External API failure (carrier unreachable)" },
+  },
+  handler: handlers.reconcileCompanyOrders,
+});
+
 const registerWebhookRoute = defineRoute({
   method: "post",
   path: "/{id}/webhook/register",
@@ -387,6 +474,8 @@ deliveryCompaniesRouter.use("/", requireScope(SCOPES.DELIVERY_READ));
 deliveryCompaniesRouter.use("/:id", requireScope(SCOPES.DELIVERY_READ));
 deliveryCompaniesRouter.use("/:id/stop-desks", requireScope(SCOPES.DELIVERY_READ));
 deliveryCompaniesRouter.use("/:id/sync-stop-desks", requireScope(SCOPES.DELIVERY_MANAGE));
+deliveryCompaniesRouter.use("/:id/test-connection", requireScope(SCOPES.DELIVERY_READ));
+deliveryCompaniesRouter.use("/:id/reconcile-orders", requireScope(SCOPES.DELIVERY_MANAGE));
 deliveryCompaniesRouter.use("/:id/stop-desks/:code/toggle", requireScope(SCOPES.DELIVERY_MANAGE));
 deliveryCompaniesRouter.use("/:id/webhook/register", requireScope(SCOPES.DELIVERY_MANAGE));
 deliveryCompaniesRouter.use("/:id/webhook/secret", requireScope(SCOPES.DELIVERY_MANAGE));
@@ -403,6 +492,12 @@ deliveryCompaniesRouter.openapi(getStopDesksRoute.route, getStopDesksRoute.handl
 
 // POST /delivery-companies/:id/sync-stop-desks — fetch from carrier API and upsert into DB
 deliveryCompaniesRouter.openapi(syncStopDesksRoute.route, syncStopDesksRoute.handler);
+
+// POST /delivery-companies/:id/test-connection — verify stored credentials at the carrier
+deliveryCompaniesRouter.openapi(testConnectionRoute.route, testConnectionRoute.handler);
+
+// POST /delivery-companies/:id/reconcile-orders — pull-based status drift repair (EcoTrack only)
+deliveryCompaniesRouter.openapi(reconcileOrdersRoute.route, reconcileOrdersRoute.handler);
 
 // PATCH /delivery-companies/:id/stop-desks/:code/toggle — toggle admin active flag
 deliveryCompaniesRouter.openapi(toggleStopDeskRoute.route, toggleStopDeskRoute.handler);

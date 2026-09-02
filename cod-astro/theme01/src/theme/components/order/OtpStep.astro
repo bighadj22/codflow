@@ -1,0 +1,86 @@
+---
+/**
+ * WhatsApp OTP verification step for the checkout form (theme layer).
+ * Rendered only when the store enables OTP verification. All strings come
+ * from content packs (ar/en/fr) and all styling uses theme tokens only.
+ */
+import { Icon } from "astro-icon/components";
+import type { StoreFrontContent } from "@/theme/config/content";
+
+interface Props {
+  content: StoreFrontContent;
+  isRTL: boolean;
+}
+
+const { content, isRTL } = Astro.props;
+
+const otpStrings = JSON.stringify({
+  otpResendIn: content.otpResendIn,
+  otpResend: content.otpResend,
+  otpVerifyBtn: content.otpVerifyBtn,
+  otpVerifying: content.otpVerifying,
+  otpErrorWrong: content.otpErrorWrong,
+  otpErrorAttempts: content.otpErrorAttempts,
+  otpErrorExpired: content.otpErrorExpired,
+  otpErrorRate: content.otpErrorRate,
+  otpErrorGeneric: content.otpErrorGeneric,
+});
+---
+
+<div id="otp-step" class="hidden" data-strings={otpStrings}>
+  <div
+    class="p-5 rounded-[1.25rem] border space-y-4"
+    style="border-color: color-mix(in srgb, var(--clr-primary) 25%, transparent); background: color-mix(in srgb, var(--clr-primary) 3%, white)"
+  >
+    <div class="flex items-center gap-3">
+      <div
+        class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm"
+        style="background: var(--clr-primary); color: white"
+      >
+        <Icon name="heroicons:chat-bubble-left-ellipsis" class="w-5 h-5" />
+      </div>
+      <div class="min-w-0">
+        <p class="font-black text-[0.9375rem] leading-tight" style="color: var(--clr-text)">
+          {content.otpTitle}
+        </p>
+        <p class="text-[0.75rem] font-bold mt-0.5 truncate" style="color: var(--clr-text-2)" id="otp-subtitle">
+          {content.otpSubtitle}
+        </p>
+      </div>
+    </div>
+
+    <div>
+      <label class="form-label" for="otp-code-input">{content.otpInputLabel}</label>
+      <input
+        id="otp-code-input"
+        class="form-input !text-2xl !font-black !tracking-[0.5em] text-center"
+        style="direction: ltr"
+        type="text"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        maxlength="6"
+        placeholder={content.otpInputPlaceholder}
+      />
+      <p
+        id="otp-error"
+        class="hidden mt-2 text-[0.8125rem] font-bold"
+        style="color: var(--clr-error)"
+        role="alert"
+      >
+      </p>
+    </div>
+
+    <button type="button" id="otp-verify-btn" class="btn-primary !h-[3.25rem] w-full">
+      {content.otpVerifyBtn}
+    </button>
+
+    <div class="flex items-center justify-between text-[0.8125rem] font-bold" style="color: var(--clr-text-2)">
+      <button type="button" id="otp-resend-btn" class="underline underline-offset-4 disabled:opacity-50" disabled>
+        <span id="otp-resend-label">{content.otpResendIn} 60</span>
+      </button>
+      <button type="button" id="otp-change-phone" class="underline underline-offset-4">
+        {content.otpChangePhone}
+      </button>
+    </div>
+  </div>
+</div>

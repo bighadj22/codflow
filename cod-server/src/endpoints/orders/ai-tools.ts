@@ -12,6 +12,48 @@ import {
 import { getDb } from "@/db";
 
 /**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ */
+export const listOrdersSchema = orderFiltersSchema;
+export const getOrderDetailsSchema = z.object({
+  orderId: z.string().uuid().describe("UUID of the order"),
+});
+export const createOrderToolSchema = createOrderSchema;
+export const updateOrderStatusToolSchema = z.object({
+  orderId: z.string().uuid().describe("UUID of the order"),
+  status: updateOrderStatusSchema.shape.status,
+});
+export const assignDriverToOrderToolSchema = z.object({
+  orderId: z.string().uuid().describe("UUID of the order"),
+  driverId: assignDriverSchema.shape.driverId,
+});
+export const unassignDriverFromOrderToolSchema = z.object({
+  orderId: z.string().uuid().describe("UUID of the order"),
+});
+export const recordOrderProductReturnToolSchema = z.object({
+  orderId: z.string().uuid().describe("UUID of the order"),
+  productLineId: z.string().uuid().describe("UUID of the order product line (the id field in order.products array)"),
+  returnedQuantity: returnOrderProductSchema.shape.returnedQuantity,
+});
+export const deleteOrderSchema = z.object({
+  orderId: z.string().uuid().describe("UUID of the order to delete"),
+});
+
+export const ORDER_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  listOrders: listOrdersSchema.shape,
+  getOrderDetails: getOrderDetailsSchema.shape,
+  createOrder: createOrderToolSchema.shape,
+  updateOrderStatus: updateOrderStatusToolSchema.shape,
+  assignDriverToOrder: assignDriverToOrderToolSchema.shape,
+  unassignDriverFromOrder: unassignDriverFromOrderToolSchema.shape,
+  recordOrderProductReturn: recordOrderProductReturnToolSchema.shape,
+  deleteOrder: deleteOrderSchema.shape,
+};
+
+/**
  * AI Tools for Order Management
  *
  * Orders are the core entity of the CRM. Each order tracks a COD (cash-on-delivery)
@@ -68,7 +110,7 @@ export const getOrderTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const parsed = orderFiltersSchema.safeParse(args);
+      const parsed = listOrdersSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
           .map((e: any) => `${e.path.join(".")}: ${e.message}`)
@@ -119,9 +161,7 @@ export const getOrderTools = (db: ReturnType<typeof getDb>) => ({
       "Use this before updating status, assigning a driver, or recording a return.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        orderId: z.string().uuid().describe("UUID of the order"),
-      });
+      const validationSchema = getOrderDetailsSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -334,10 +374,7 @@ export const getOrderTools = (db: ReturnType<typeof getDb>) => ({
       "Setting cancelled or returned automatically restores inventory for tracked products.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        orderId: z.string().uuid().describe("UUID of the order"),
-        status: updateOrderStatusSchema.shape.status,
-      });
+      const validationSchema = updateOrderStatusToolSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -402,10 +439,7 @@ export const getOrderTools = (db: ReturnType<typeof getDb>) => ({
       "Driver fee is auto-resolved from the driver's compensation table for the order's wilaya.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        orderId: z.string().uuid().describe("UUID of the order"),
-        driverId: z.string().uuid().describe("UUID of the driver to assign"),
-      });
+      const validationSchema = assignDriverToOrderToolSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -472,9 +506,7 @@ export const getOrderTools = (db: ReturnType<typeof getDb>) => ({
       "If order was 'assigned', status rolls back to 'ready' automatically.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        orderId: z.string().uuid().describe("UUID of the order"),
-      });
+      const validationSchema = unassignDriverFromOrderToolSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -527,11 +559,7 @@ export const getOrderTools = (db: ReturnType<typeof getDb>) => ({
       "Use getOrderDetails first to find the productLineId (it's the id field in the products array).",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        orderId: z.string().uuid().describe("UUID of the order"),
-        productLineId: z.string().uuid().describe("UUID of the order product line (the id field in order.products array)"),
-        returnedQuantity: returnOrderProductSchema.shape.returnedQuantity,
-      });
+      const validationSchema = recordOrderProductReturnToolSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -585,9 +613,7 @@ export const getOrderTools = (db: ReturnType<typeof getDb>) => ({
       "Consider updating status to 'cancelled' instead if you want to keep the order for audit purposes.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        orderId: z.string().uuid().describe("UUID of the order to delete"),
-      });
+      const validationSchema = deleteOrderSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues

@@ -27,6 +27,13 @@ export const storeOrderSchema = z.object({
   // Meta Pixel tracking cookies captured by the storefront at placement time.
   fbc: z.string().optional(),
   fbp: z.string().optional(),
+  // WhatsApp OTP verification proof (HMAC token from /store/otp/verify, or a
+  // bypass token when dzverify could not serve the send). Required only when
+  // the store's OTP verification is enabled.
+  otpToken: z.preprocess(
+    (v) => (v === "" || v == null ? undefined : v),
+    z.string().min(10).max(1024).optional()
+  ),
   // Per-unit variant selections (JSON string parsed from hidden form input).
   // When present, overrides variantId/variantLabel for multi-unit orders.
   // Shape after parse: [{variantId, variantLabel?}] — one entry per ordered unit.

@@ -20,7 +20,7 @@ product-groups/
 ```
 
 `queries.ts` re-exports the actual implementations from
-`cod-shared/queries/product-groups`, so both the API and `cod-client` consume
+`cod-shared/queries/product-groups`, so both the API and the dashboard consume
 the same read functions directly from D1.
 
 Routes are defined with `@hono/zod-openapi` (`createRoute`), making `routes.ts`

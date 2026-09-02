@@ -38,17 +38,18 @@ import mcpManagementRoutes from "@/endpoints/mcp/routes";
 import analyticsRoutes from "@/endpoints/analytics/routes";
 import abandonedOrdersRoutes from "@/endpoints/abandoned-orders/routes";
 import storeAbandonedRoutes from "@/endpoints/abandoned-orders/store-routes";
+import storeOtpRoutes from "@/endpoints/store-otp/store-routes";
 
 import { sweepAbandonedOrders } from "@/cron/sweep-abandoned-orders";
 
 // MCP remote server (remote Model Context Protocol endpoint for Claude / AI agents).
-// The CodMcpAgent Durable Object class MUST be re-exported from this module
-// — Cloudflare resolves DO bindings to the entry Worker's default export.
-import { CodMcpAgent } from "@/mcp/server";
-import { bearerToProps, extractBearer, UnauthenticatedError } from "@/mcp/auth";
-import { protectedResourceMetadata } from "@/mcp/wellknown";
-import type { McpProps } from "@/mcp/props";
-export { CodMcpAgent };
+// The OAuthProvider owns OAuth (discovery, client registration, tokens, revocation)
+// and the `/mcp` protected route; the Hono app below is its defaultHandler.
+import { OAuthProvider, type OAuthProviderOptions, type TokenExchangeCallbackOptions } from "@cloudflare/workers-oauth-provider";
+import { createCodMcpHandler } from "@/mcp/server-factory";
+import { authorizeGet, authorizePost } from "@/mcp/authorize";
+import { recordMcpLastUsed } from "@/mcp/last-used";
+import { ALL_SCOPES } from "../../cod-shared/rbac/scopes";
 
 // CodCapiWorkflow — MUST be re-exported so Cloudflare can bind it via wrangler.toml [[workflows]].
 export { CodCapiWorkflow } from "@/workflows/capi";
@@ -78,67 +79,12 @@ app.route("/webhooks", webhooksRouter);
 app.use("/store/*", storeAuthMiddleware);
 app.route("/store", storeRoutes);
 app.route("/store", storeAbandonedRoutes);
+app.route("/store", storeOtpRoutes);
 
-// ─── MCP remote server (public discovery + bearer-gated endpoint) ──────────
-// Order matters: both routes are mounted BEFORE `app.use("/api/*", authMiddleware)`
-// so the global dashboard auth middleware doesn't interfere. The /mcp route
-// does its own OAuth verification via bearerToProps; /.well-known is public
-// per RFC 9728.
-app.get("/.well-known/oauth-protected-resource", protectedResourceMetadata);
-
-app.all("/mcp", async (c) => {
-  console.log("[MCP] Received request to /mcp endpoint");
-  console.log("[MCP] Request method:", c.req.method);
-  console.log("[MCP] Authorization header:", c.req.header("authorization") ? "present" : "missing");
-  
-  const bearer = extractBearer(c.req.header("authorization"));
-  console.log("[MCP] Bearer token extracted:", bearer ? "present" : "missing");
-
-  let props;
-  try {
-    console.log("[MCP] Verifying bearer token...");
-    props = await bearerToProps(bearer, c.env);
-    console.log("[MCP] Bearer token verified successfully. Props:", {
-      userId: props.userId,
-      role: props.role,
-      scopes: props.scopes,
-      name: props.name,
-      email: props.email
-    });
-  } catch (err) {
-    console.error("[MCP] Bearer token verification failed:", err);
-    // Per MCP spec, unauthenticated responses carry a WWW-Authenticate header
-    // pointing at the protected-resource metadata so clients can discover the
-    // authorization server and start an OAuth flow.
-    const metadataUrl = new URL("/.well-known/oauth-protected-resource", c.req.url).toString();
-    const code = err instanceof UnauthenticatedError ? err.code : "invalid_token";
-    return new Response(
-      JSON.stringify({ error: code, error_description: err instanceof Error ? err.message : "Unauthorized" }),
-      {
-        status: 401,
-        headers: {
-          "Content-Type":     "application/json",
-          "WWW-Authenticate": `Bearer resource_metadata="${metadataUrl}", error="${code}"`,
-        },
-      },
-    );
-  }
-
-  // Hand off to the Durable Object agent. `executionCtx.props` is read by
-  // `agents/mcp`'s internal router when it instantiates the DO for this
-  // session — everything we attach here lands on `this.props` inside the
-  // agent's `init()`.
-  console.log("[MCP] Attaching props to execution context");
-  (c.executionCtx as unknown as { props: McpProps }).props = props;
-
-  console.log("[MCP] Delegating to CodMcpAgent Durable Object...");
-  const handler = CodMcpAgent.serve("/mcp", { binding: "MCP_SESSIONS" });
-  return handler.fetch(
-    c.req.raw,
-    c.env,
-    c.executionCtx as Parameters<typeof handler.fetch>[2],
-  );
-});
+// OAuth authorization endpoint — routed here by the OAuthProvider's
+// defaultHandler. Implements the Better Auth login-ticket bridge + consent.
+app.get("/authorize", authorizeGet);
+app.post("/authorize", authorizePost);
 
 // Health check (no auth required)
 app.get("/", (c) => {
@@ -186,13 +132,67 @@ app.notFound((c) => {
   return c.json({ error: "Not found" }, 404);
 });
 
+// ─── MCP OAuth provider ──────────────────────────────────────────────────────
+// The `@cloudflare/workers-oauth-provider` owns the MCP OAuth surface:
+//   • serves RFC 9728 protected-resource + RFC 8414 authorization-server
+//     discovery, the token/revocation endpoints, and dynamic client
+//     registration (DCR) / Client ID Metadata Documents (CIMD);
+//   • guards `/mcp` (apiRoute): validates the opaque access token against
+//     OAUTH_KV, binds the audience to the configured resource, decrypts the
+//     application props into `ctx.props`, and hands the request to the MCP
+//     handler; invalid/missing tokens get the spec `WWW-Authenticate` challenge;
+//   • routes everything else — including `/authorize` — to `defaultHandler`
+//     (this Hono app).
+//
+// Built lazily on first request because `resourceMetadata.resource` derives
+// from `WORKER_SELF_URL`; `env` is constant per deployment, so the singleton
+// never needs to be rebuilt.
+let oauthProviderInstance: OAuthProvider<Env> | undefined;
+
+function oauthProviderOptions(env: Env): OAuthProviderOptions<Env> {
+  const resourceOrigin = new URL(env.WORKER_SELF_URL);
+  return {
+    apiRoute: "/mcp",
+    apiHandler: {
+      fetch: (request, requestEnv, ctx) => createCodMcpHandler(requestEnv)(request, requestEnv, ctx),
+    },
+    defaultHandler: {
+      fetch: (request, requestEnv, ctx) => app.fetch(request, requestEnv, ctx),
+    },
+    authorizeEndpoint: "/authorize",
+    tokenEndpoint: "/oauth/token",
+    clientRegistrationEndpoint: "/oauth/register",
+    clientIdMetadataDocumentEnabled: true,
+    scopesSupported: ALL_SCOPES,
+    resourceMetadata: {
+      resource: new URL("/mcp", resourceOrigin).toString(),
+      authorization_servers: [resourceOrigin.origin],
+      scopes_supported: ALL_SCOPES,
+      resource_name: "CodFlow MCP",
+    },
+    accessTokenTTL: 60 * 60,
+    refreshTokenTTL: 60 * 60 * 24 * 30,
+    tokenExchangeCallback: (options: TokenExchangeCallbackOptions) =>
+      recordMcpLastUsed(env.OAUTH_KV, options.userId, options.grantId),
+  };
+}
+
+function getOAuthProvider(env: Env): OAuthProvider<Env> {
+  if (!oauthProviderInstance) {
+    oauthProviderInstance = new OAuthProvider<Env>(oauthProviderOptions(env));
+  }
+  return oauthProviderInstance;
+}
+
 export default {
-  fetch: app.fetch,
+  fetch: (request: Request, env: Env, ctx: ExecutionContext) =>
+    getOAuthProvider(env).fetch(request, env, ctx),
   async scheduled(
     _event: ScheduledEvent,
     env: Env,
     ctx: ExecutionContext
   ): Promise<void> {
     ctx.waitUntil(sweepAbandonedOrders(env));
+    ctx.waitUntil(getOAuthProvider(env).purgeExpiredData(env, { batchSize: 50 }));
   },
 };

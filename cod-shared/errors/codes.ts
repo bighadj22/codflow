@@ -33,7 +33,13 @@ export const ERROR_CODES = {
   // ============================================================================
   ENTITY_NOT_FOUND: "ENTITY_NOT_FOUND",
   DUPLICATE_ENTITY: "DUPLICATE_ENTITY",
-  
+
+  // ============================================================================
+  // BUSINESS LOGIC ERRORS - MCP MANAGEMENT
+  // ============================================================================
+  MCP_CONNECTION_NOT_FOUND: "MCP_CONNECTION_NOT_FOUND",
+  MCP_CLIENT_NOT_FOUND: "MCP_CLIENT_NOT_FOUND",
+
   // ============================================================================
   // BUSINESS LOGIC ERRORS - CUSTOMERS
   // ============================================================================
@@ -83,6 +89,22 @@ export const ERROR_CODES = {
   SHIPMENT_CANCEL_FAILED: "SHIPMENT_CANCEL_FAILED",
   SHIPMENT_NOT_FOUND: "SHIPMENT_NOT_FOUND",
   OPERATION_NOT_SUPPORTED: "OPERATION_NOT_SUPPORTED",
+
+  // ============================================================================
+  // BUSINESS LOGIC ERRORS - STOREFRONT OTP VERIFICATION (dzverify)
+  // ============================================================================
+  /** Store OTP verification is not enabled for this store. */
+  OTP_NOT_ENABLED: "OTP_NOT_ENABLED",
+  /** Order submission carried no OTP token while verification is enabled. */
+  OTP_VERIFICATION_REQUIRED: "OTP_VERIFICATION_REQUIRED",
+  /** OTP token failed signature/expiry verification. */
+  OTP_TOKEN_INVALID: "OTP_TOKEN_INVALID",
+  /** OTP token phone does not match the order phone (normalized E.164). */
+  OTP_PHONE_MISMATCH: "OTP_PHONE_MISMATCH",
+  /** dzverify balance too low — send failed (order proceeds unverified via bypass). */
+  OTP_QUOTA_EXHAUSTED: "OTP_QUOTA_EXHAUSTED",
+  /** dzverify rate limit hit — retry after the window in context. */
+  OTP_RATE_LIMITED: "OTP_RATE_LIMITED",
   
   // ============================================================================
   // BUSINESS LOGIC ERRORS - STOCK

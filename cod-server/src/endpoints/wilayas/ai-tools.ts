@@ -5,6 +5,27 @@ import { wilayaFiltersSchema } from "./validation";
 import { getDb } from "@/db";
 
 /**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ */
+export const listWilayasSchema = wilayaFiltersSchema;
+export const listWilayaCommunesSchema = z.object({
+  wilayaId: z
+    .number()
+    .int()
+    .min(1)
+    .max(58)
+    .describe("Integer ID of the wilaya (1–58, Algeria's official numbering)"),
+});
+
+export const WILAYA_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  listWilayas: listWilayasSchema.shape,
+  listWilayaCommunes: listWilayaCommunesSchema.shape,
+};
+
+/**
  * AI Tools for Wilaya & Commune Reference Data
  *
  * Wilayas are Algeria's 58 administrative provinces. They are read-only
@@ -43,7 +64,7 @@ export const getWilayaTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const parsed = wilayaFiltersSchema.safeParse(args);
+      const parsed = listWilayasSchema.safeParse(args);
 
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -84,14 +105,7 @@ export const getWilayaTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation — wilayaId is an integer 1–58, not a UUID
-      const validationSchema = z.object({
-        wilayaId: z
-          .number()
-          .int()
-          .min(1)
-          .max(58)
-          .describe("Integer ID of the wilaya (1–58, Algeria's official numbering)"),
-      });
+      const validationSchema = listWilayaCommunesSchema;
 
       const parsed = validationSchema.safeParse(args);
 

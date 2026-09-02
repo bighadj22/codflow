@@ -2,6 +2,8 @@
  * Cloudflare Worker environment bindings.
  * Declared in wrangler.toml — keep this in sync.
  */
+import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider";
+
 export interface Env {
   /** D1 database binding */
   DB: D1Database;
@@ -26,7 +28,7 @@ export interface Env {
 
   // ─── MCP remote server (added MCP-8) ───────────────────────────────────────
   /**
-   * Origin of the Better Auth OAuth Authorization Server (cod-client URL).
+   * Origin of the Better Auth OAuth Authorization Server (dashboard URL).
    * Used as the `iss` claim when verifying MCP bearer tokens AND to derive
    * the JWKS URL (`${BETTER_AUTH_URL}/api/auth/jwks`).
    * Partner-server sets this per-tenant during provisioning.
@@ -39,12 +41,27 @@ export interface Env {
    */
   WORKER_SELF_URL: string;
   /**
-   * Durable Object namespace for MCP sessions. One DO instance per MCP
-   * session (sse / streamable-http) — holds transport state + pending
-   * elicitations. Declared by the `[[durable_objects.bindings]]` block in
-   * wrangler.toml (added in MCP-9).
+   * HMAC key (>= 32 bytes) sealing the MCP `requestState` used by tool
+   * confirmation. Optional: when missing or too short, dangerous MCP tools fail
+   * closed. Set via `wrangler secret put` in production, `.dev.vars` locally.
    */
-  MCP_SESSIONS: DurableObjectNamespace;
+  MCP_REQUEST_STATE_KEY?: string;
+  /**
+   * HMAC secret (>= 32 bytes) shared with the Astro dashboard for the MCP OAuth
+   * login tickets minted after dashboard sign-in. Optional: when missing or too
+   * short, the MCP authorize flow fails closed.
+   */
+  MCP_LOGIN_TICKET_SECRET?: string;
+  /** KV namespace for the MCP OAuth provider (clients, grants, tokens, props). */
+  OAUTH_KV: KVNamespace;
+  /**
+   * KV namespace for rate limiting. Optional: the OTP send guards treat an
+   * absent binding as "no local guard" (the provider's own limits remain the
+   * hard bound) — a KV failure must never block a send.
+   */
+  RATE_LIMIT?: KVNamespace;
+  /** OAuth helpers injected into `env` by the OAuthProvider before handlers run. */
+  OAUTH_PROVIDER?: OAuthHelpers;
   /**
    * Cloudflare Workflow binding for CodCapiWorkflow.
    * Fires CAPI Purchase events at order delivery — decoupled from status handler.

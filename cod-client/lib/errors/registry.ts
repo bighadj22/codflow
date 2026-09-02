@@ -454,6 +454,54 @@ export const ERROR_REGISTRY: Record<string, ErrorMessage> = {
   },
 
   // ============================================================================
+  // BUSINESS LOGIC ERRORS - MCP MANAGEMENT
+  // ============================================================================
+  [ERROR_CODES.MCP_CONNECTION_NOT_FOUND]: {
+    en: "MCP connection not found",
+    ar: "اتصال MCP غير موجود",
+    fr: "Connexion MCP introuvable",
+  },
+  [ERROR_CODES.MCP_CLIENT_NOT_FOUND]: {
+    en: "MCP client not found",
+    ar: "عميل MCP غير موجود",
+    fr: "Client MCP introuvable",
+  },
+
+  // ============================================================================
+  // BUSINESS LOGIC ERRORS - STOREFRONT OTP VERIFICATION (dzverify)
+  // ============================================================================
+  [ERROR_CODES.OTP_NOT_ENABLED]: {
+    en: "Phone verification is not enabled for this store",
+    ar: "التحقق من رقم الهاتف غير مفعّل لهذا المتجر",
+    fr: "La vérification par téléphone n'est pas activée pour ce magasin",
+  },
+  [ERROR_CODES.OTP_VERIFICATION_REQUIRED]: {
+    en: "Please verify your phone number before placing the order",
+    ar: "يرجى التحقق من رقم هاتفك قبل إتمام الطلب",
+    fr: "Veuillez vérifier votre numéro de téléphone avant de passer la commande",
+  },
+  [ERROR_CODES.OTP_TOKEN_INVALID]: {
+    en: "Phone verification expired. Please verify again.",
+    ar: "انتهت صلاحية التحقق من الهاتف. يرجى التحقق مرة أخرى.",
+    fr: "La vérification du téléphone a expiré. Veuillez vérifier à nouveau.",
+  },
+  [ERROR_CODES.OTP_PHONE_MISMATCH]: {
+    en: "The verified phone number does not match the order phone number",
+    ar: "رقم الهاتف المُتحقق منه لا يطابق رقم هاتف الطلب",
+    fr: "Le numéro de téléphone vérifié ne correspond pas à celui de la commande",
+  },
+  [ERROR_CODES.OTP_QUOTA_EXHAUSTED]: {
+    en: "Phone verification service is out of credits. Your order was placed without verification.",
+    ar: "خدمة التحقق من الهاتف نفدت أرصدتها. تم تسجيل طلبك دون تحقق.",
+    fr: "Le service de vérification n'a plus de crédit. Votre commande a été enregistrée sans vérification.",
+  },
+  [ERROR_CODES.OTP_RATE_LIMITED]: {
+    en: "Too many verification requests. Please wait and try again.",
+    ar: "طلبات تحقق كثيرة جداً. يرجى الانتظار والمحاولة مرة أخرى.",
+    fr: "Trop de demandes de vérification. Veuillez patienter et réessayer.",
+  },
+
+  // ============================================================================
   // SYSTEM ERRORS
   // ============================================================================
   [ERROR_CODES.INTERNAL_SERVER_ERROR]: {

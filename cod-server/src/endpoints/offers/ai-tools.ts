@@ -5,6 +5,33 @@ import { createOfferSchema, updateOfferSchema } from "./validation";
 import { getDb } from "@/db";
 
 /**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ */
+export const listOffersSchema = z.object({});
+export const getOfferDetailsSchema = z.object({
+  offerId: z.string().uuid().describe("The unique UUID of the offer to retrieve"),
+});
+export const createOfferToolSchema = createOfferSchema;
+export const updateOfferToolSchema = z.object({
+  offerId: z.string().uuid().describe("The UUID of the offer to update"),
+  updates: updateOfferSchema,
+});
+export const deleteOfferSchema = z.object({
+  offerId: z.string().uuid().describe("The UUID of the offer to delete"),
+});
+
+export const OFFER_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  listOffers: listOffersSchema.shape,
+  getOfferDetails: getOfferDetailsSchema.shape,
+  createOffer: createOfferToolSchema.shape,
+  updateOffer: updateOfferToolSchema.shape,
+  deleteOffer: deleteOfferSchema.shape,
+};
+
+/**
  * AI Tools for Offer Management
  *
  * Offers are "Buy X Get Y" promotions that are auto-applied server-side when
@@ -77,9 +104,7 @@ export const getOfferTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        offerId: z.string().uuid().describe("The unique UUID of the offer to retrieve"),
-      });
+      const validationSchema = getOfferDetailsSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -125,7 +150,7 @@ export const getOfferTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation (includes cross-field rewardProductId rule)
-      const parsed = createOfferSchema.safeParse(args);
+      const parsed = createOfferToolSchema.safeParse(args);
 
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -170,10 +195,7 @@ export const getOfferTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        offerId: z.string().uuid().describe("The UUID of the offer to update"),
-        updates: updateOfferSchema,
-      });
+      const validationSchema = updateOfferToolSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -227,9 +249,7 @@ export const getOfferTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        offerId: z.string().uuid().describe("The UUID of the offer to delete"),
-      });
+      const validationSchema = deleteOfferSchema;
 
       const parsed = validationSchema.safeParse(args);
 

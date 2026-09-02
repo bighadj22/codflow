@@ -1,48 +1,205 @@
 /**
- * /api/mcp — endpoints for the MCP management page in cod-client.
+ * /api/mcp — endpoints for the MCP management page.
  *
- * Three handlers:
  *   GET    /api/mcp/me                      — the caller's connections
  *   GET    /api/mcp/team                    — admin-only: everyone's connections
- *   DELETE /api/mcp/connections/:clientId   — revoke the caller's grant
+ *   DELETE /api/mcp/connections/:clientId   — revoke the caller's grants
  *   DELETE /api/mcp/connections/:clientId/users/:userId  — admin: revoke for anyone
+ *   DELETE /api/mcp/clients/:clientId       — admin: delete client + all its grants
  *
- * "Connection" is a synthetic aggregate we compute per (userId, clientId):
- *   • scopes       — flattened union of scopes from all active access tokens
- *   • lastUsedAt   — max(accessToken.createdAt) (proxy: tokens are short-lived
- *                    and re-minted on refresh, so freshest token ≈ last use)
- *   • createdAt    — min(consent.createdAt) for that pair
- *   • clientName   — from oauthClients.name
- *   • clientIcon   — from oauthClients.icon
+ * Data source is the OAuth provider's KV model (NOT the legacy D1 oauth
+ * tables, which the provider never writes):
+ *   • grants        — `listUserGrants(userId)`; one grant per authorization
+ *                     (provider default keeps a single grant per user+client)
+ *   • client info   — `lookupClient(clientId)`, falling back to the grant
+ *                     metadata recorded at consent time (covers CIMD clients
+ *                     whose metadata document cannot be re-fetched)
+ *   • lastUsedAt    — the `mcp-last-used:` marker written by the token
+ *                     exchange callback on every token issuance; null means
+ *                     "no token issued since tracking began" (honest, no
+ *                     bogus timestamps)
+ *   • active        — the grant exists and is not expired; revocation
+ *                     removes the grant entirely so listed = live
  *
- * Data sources:
- *   oauthConsents        one row per (user, client, scope-set) — the permission grant
- *   oauthAccessTokens    issued bearer tokens; has createdAt + expiresAt
- *   oauthRefreshTokens   issued refresh tokens; has revoked, expiresAt
- *   oauthClients         the requesting app's display metadata
- *
- * Revocation strategy:
- *   1. Delete the consent row(s) for (userId, clientId)
- *   2. Delete all refresh tokens for (userId, clientId)
- *   3. Delete all access tokens for (userId, clientId)
- *   This severs every path Claude could use to keep talking to our /mcp.
- *   Deletion is transactionless (D1 limit); we run three sequential deletes.
- *   If any step fails we return 500 and the caller can retry — idempotent.
+ * Revocation strategy (provider-native):
+ *   `revokeGrant(grantId, userId)` deletes the grant AND every access token
+ *   under it; the provider's token validation rejects tokens whose grant is
+ *   gone, so live sessions die immediately. Our last-used markers are
+ *   deleted alongside.
  */
 
 import type { Context } from "hono";
-import { and, eq } from "drizzle-orm";
+import { CimdFetchError } from "@cloudflare/workers-oauth-provider";
+import type {
+  ClientInfo,
+  GrantSummary,
+  OAuthHelpers,
+} from "@cloudflare/workers-oauth-provider";
 
 import type { AppContext } from "@/types";
 import { getDb } from "@/db";
-import {
-  oauthConsents,
-  oauthAccessTokens,
-  oauthRefreshTokens,
-} from "@/db/schema";
+import { users } from "@/db/schema";
 import { NotFoundError } from "@/lib/errors/classes";
 import { ACTIONS, logActivity } from "@/lib/activity";
-import { listMcpConnections } from "../../../../cod-shared/queries/mcp-connections";
+import { deleteMcpLastUsed, readMcpLastUsed } from "@/mcp/last-used";
+
+export interface McpConnection {
+  clientId: string;
+  clientName: string | null;
+  clientIconUrl: string | null;
+  clientHomepageUrl: string | null;
+  scopes: string[];
+  connectedAt: string;
+  lastUsedAt: string | null;
+  active: boolean;
+  /** Only populated when listing every user (team view). */
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
+interface ClientMeta {
+  clientName: string | null;
+  clientIconUrl: string | null;
+  clientHomepageUrl: string | null;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function helpers(c: Context<AppContext>): OAuthHelpers {
+  const h = c.env.OAUTH_PROVIDER;
+  if (!h) throw new Error("authorization_not_configured");
+  return h;
+}
+
+/** All grants for a user, following cursor pagination to the end. */
+async function listAllGrants(h: OAuthHelpers, userId: string): Promise<GrantSummary[]> {
+  const out: GrantSummary[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await h.listUserGrants(userId, { limit: 1000, cursor });
+    out.push(...page.items);
+    cursor = page.cursor;
+  } while (cursor);
+  return out;
+}
+
+async function clientMeta(
+  h: OAuthHelpers,
+  clientId: string,
+  grants: GrantSummary[],
+): Promise<ClientMeta> {
+  let client: ClientInfo | null = null;
+  try {
+    client = await h.lookupClient(clientId);
+  } catch (error) {
+    // CIMD clients are not stored in KV — fall back to grant metadata below.
+    if (!(error instanceof CimdFetchError)) throw error;
+  }
+  if (client) {
+    return {
+      clientName: client.clientName ?? null,
+      clientIconUrl: client.logoUri ?? null,
+      clientHomepageUrl: client.clientUri ?? null,
+    };
+  }
+  const withName = grants.find((g) => g.metadata?.clientName);
+  return {
+    clientName: withName?.metadata?.clientName ?? null,
+    clientIconUrl: null,
+    clientHomepageUrl: null,
+  };
+}
+
+/** Build one McpConnection per (userId, clientId) from that pair's grants. */
+async function buildConnection(
+  c: Context<AppContext>,
+  h: OAuthHelpers,
+  userId: string,
+  clientId: string,
+  grants: GrantSummary[],
+  user?: McpConnection["user"],
+): Promise<McpConnection> {
+  const meta = await clientMeta(h, clientId, grants);
+
+  let connectedAt = "";
+  const scopes = new Set<string>();
+  let lastUsedAt: string | null = null;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  let active = false;
+  for (const grant of grants) {
+    if (grant.expiresAt === undefined || grant.expiresAt > nowSeconds) active = true;
+    const createdAtIso = new Date(grant.createdAt * 1000).toISOString();
+    if (!connectedAt || createdAtIso < connectedAt) connectedAt = createdAtIso;
+    for (const scope of grant.scope) scopes.add(scope);
+    const marker = await readMcpLastUsed(c.env.OAUTH_KV, userId, grant.id);
+    if (marker && (!lastUsedAt || marker > lastUsedAt)) lastUsedAt = marker;
+  }
+
+  return {
+    clientId,
+    clientName: meta.clientName,
+    clientIconUrl: meta.clientIconUrl,
+    clientHomepageUrl: meta.clientHomepageUrl,
+    scopes: [...scopes].sort(),
+    connectedAt,
+    lastUsedAt,
+    active,
+    ...(user ? { user } : {}),
+  };
+}
+
+async function buildConnectionsForUser(
+  c: Context<AppContext>,
+  h: OAuthHelpers,
+  userId: string,
+  user?: McpConnection["user"],
+): Promise<McpConnection[]> {
+  const grants = await listAllGrants(h, userId);
+  const byClient = new Map<string, GrantSummary[]>();
+  for (const grant of grants) {
+    const list = byClient.get(grant.clientId);
+    if (list) list.push(grant);
+    else byClient.set(grant.clientId, [grant]);
+  }
+  const connections: McpConnection[] = [];
+  for (const [clientId, clientGrants] of byClient) {
+    connections.push(await buildConnection(c, h, userId, clientId, clientGrants, user));
+  }
+  return connections.sort((a, b) => {
+    if (a.active !== b.active) return a.active ? -1 : 1;
+    const aT = a.lastUsedAt ?? a.connectedAt;
+    const bT = b.lastUsedAt ?? b.connectedAt;
+    return bT.localeCompare(aT);
+  });
+}
+
+async function loadUsers(db: ReturnType<typeof getDb>) {
+  return db
+    .select({ id: users.id, name: users.name, email: users.email })
+    .from(users)
+    .all();
+}
+
+/**
+ * Revoke every grant the user holds against a client. Returns the number of
+ * grants revoked (0 = the connection does not exist).
+ */
+async function revokeGrantsForClient(
+  c: Context<AppContext>,
+  h: OAuthHelpers,
+  userId: string,
+  clientId: string,
+): Promise<number> {
+  const grants = (await listAllGrants(h, userId)).filter((g) => g.clientId === clientId);
+  for (const grant of grants) {
+    await h.revokeGrant(grant.id, userId);
+    await deleteMcpLastUsed(c.env.OAUTH_KV, userId, grant.id);
+  }
+  return grants.length;
+}
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
@@ -51,9 +208,9 @@ import { listMcpConnections } from "../../../../cod-shared/queries/mcp-connectio
  * Returns the caller's own MCP connections. Gated by SCOPES.MCP_VIEW (route level).
  */
 export async function listMyConnections(c: Context<AppContext>) {
-  const db = getDb(c.env.DB);
+  const h = helpers(c);
   const user = c.get("user")!;
-  const connections = await listMcpConnections(db, { userId: user.id });
+  const connections = await buildConnectionsForUser(c, h, user.id);
   return c.json({ success: true, data: connections, count: connections.length });
 }
 
@@ -63,67 +220,95 @@ export async function listMyConnections(c: Context<AppContext>) {
  * their user info so the UI can group by teammate.
  */
 export async function listTeamConnections(c: Context<AppContext>) {
+  const h = helpers(c);
   const db = getDb(c.env.DB);
-  const connections = await listMcpConnections(db, {});
+  const allUsers = await loadUsers(db);
+  const connections: McpConnection[] = [];
+  for (const u of allUsers) {
+    connections.push(...(await buildConnectionsForUser(c, h, u.id, u)));
+  }
   return c.json({ success: true, data: connections, count: connections.length });
 }
 
 /**
  * DELETE /api/mcp/connections/:clientId
- * Revoke the CALLER's grant against this client. Deletes consent + tokens.
+ * Revoke the CALLER's grants against this client (grant + all its tokens).
  */
 export async function revokeMyConnection(c: Context<AppContext>) {
-  const db = getDb(c.env.DB);
+  const h = helpers(c);
   const user = c.get("user")!;
   const clientId = c.req.param("clientId")!;
-  return revokeConnection(c, db, user.id, user.name ?? user.email, clientId);
+  return revokeConnection(c, h, user.id, clientId);
 }
 
 /**
  * DELETE /api/mcp/connections/:clientId/users/:userId
- * Admin-only. Revoke ANY user's grant against this client.
+ * Admin-only. Revoke ANY user's grants against this client.
  */
 export async function revokeUserConnection(c: Context<AppContext>) {
-  const db = getDb(c.env.DB);
+  const h = helpers(c);
   const targetUserId = c.req.param("userId")!;
   const clientId = c.req.param("clientId")!;
+  return revokeConnection(c, h, targetUserId, clientId, { actorRole: "admin" });
+}
+
+/**
+ * DELETE /api/mcp/clients/:clientId
+ * Admin-only. Deletes the registered client entirely: revokes every user's
+ * grants against it first, then removes the client record itself.
+ */
+export async function deleteMcpClient(c: Context<AppContext>) {
+  const h = helpers(c);
+  const db = getDb(c.env.DB);
   const actor = c.get("user")!;
-  return revokeConnection(c, db, targetUserId, actor.name ?? actor.email, clientId, { actorRole: "admin" });
+  const clientId = c.req.param("clientId")!;
+
+  let client: ClientInfo | null = null;
+  try {
+    client = await h.lookupClient(clientId);
+  } catch {
+    // CIMD clients are not stored in KV — the delete below still applies to
+    // their grants, and an unknown client id fails the same NotFound path.
+    client = null;
+  }
+
+  let revokedForUsers = 0;
+  const allUsers = await loadUsers(db);
+  for (const u of allUsers) {
+    revokedForUsers += await revokeGrantsForClient(c, h, u.id, clientId);
+  }
+
+  const existed = client !== null || revokedForUsers > 0;
+  if (!existed) {
+    throw new NotFoundError("MCP client", clientId);
+  }
+
+  await h.deleteClient(clientId);
+  await logActivity(
+    db,
+    actor,
+    ACTIONS.MCP_CLIENT_DELETED,
+    { type: "oauthClient", id: clientId, label: client?.clientName ?? clientId },
+    { revokedForUsers },
+  );
+
+  return c.json({ success: true, data: { clientId, revokedForUsers } });
 }
 
 async function revokeConnection(
   c: Context<AppContext>,
-  db: ReturnType<typeof getDb>,
+  h: OAuthHelpers,
   targetUserId: string,
-  actorDisplayName: string,
   clientId: string,
   meta?: { actorRole?: "admin" },
 ) {
-  // Guard: the grant must exist before we claim to revoke anything.
-  const existing = await db
-    .select({ clientId: oauthConsents.clientId })
-    .from(oauthConsents)
-    .where(and(eq(oauthConsents.userId, targetUserId), eq(oauthConsents.clientId, clientId)))
-    .get();
-  if (!existing) {
+  const revoked = await revokeGrantsForClient(c, h, targetUserId, clientId);
+  if (revoked === 0) {
     throw new NotFoundError("MCP connection", `${targetUserId}:${clientId}`);
   }
 
-  // Sequential deletes — D1 does not support transactions (feedback memory).
-  // Order matters: tokens reference the consent implicitly via client_id;
-  // clearing tokens first kills live sessions immediately so a racing MCP
-  // call can't squeeze through while we're still deleting the consent.
-  await db.delete(oauthAccessTokens).where(
-    and(eq(oauthAccessTokens.userId, targetUserId), eq(oauthAccessTokens.clientId, clientId)),
-  );
-  await db.delete(oauthRefreshTokens).where(
-    and(eq(oauthRefreshTokens.userId, targetUserId), eq(oauthRefreshTokens.clientId, clientId)),
-  );
-  await db.delete(oauthConsents).where(
-    and(eq(oauthConsents.userId, targetUserId), eq(oauthConsents.clientId, clientId)),
-  );
-
   const actor = c.get("user")!;
+  const db = getDb(c.env.DB);
   await logActivity(
     db,
     actor,

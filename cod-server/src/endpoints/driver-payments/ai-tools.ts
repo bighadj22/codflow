@@ -5,6 +5,28 @@ import { createPaymentSchema } from "./validation";
 import { getDb } from "@/db";
 
 /**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ */
+export const listDriverPaymentsSchema = z.object({
+  driverId: z.string().uuid().describe("The unique UUID of the driver to retrieve payments for"),
+});
+export const getPendingSettlementsSchema = z.object({
+  driverId: z.string().uuid().describe("The unique UUID of the driver"),
+});
+export const createDriverSettlementSchema = createPaymentSchema.extend({
+  agentName: z.string().min(1).describe("The name of the AI agent or staff member creating the settlement"),
+});
+
+export const DRIVER_PAYMENT_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  listDriverPayments: listDriverPaymentsSchema.shape,
+  getPendingSettlements: getPendingSettlementsSchema.shape,
+  createDriverSettlement: createDriverSettlementSchema.shape,
+};
+
+/**
  * AI Tools for Driver Payment Management
  * 
  * These tools allow the AI Agent to interact directly with the driver payments
@@ -22,9 +44,7 @@ export const getDriverPaymentTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        driverId: z.string().uuid().describe("The unique UUID of the driver to retrieve payments for"),
-      });
+      const validationSchema = listDriverPaymentsSchema;
       
       const parsed = validationSchema.safeParse(args);
       
@@ -67,9 +87,7 @@ export const getDriverPaymentTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        driverId: z.string().uuid().describe("The unique UUID of the driver"),
-      });
+      const validationSchema = getPendingSettlementsSchema;
       
       const parsed = validationSchema.safeParse(args);
       
@@ -111,9 +129,7 @@ export const getDriverPaymentTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = createPaymentSchema.extend({
-        agentName: z.string().min(1).describe("The name of the AI agent or staff member creating the settlement"),
-      });
+      const validationSchema = createDriverSettlementSchema;
       
       const parsed = validationSchema.safeParse(args);
       

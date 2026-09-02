@@ -5,21 +5,23 @@
 # Nothing in this repo depends on a specific Cloudflare account, domain, or
 # database. See README.md → "Getting Started" for step-by-step setup.
 #
-#   wrangler d1 create codflow-db      → gives you a database_id
+#   wrangler d1 create codflow-os-db  → gives you a database_id
 #   wrangler r2 bucket create codflow-images
+#   wrangler kv namespace create RATE_LIMIT
+#   wrangler kv namespace create OAUTH_KV
 #   wrangler deploy
 # ─────────────────────────────────────────────────────────────────────────────
 
 name = "codflow-server"
 main = "src/index.ts"
 compatibility_date = "2024-11-27"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
 # D1 database binding.
 [[d1_databases]]
 binding = "DB"
-database_name = "codflow-db"
-# Replace with the id from `wrangler d1 create codflow-db`.
+database_name = "codflow-os-db"
+# Replace with the id from `wrangler d1 create codflow-os-db`.
 database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "src/db/migrations"
 
@@ -30,21 +32,15 @@ binding = "IMAGES"
 bucket_name = "codflow-images"
 
 # KV namespace for rate limiting.
-# Create with: wrangler kv:namespace create "RATE_LIMIT"
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
 id = "00000000000000000000000000000000"
 
-# MCP remote server — one Durable Object per active MCP session holds
-# transport state (streamable-HTTP connection, pending elicitations, etc.).
-# Binding name MCP_SESSIONS is referenced by CodMcpAgent.serve("/mcp", { binding: "MCP_SESSIONS" }).
-[[durable_objects.bindings]]
-name       = "MCP_SESSIONS"
-class_name = "CodMcpAgent"
-
-[[migrations]]
-tag                = "mcp-v1"
-new_sqlite_classes = ["CodMcpAgent"]
+# KV namespace for the MCP OAuth provider (clients, grants, tokens, props).
+# Create with: wrangler kv namespace create OAUTH_KV
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "00000000000000000000000000000000"
 
 # CodCapiWorkflow — fires Meta CAPI Purchase events at order delivery.
 [[workflows]]
@@ -70,8 +66,8 @@ crons = ["0 * * * *"]
 # URLs with your own public domains:
 #   WORKER_URL       → https://api.yourdomain.com      (your Worker's public URL)
 #   MEDIA_DOMAIN     → media.yourdomain.com            (domain fronting your R2 bucket)
-#   BETTER_AUTH_URL  → https://app.yourdomain.com/api/auth (the dashboard Worker's
-#                       Better Auth origin — issuer used to verify MCP tokens)
+#   BETTER_AUTH_URL  → https://dashboard.yourdomain.com/api/auth (the dashboard
+#                       Worker's Better Auth origin — JWT issuer verified here)
 #   WORKER_SELF_URL  → https://api.yourdomain.com/     (this Worker's own origin;
 #                       required `aud` claim for MCP bearer tokens)
 [vars]
@@ -79,35 +75,48 @@ ENVIRONMENT = "development"
 WORKER_URL = "http://localhost:8787"
 MEDIA_DOMAIN = "media.example.com"
 R2_BUCKET_NAME = "codflow-images"
-BETTER_AUTH_URL = "http://localhost:3000/api/auth"
+BETTER_AUTH_URL = "http://localhost:4321/api/auth"
 WORKER_SELF_URL = "http://localhost:8787/"
 # Development allows all origins for easier testing. Production uses ALLOWED_ORIGINS.
 ALLOWED_ORIGINS = "*"
 
 # Production environment.
 # Deploy with `wrangler deploy --env production` after editing the values.
-# IMPORTANT: Set ALLOWED_ORIGINS to your actual client and storefront domains.
+# IMPORTANT: Set ALLOWED_ORIGINS to your actual dashboard and storefront domains.
 [env.production]
-vars = { ENVIRONMENT = "production", WORKER_URL = "https://api.example.com", MEDIA_DOMAIN = "media.example.com", R2_BUCKET_NAME = "codflow-images", BETTER_AUTH_URL = "https://app.example.com/api/auth", WORKER_SELF_URL = "https://api.example.com/", ALLOWED_ORIGINS = "https://app.example.com,https://store.example.com" }
+vars = { ENVIRONMENT = "production", WORKER_URL = "https://api.example.com", MEDIA_DOMAIN = "media.example.com", R2_BUCKET_NAME = "codflow-images", BETTER_AUTH_URL = "https://dashboard.example.com/api/auth", WORKER_SELF_URL = "https://api.example.com/", ALLOWED_ORIGINS = "https://dashboard.example.com,https://store.example.com" }
 
 [[env.production.r2_buckets]]
 binding = "IMAGES"
 bucket_name = "codflow-images"
 
-[[env.production.durable_objects.bindings]]
-name       = "MCP_SESSIONS"
-class_name = "CodMcpAgent"
+# Environment bindings are non-inheritable in Wrangler — every binding used by
+# the Worker must be declared here or a production deploy silently ships without it.
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "codflow-os-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "00000000000000000000000000000000"
+
+[[env.production.kv_namespaces]]
+binding = "OAUTH_KV"
+id = "00000000000000000000000000000000"
+
+[[env.production.send_email]]
+name = "SEND_EMAIL_UNUSED"
 
 [[env.production.workflows]]
 name       = "capi-workflow"
 binding    = "CAPI_WORKFLOW"
 class_name = "CodCapiWorkflow"
 
-# Share local D1 state with cod-client so both read the same SQLite file in dev.
-# Without this, each project gets its own .wrangler/state dir and their D1s diverge.
-# `persist_to` under [dev] is not a wrangler 3.x field (hence the old warning);
-# the shared path is wired in via --persist-to in package.json dev + migration
-# scripts, plus initOpenNextCloudflareForDev({ persist: { path } }) on the client.
+# Share local D1 state with the dashboard so both read the same SQLite file in
+# dev. `persist_to` under [dev] is not a wrangler 3.x field (hence the old
+# warning); the shared path is wired in via --persist-to in package.json dev +
+# migration scripts, and astro dev's persistState in cod-client-astro.
 # Shared path resolves to <repo-root>/.wrangler-shared.
 [dev]
 port = 8787

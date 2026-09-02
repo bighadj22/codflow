@@ -12,6 +12,7 @@
 import { OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AppContext } from "@/types";
 import { defineRoute } from "@/lib/route-builder";
+import { SCOPES } from "../../../../cod-shared/rbac/scopes";
 import * as handlers from "./handlers";
 import {
   StoreSchema,
@@ -134,6 +135,102 @@ const savePixelConfigRoute = defineRoute({
   handler: handlers.savePixelConfig,
 });
 
+// ─── WhatsApp OTP verification config (dzverify) ──────────────────────────────
+
+const otpConfigResponse = z.object({
+  success: z.boolean(),
+  data: z
+    .object({
+      language: z.enum(["en", "fr", "ar"]),
+      enabled: z.boolean(),
+      apiKeyMasked: z.string().openapi({ example: "••••a9f2" }),
+      createdAt: z.string().datetime(),
+      updatedAt: z.string().datetime(),
+    })
+    .nullable(),
+});
+
+const saveOtpConfigBodySchema = z.object({
+  apiKey: z.string().default("").openapi({
+    description:
+      "dzverify API key. Empty string keeps the previously stored key (the key is never sent back to the client).",
+  }),
+  language: z.enum(["en", "fr", "ar"]).optional(),
+  enabled: z.boolean().optional(),
+});
+
+const getOtpConfigRoute = defineRoute({
+  method: "get",
+  path: "/otp-config",
+  auth: { scope: SCOPES.SETTINGS_VERIFICATION },
+  tags: ["Store Settings"],
+  summary: "Get WhatsApp OTP verification configuration",
+  description:
+    "Returns the store's dzverify OTP configuration, or `null` when never configured (verification disabled). The API key is never returned — only a masked hint.",
+  operationId: "getOtpConfig",
+  responses: {
+    200: { description: "OTP configuration (null when not configured)", content: jsonContent(otpConfigResponse) },
+  },
+  handler: handlers.getOtpConfig,
+});
+
+const saveOtpConfigRoute = defineRoute({
+  method: "post",
+  path: "/otp-config",
+  auth: { scope: SCOPES.SETTINGS_VERIFICATION },
+  tags: ["Store Settings"],
+  summary: "Save WhatsApp OTP verification configuration",
+  description:
+    "Upserts the store's dzverify OTP configuration. An empty `apiKey` keeps the stored key. Requires a key before enabling. No row = verification disabled (safe default).",
+  operationId: "saveOtpConfig",
+  body: saveOtpConfigBodySchema,
+  responses: {
+    200: { description: "Saved OTP configuration", content: jsonContent(otpConfigResponse) },
+    400: { description: "No API key stored or submitted (REQUIRED_FIELD_MISSING)" },
+  },
+  handler: handlers.saveOtpConfig,
+});
+
+const testOtpConfigBodySchema = z.object({
+  apiKey: z.string().optional().openapi({
+    description: "Test this key instead of the stored one (pre-save validation).",
+  }),
+});
+
+const testOtpConfigRoute = defineRoute({
+  method: "post",
+  path: "/otp-config/test",
+  auth: { scope: SCOPES.SETTINGS_VERIFICATION },
+  tags: ["Store Settings"],
+  summary: "Test dzverify connection",
+  description:
+    "Checks the stored (or submitted) dzverify API key against the provider's quota endpoint. A key lacking the usage:read scope is reported as valid with quota unavailable. Negative outcomes return 200 with ok:false — the check itself succeeded.",
+  operationId: "testOtpConnection",
+  body: testOtpConfigBodySchema,
+  responses: {
+    200: {
+      description: "Connection check executed",
+      content: jsonContent(
+        z.object({
+          success: z.boolean(),
+          data: z.object({
+            ok: z.boolean(),
+            reason: z.string().optional(),
+            message: z.string().optional(),
+            balanceDa: z.number().optional(),
+            otpEstimate: z.number().optional().openapi({ description: "How many more OTPs the balance covers" }),
+            plan: z.string().optional(),
+            outOfCredits: z.boolean().optional(),
+          }),
+        })
+      ),
+    },
+    400: { description: "No API key stored or submitted (REQUIRED_FIELD_MISSING)" },
+    502: { description: "dzverify unreachable (EXTERNAL_API_FAILURE)" },
+  },
+  handler: handlers.testOtpConnection,
+});
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 const router = new OpenAPIHono<AppContext>();
@@ -142,5 +239,8 @@ router.openapi(getMyStoreRoute.route, getMyStoreRoute.handler);
 router.openapi(updateMyStoreRoute.route, updateMyStoreRoute.handler);
 router.openapi(getPixelConfigRoute.route, getPixelConfigRoute.handler);
 router.openapi(savePixelConfigRoute.route, savePixelConfigRoute.handler);
+router.openapi(getOtpConfigRoute.route, getOtpConfigRoute.handler);
+router.openapi(saveOtpConfigRoute.route, saveOtpConfigRoute.handler);
+router.openapi(testOtpConfigRoute.route, testOtpConfigRoute.handler);
 
 export default router;

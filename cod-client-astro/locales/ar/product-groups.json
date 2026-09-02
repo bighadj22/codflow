@@ -1,0 +1,62 @@
+{
+  "page_title": "مجموعات المنتجات",
+  "add_group": "إضافة مجموعة",
+  "groups_count": "مجموعة",
+  "search_placeholder": "بحث في المجموعات...",
+  "success_deleted": "تم حذف المجموعة",
+  "error_load": "تعذر تحميل مجموعات المنتجات",
+  "error_not_found": "مجموعة المنتجات غير موجودة",
+  "error_generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+  "table": {
+    "name": "الاسم",
+    "parent": "المجموعة الأم",
+    "products": "المنتجات",
+    "status": "الحالة",
+    "created_at": "تاريخ الإضافة"
+  },
+  "actions": {
+    "edit": "تعديل",
+    "delete": "حذف"
+  },
+  "empty_state": {
+    "title": "لا توجد مجموعات بعد",
+    "description": "أنشئ مجموعات لتصنيف وتنظيم منتجاتك من أجل إدارة أفضل للكتالوج.",
+    "action": "أضف مجموعتك الأولى"
+  },
+  "form": {
+    "title_add": "إضافة مجموعة",
+    "title_edit": "تعديل المجموعة",
+    "name_label": "الاسم (بالإنجليزية)",
+    "name_ar_label": "الاسم (بالعربية)",
+    "name_placeholder": "مثال: Clothing",
+    "name_ar_placeholder": "مثال: ملابس",
+    "slug_label": "الرابط المختصر",
+    "description_label": "الوصف",
+    "description_ar_label": "الوصف (بالعربية)",
+    "parent_label": "المجموعة الأم",
+    "parent_placeholder": "بدون (مستوى أول)",
+    "image_label": "صورة المجموعة",
+    "image_help": "قم بتحميل صورة لتمثيل هذا القسم في المتجر",
+    "section_image": "الصورة",
+    "section_seo": "إعدادات SEO",
+    "meta_title_label": "عنوان SEO",
+    "meta_title_placeholder": "عنوان SEO لمحركات البحث",
+    "meta_title_help": "موصى به: 50-60 حرف",
+    "meta_description_label": "وصف SEO",
+    "meta_description_placeholder": "وصف مختصر لنتائج البحث",
+    "meta_description_help": "موصى به: 150-160 حرف",
+    "meta_keywords_label": "كلمات مفتاحية",
+    "meta_keywords_placeholder": "كلمة1، كلمة2، كلمة3",
+    "meta_keywords_help": "كلمات مفتاحية مفصولة بفواصل لمحركات البحث",
+    "active_label": "نشطة",
+    "error_name_required": "الاسم مطلوب",
+    "error_save_failed": "فشل الحفظ",
+    "cancel": "إلغاء",
+    "save": "حفظ المجموعة",
+    "saving": "جارٍ الحفظ...",
+    "success_add": "تمت إضافة المجموعة بنجاح",
+    "success_edit": "تم تحديث المجموعة بنجاح",
+    "delete_confirm": "حذف هذه المجموعة؟ ستصبح منتجاتها بدون مجموعة.",
+    "cannot_delete": "لا يمكن حذف مجموعة تحتوي على منتجات"
+  }
+}

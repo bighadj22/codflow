@@ -11,13 +11,14 @@ cod-server/
 ├── wrangler.toml       # Cloudflare bindings (D1, R2, KV)
 └── .dev.vars           # Local secrets (gitignored)
 
-cod-client/
-├── wrangler.toml       # Cloudflare bindings
-└── .dev.vars           # Local secrets
+cod-client-astro/
+├── wrangler.toml       # Cloudflare bindings (D1, KV)
+├── .env                # Build-time client env (PUBLIC_API_URL)
+└── .dev.vars           # Local secrets (gitignored)
 
 cod-astro/theme01/
 ├── wrangler.jsonc      # Cloudflare config
-└── .dev.vars           # Local secrets
+└── .dev.vars           # Local secrets (gitignored)
 ```
 
 ---
@@ -64,7 +65,8 @@ id = "your-kv-id"  # From: wrangler kv namespace create
 
 **Required:**
 ```bash
-wrangler secret put BETTER_AUTH_SECRET  # MUST match cod-client
+wrangler secret put BETTER_AUTH_SECRET   # MUST match cod-client-astro
+wrangler secret put MCP_LOGIN_TICKET_SECRET  # MUST match cod-client-astro (MCP login relay)
 ```
 
 **For R2 image uploads:**
@@ -88,7 +90,7 @@ MEDIA_DOMAIN=media.yourdomain.com
 
 ---
 
-## Dashboard (cod-client)
+## Dashboard (cod-client-astro)
 
 ### wrangler.toml
 
@@ -96,31 +98,40 @@ MEDIA_DOMAIN=media.yourdomain.com
 name = "mystore-dashboard"  # Choose unique worker name
 
 [vars]
-NEXT_PUBLIC_APP_URL = "https://admin.yourdomain.com"
-NEXT_PUBLIC_WORKER_URL = "https://api.yourdomain.com"
-ALLOWED_ORIGINS = "https://admin.yourdomain.com"
-
-[[kv_namespaces]]
-binding = "KV"
-id = "your-kv-id"
+PUBLIC_APP_URL = "https://dashboard.yourdomain.com"       # better-auth base URL (JWT issuer)
+PUBLIC_API_URL = "https://api.yourdomain.com"             # cod-server origin
+PUBLIC_TRUSTED_ORIGINS = "https://dashboard.yourdomain.com"  # origins allowed to POST /api/auth/*
 
 [[d1_databases]]
 binding = "DB"
 database_id = "your-database-id"  # Same as cod-server
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "your-kv-id"
 ```
+
+### .env (build-time, baked into the client bundle)
+
+```env
+PUBLIC_API_URL=https://api.yourdomain.com
+```
+
+Set this **before** `npm run build` — it is consumed via `astro:env/client`
+and requires a rebuild to change.
 
 ### Secrets
 
 ```bash
-wrangler secret put BETTER_AUTH_SECRET  # MUST match cod-server
+wrangler secret put BETTER_AUTH_SECRET        # MUST match cod-server
+wrangler secret put MCP_LOGIN_TICKET_SECRET   # MUST match cod-server
 ```
 
 ### .dev.vars (local development)
 
 ```env
 BETTER_AUTH_SECRET=<your-generated-secret>
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_WORKER_URL=http://localhost:8787
+# optional: MCP_LOGIN_TICKET_SECRET (only for MCP OAuth testing)
 ```
 
 ---
@@ -159,7 +170,8 @@ COD_SERVER_URL=http://localhost:8787
 
 | Secret | Where | Must Match |
 | :--- | :--- | :--- |
-| `BETTER_AUTH_SECRET` | cod-server + cod-client | **YES** (must be identical) |
+| `BETTER_AUTH_SECRET` | cod-server + cod-client-astro | **YES** (must be identical) |
+| `MCP_LOGIN_TICKET_SECRET` | cod-server + cod-client-astro | **YES** (must be identical) |
 | `STORE_API_KEY` | Seed script → DB → cod-astro | **YES** (storefront uses seeded hash) |
 
 ---
@@ -200,11 +212,9 @@ Stored in D1 `settings` table.
 
 ### Carrier API Keys
 
-1. **Settings** → **Delivery**
-2. For each carrier (Yalidine, ZR Express, NOEST, EcoTrack):
-   - Click **Configure**
-   - Enter API credentials
-   - Test connection
+1. **Delivery** → **Companies**
+2. Open a carrier company → **Credentials**
+3. Enter API credentials, test the connection, and sync stop desks
 
 Stored in D1 `carrier_configs` table.
 
@@ -228,21 +238,21 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md#r2-image-upload-setup) for complete R2 setup
 ### Local Development URLs
 
 ```
-cod-server:  http://localhost:8787
-cod-client:  http://localhost:3000
-cod-astro:   http://localhost:4321
+cod-server:       http://localhost:8787
+cod-client-astro: http://localhost:4321
+cod-astro:        http://localhost:4321 (run on another port when both are up)
 ```
 
 Local D1 database shared at `../.wrangler-shared/`
 
 ### Production URLs
 
-Update these in wrangler.toml `[vars]` after first deploy:
+Update these in the wrangler configs after first deploy:
 
 ```
-cod-server:  https://api.yourdomain.com
-cod-client:  https://admin.yourdomain.com
-cod-astro:   https://shop.yourdomain.com
+cod-server:       https://api.yourdomain.com
+cod-client-astro: https://dashboard.yourdomain.com
+cod-astro:        https://shop.yourdomain.com
 ```
 
 Then redeploy affected workers.
@@ -255,7 +265,7 @@ Then redeploy affected workers.
 
 ```bash
 grep -rn "00000000-0000\|00000000000000000000000000000000" \
-  cod-server/wrangler.toml cod-client/wrangler.toml
+  cod-server/wrangler.toml cod-client-astro/wrangler.toml
 ```
 
 Expected: no matches
@@ -288,7 +298,8 @@ wrangler secret list --name mystore-dashboard
 If they don't match, regenerate and set the same secret in both.
 
 **Dashboard shows 403 `INVALID_ORIGIN`**
-`NEXT_PUBLIC_APP_URL` in `cod-client/wrangler.toml` doesn't match your actual dashboard URL. Update and redeploy.
+Your dashboard origin is missing from `PUBLIC_TRUSTED_ORIGINS` in
+`cod-client-astro/wrangler.toml`. Add it and redeploy.
 
 **Image uploads fail**
 1. Check CORS policy on R2 bucket includes dashboard domain

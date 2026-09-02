@@ -22,14 +22,14 @@ This package is part of the root npm workspace. Install at the repo root
 ```sh
 npm run dev         # astro dev :4321 (expects cod-server on :8787)
 npm run build       # astro build
-npm test            # vitest --run (6 unit/property tests)
+npm test            # vitest --run (unit/property tests)
 npx astro check     # typecheck + diagnostics
 npm run validate    # string + style validators, then build
 ```
 
 There is no `typecheck` script; `npx astro check` is the typecheck for this
-package. CI runs only cod-server and cod-client, so theme changes must be
-verified manually with the commands above.
+package. CI runs `astro check` + `npm test` for theme01 (plus typecheck +
+tests for cod-server, cod-client-astro, and the legacy cod-client).
 
 ## Boundaries
 

@@ -1,0 +1,81 @@
+{
+  "sidebar": {
+    "dashboard": "لوحة التحكم",
+    "store": "المتجر",
+    "orders": "الطلبات",
+    "orders_all": "جميع الطلبات",
+    "orders_abandoned": "الطلبات المهجورة",
+    "customers": "العملاء",
+    "products": "المنتجات",
+    "all_products": "جميع المنتجات",
+    "categories": "الفئات",
+    "product_groups": "مجموعات المنتجات",
+    "customer_groups": "المجموعات",
+    "customer_tags": "الوسوم",
+    "delivery": "التوصيل",
+    "delivery_drivers": "السائقون",
+    "delivery_companies": "الشركات",
+    "delivery_shipping": "الشحن",
+    "team": "الفريق",
+    "settings": "الإعدادات",
+    "general": "عام",
+    "inventory": "المخزون",
+    "system": "النظام",
+    "reviews": "التقييمات",
+    "offers": "العروض",
+    "stock_management": "إدارة المخزون",
+    "api_reference": "مرجع API",
+    "mcp": "وكلاء الذكاء الاصطناعي"
+  },
+  "navbar": {
+    "search_placeholder": "البحث عن طلبات، عملاء...",
+    "dashboard": "لوحة التحكم",
+    "notifications": "الإشعارات"
+  },
+  "mobile": {
+    "home": "الرئيسية",
+    "orders": "الطلبات",
+    "delivery": "التوصيل",
+    "customers": "العملاء",
+    "products": "المنتجات",
+    "all_products": "جميع المنتجات",
+    "categories": "الفئات",
+    "settings": "الإعدادات",
+    "team": "الفريق",
+    "reviews": "التقييمات",
+    "profile": "ملفي الشخصي",
+    "more": "المزيد"
+  },
+  "company": {
+    "name": "COD Flow",
+    "tagline": "نظام إدارة الطلبات والتوصيل"
+  },
+  "theme": {
+    "light": "الوضع الفاتح",
+    "dark": "الوضع الداكن",
+    "toggle": "تبديل الوضع"
+  },
+  "menu": {
+    "collapse": "طي القائمة",
+    "expand": "توسيع القائمة",
+    "close": "إغلاق القائمة"
+  },
+  "skip_to_content": "الانتقال إلى المحتوى",
+  "language": {
+    "label": "اللغة",
+    "arabic": "العربية",
+    "english": "English",
+    "french": "Français"
+  },
+  "breadcrumbs": {
+    "management": "الإدارة",
+    "delivery": "التوصيل",
+    "catalog": "الكتالوج",
+    "network": "الشبكة",
+    "details": "التفاصيل",
+    "pricing": "التسعير",
+    "inventory": "المخزون",
+    "dashboard": "لوحة التحكم"
+  },
+  "dashboard_subtitle": "لوحة القيادة"
+}
