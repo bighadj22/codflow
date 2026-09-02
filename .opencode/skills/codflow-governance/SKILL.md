@@ -1,6 +1,6 @@
 ---
 name: codflow-governance
-description: CodFlow repository workflow — the process for making and shipping a change that meets this repo's standards. Use when making ANY change to CodFlow (cod-server, cod-client, cod-shared, cod-astro/theme01, README, docs, CI), before committing or opening a PR, writing README feature claims, touching migrations or the D1 schema, adding dependencies, or reviewing contributions. Loads and defers to AGENTS.md for the repo contract; this skill is the step-by-step workflow, not a duplicate of it.
+description: CodFlow repository workflow — the process for making and shipping a change that meets this repo's standards. Use when making ANY change to CodFlow (cod-server, cod-client-astro, cod-shared, cod-astro/theme01, README, docs, CI), before committing or opening a PR, writing README feature claims, touching migrations or the D1 schema, adding dependencies, or reviewing contributions. Loads and defers to AGENTS.md for the repo contract; this skill is the step-by-step workflow, not a duplicate of it.
 ---
 
 # CodFlow Governance — change workflow
@@ -23,8 +23,9 @@ commands and boundaries live in each package's `AGENTS.md`
 
 ### 1. Locate the change
 
-- Identify the package(s) affected (cod-server / cod-client / cod-shared /
-  cod-astro/theme01). Read the root `AGENTS.md`, then the package's `AGENTS.md`.
+- Identify the package(s) affected (cod-server / cod-client-astro / cod-shared /
+  cod-astro/theme01; cod-client is LEGACY — reference only). Read the root
+  `AGENTS.md`, then the package's `AGENTS.md`.
 - Respect the `cod-shared` boundary: schema, queries, RBAC scopes, and error
   codes are defined there and only there. Do not duplicate them in a package.
 - Migrations: add a new migration; never rewrite an already-applied one.
@@ -64,7 +65,8 @@ npm ci
 - PRs must be small enough to review in one sitting (< ~500 lines).
 - The PR template checklist must pass: no secrets, tests cover the change,
   README claims match code, conventional commit message.
-- CI (typecheck + tests for cod-server and cod-client) must be green.
+- CI (typecheck + tests for cod-server, cod-client-astro, cod-client (legacy),
+  and astro check + tests for theme01) must be green.
 - When reviewing: README claims only what code does? Secrets absent? Tests
   included? Migrations additive?
 

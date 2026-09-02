@@ -45,7 +45,7 @@ customer details, and delivery assignment are the core daily signals.
 
 ## Evidence on Hand
 
-- Legacy dashboard behavior and translations: `../cod-client`.
+- Legacy dashboard (historical behavior reference): `../cod-client`.
 - Current Astro dashboard implementation: `src/`.
 - Shared Arabic, English, and French locale resources: `locales/`.
 

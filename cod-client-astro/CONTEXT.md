@@ -85,7 +85,7 @@ Terms owned by neighbors — use, don't redefine:
 - **Schema / queries / RBAC scopes / error codes**: `cod-shared` (relative import)
 - **Authorization enforcement**: cod-server. This app renders UI per identity but trusts nothing; the server is the wall
 - **Storefront theming**: `cod-astro/theme01` owns its own style system; this dashboard does not import theme code
-- **Legacy dashboard**: `cod-client` remains source-of-truth behavior reference until P5 cutover
+- **Legacy dashboard**: `cod-client` (Next.js) is a historical behavior reference only — this package is the primary dashboard
 
 ## Edge cases
 
