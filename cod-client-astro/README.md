@@ -13,17 +13,49 @@ Read before contributing:
 ## Scripts
 
 ```sh
-npm run dev            # astro dev on :4321 (bindings via platformProxy)
+npm run dev            # astro dev on :4321 (bindings via the Cloudflare adapter)
 npm run build          # prerender → dist/ (+ SSR worker entry for /api/auth/*)
 npm run typecheck      # astro check
 npm test               # vitest (unit: gate logic)
 npm run verify-shells  # fail if shells leak data or reference legacy domains
+npm run seed:admin     # create/rotate the first admin (local D1)
+npm run seed:admin:remote  # …on the remote D1 (print-only password/API key)
 npm run smoke          # live auth/API gate suite (needs DASH_URL/API_URL/SMOKE_*)
 npm run deploy         # wrangler deploy
 ```
 
 Install/build always happens from the **repo root** (`npm ci` / `npm install`) —
 single root lockfile.
+
+## Get running locally
+
+Prerequisites: repo root `npm ci` done, and cod-server set up first —
+its migrations create the schema this dashboard authenticates against:
+
+```sh
+# 1. cod-server: migrate + seed demo data into the repo-shared local D1
+cd ../cod-server
+npm run db:setup:local
+
+# 2. This package: copy config templates
+cd ../cod-client-astro
+cp wrangler.toml.example wrangler.toml   # fill in YOUR D1 + KV ids
+cp .env.example .env                     # PUBLIC_API_URL (defaults to local cod-server)
+cp .dev.vars.example .dev.vars           # set BETTER_AUTH_SECRET
+
+# 3. Create your admin (sign-up is disabled by design — admins are provisioned)
+npm run seed:admin
+#    → prints email + generated password + API key; save them
+
+# 4. Run the servers (two terminals)
+npm run dev              # dashboard → http://localhost:4321
+cd ../cod-server && npm run dev   # API → http://localhost:8787
+```
+
+Local D1/KV state lives in `<repo-root>/.wrangler-shared` — cod-server's
+scripts write there and astro dev reads the same files (via the adapter's
+`persistState`), so migrations, seeding, and sign-in all see one database.
+Sign in at `http://localhost:4321/sign-in` with the seeded credentials.
 
 ## Environment contract
 

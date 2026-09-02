@@ -45,6 +45,10 @@ export default defineConfig({
   adapter: cloudflare({
     // No astro:assets usage yet — noop image service per adapter docs.
     imageService: "passthrough",
+    // Share one local D1/KV state with cod-server (`npm run dev` there uses
+    // --persist-to ../.wrangler-shared): without this, astro dev gets its own
+    // empty SQLite and sign-in fails against an unmigrated database.
+    persistState: { path: "../.wrangler-shared" },
   }),
   vite: {
     plugins: [orderDetailFallback, tailwindcss()],

@@ -4,10 +4,14 @@
 
 # ── Required for local dev ────────────────────────────────────────────────────
 
-# Used by the storefront (cod-astro) and cod-client to authenticate against the
+# Used by the storefront (cod-astro) and dashboard to authenticate against the
 # server's store API. Generate one with:  openssl rand -hex 32
 # It is hashed with SHA-256 before storage (see scripts/seed-local.mjs).
 # STORE_API_KEY=
+
+# Better Auth signing secret — the SAME value must be set on cod-client-astro
+# (both workers share the auth D1 tables). Generate with: openssl rand -hex 32
+# BETTER_AUTH_SECRET=
 
 # ── Only needed if you exercise the R2 image presign flow locally ─────────────
 # (R2 credentials are stored as wrangler secrets in production:
@@ -24,7 +28,7 @@
 # Overrides the [vars] block in wrangler.toml for local runs if you need to test
 # MCP token verification against a live dashboard, or a different environment:
 # ENVIRONMENT=development
-# BETTER_AUTH_URL=http://localhost:3000/api/auth
+# BETTER_AUTH_URL=http://localhost:4321/api/auth
 # WORKER_SELF_URL=http://localhost:8787/
 # WORKER_URL=http://localhost:8787
 # MEDIA_DOMAIN=media.example.com

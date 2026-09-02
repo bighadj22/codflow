@@ -10,6 +10,8 @@
     "check": "astro check",
     "deploy": "wrangler deploy",
     "verify-shells": "node scripts/verify-shells.mjs",
+    "seed:admin": "node scripts/seed-admin.mjs",
+    "seed:admin:remote": "node scripts/seed-admin.mjs --remote",
     "typecheck": "astro check",
     "test": "vitest --run",
     "smoke": "node scripts/smoke.mjs"
