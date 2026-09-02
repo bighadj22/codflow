@@ -2,7 +2,7 @@
  * Wilayas + Communes Queries
  *
  * Read-only reference data for Algeria's 58 wilayas and their communes.
- * Consumed by cod-server handlers and cod-client server components.
+ * Consumed by cod-server handlers and dashboard components.
  */
 
 import { eq, like, asc, or } from "drizzle-orm";

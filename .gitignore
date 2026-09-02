@@ -2,10 +2,6 @@
 skills-cloudflare/
 
 # Build artifacts
-cod-client/.next/
-cod-client/out/
-cod-client/.open-next/
-cod-client/.wrangler-output/
 cod-server/dist/
 cod-astro/theme01/dist/
 cod-astro/theme01/.astro/
@@ -17,9 +13,6 @@ cod-client-astro/.astro/
 
 # Dependencies
 node_modules/
-cod-client/node_modules/
-cod-server/node_modules/
-cod-shared/node_modules/
 
 # Environment files
 .env
@@ -33,7 +26,6 @@ cod-shared/node_modules/
 # Real wrangler configs contain live resource IDs — never commit them.
 # Copy wrangler.toml.example → wrangler.toml and fill in your own IDs.
 cod-server/wrangler.toml
-cod-client/wrangler.toml
 cod-client-astro/wrangler.toml
 
 # OS

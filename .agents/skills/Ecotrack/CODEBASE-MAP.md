@@ -28,7 +28,6 @@ All paths relative to repo root. Audit date: 2026-09-01.
 | `cod-server/src/endpoints/orders/shipment-operations.ts` | Update / cancel / remarks / tracking / label proxy |
 | `cod-shared/db/schema.ts` | `delivery_companies`, `orders`, `company_shipments`, `company_api_logs` tables |
 | `cod-client-astro/` | **The main merchant dashboard** (Astro + React islands). Carrier cards render from `PROVIDER_CONFIGS` in `src/features/delivery/types.ts` — 3 base providers + 82 EcoTrack entries GENERATED from `cod-shared/lib/ecotrack-couriers.ts` (never hand-edited; TODO noted in-file to render from DB rows later). Carrier APIs live in `src/features/delivery/api.ts` (test-connection, reconcile-orders, sync-stop-desks, webhooks) and `src/features/orders/api.ts` (dispatch, validate/update/cancel shipment, ask-return, confirm-return-reception, remarks, tracking, label) |
-| `cod-client/` | LEGACY Next.js dashboard — behavior reference only until cutover; do not add EcoTrack features there |
 | `cod-server/src/endpoints/delivery-companies/CONTEXT.md` | Domain language (Company Code, Auto-Validate, Locked at Carrier, Station Code…) |
 
 **Tests**: `noest/adapter.test.ts`, `yalidine/adapter.test.ts`,

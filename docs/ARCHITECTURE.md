@@ -34,7 +34,6 @@ codflow-os/
 ├── cod-shared/         # Shared schema, queries, RBAC scopes
 ├── cod-server/         # Backend API (Cloudflare Worker + Hono)
 ├── cod-client-astro/   # Dashboard (Astro, prerendered + auth worker)
-├── cod-client/         # Legacy dashboard (Next.js — reference only)
 └── cod-astro/theme01/  # Storefront (Astro SSR)
 ```
 
@@ -53,7 +52,6 @@ import { SCOPES } from "../../cod-shared/rbac/scopes";
 | **cod-astro/theme01** | Astro 7, Tailwind v4 | Cloudflare Workers + Static Assets |
 | **cod-server** | Hono 4, Drizzle ORM, Better Auth | Cloudflare Workers + D1 + R2 + KV |
 | **cod-client-astro** | Astro 7 (prerendered), React 19 islands | Cloudflare Workers + Static Assets + D1 + KV |
-| **cod-client** *(legacy)* | Next.js 16, React 19, OpenNext | Cloudflare Workers |
 | **cod-shared** | Drizzle schema, RBAC, errors | Source-shared (no build) |
 
 ---
@@ -128,8 +126,6 @@ cod-server verifies against its JWKS
 All dashboard data flows browser → cod-server REST API with JWT
 authentication. RBAC is enforced server-side in `cod-server`.
 
-> `cod-client` (Next.js) is the **legacy** dashboard, kept as a behavior
-> reference until removal. New dashboard work goes in `cod-client-astro`.
 
 ---
 

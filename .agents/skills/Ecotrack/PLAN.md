@@ -343,7 +343,7 @@ lifecycle guards.
       folders; `DeliveryProvider` interface unchanged; shared files touched
       only with additive, tested changes
 - [ ] Full suites: `cd cod-server && npm run typecheck && npm test` AND
-      `cd cod-client && npm run typecheck && npm test`
+      `cd cod-client-astro && npm run typecheck && npm test`
 - [ ] README feature claims audit (repo rule: code-verified only)
 - [ ] Update CONFORMANCE.md to final state; mark this plan complete
 - [ ] Production rollout checklist (human steps):
@@ -401,7 +401,7 @@ lifecycle guards.
 | 11 Status mapping + reconciliation | DONE ✅ |
 | 12 Isolation proof + rollout | DONE ✅ |
 
-**Dashboard note (2026-09-01)**: `cod-client` is LEGACY. The main dashboard is
+**Dashboard note (2026-09-01)**: the main dashboard is
 `cod-client-astro` — all dashboard-side EcoTrack work (carrier API adapters,
 tests, UI) happens there. Slice 12 wired the four new server endpoints
 (test-connection, reconcile-orders, ask-return, confirm-return-reception) into

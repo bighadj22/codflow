@@ -771,7 +771,7 @@ export const companyApiLogs = sqliteTable("company_api_logs", {
 
 /**
  * One store per deployment. Holds branding, theme, and SEO settings
- * editable from the cod-client dashboard.
+ * editable from the dashboard.
  */
 export const stores = sqliteTable("stores", {
   id: text("id").primaryKey(),
@@ -803,7 +803,7 @@ export const stores = sqliteTable("stores", {
   /**
    * JSON blob of every text string shown in the storefront.
    * Schema: StoreFrontContent (see cod-astro/theme01/src/lib/content.ts)
-   * Editable from cod-client Store Settings page.
+   * Editable from the dashboard Store Settings page.
    */
   contentJson: text("content_json"),
 
@@ -1077,7 +1077,7 @@ export const offers = sqliteTable("offers", {
 
 /**
  * Single-row table (id = 'default') — written by the partner via push-brand,
- * read by cod-client at request time through its D1 binding.
+ * read by the dashboard at request time through its D1 binding.
  */
 export const dashboardBrand = sqliteTable("dashboard_brand", {
   id:           text("id").primaryKey().default("default"),
@@ -1150,7 +1150,7 @@ export const capiEventLog = sqliteTable("capi_event_log", {
 });
 
 // ─── better-auth tables ──────────────────────────────────────────────────────
-// Declared so cod-client's auth code can reference them via Drizzle. The D1
+// Declared so the dashboard's auth code can reference them via Drizzle. The D1
 // schema itself is created by cod-server migrations (0000_complete.sql).
 
 export const sessions = sqliteTable("sessions", {

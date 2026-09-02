@@ -2,7 +2,7 @@
  * Shared Error Codes and Categories
  * 
  * Centralized error code registry for the COD platform.
- * Used by both backend (cod-server) and frontend (cod-client).
+ * Used by both backend (cod-server) and frontend (cod-client-astro).
  */
 
 export const ERROR_CODES = {

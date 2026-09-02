@@ -20,9 +20,8 @@ Every setup **creates real Cloudflare resources** in the developer's account,
 that same database**. There is exactly one path — follow it in order and do not
 skip a gate.
 
-The dashboard is `cod-client-astro` (Astro, prerendered static + auth worker).
-`cod-client` (Next.js) is LEGACY — do not set it up, deploy it, or point
-anything at it.
+The dashboard is `cod-client-astro` (Astro, prerendered static + auth
+worker). (The legacy Next.js dashboard was removed in v1.1.x.)
 
 ## Before Starting — State This Contract
 

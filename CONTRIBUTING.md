@@ -26,7 +26,6 @@ Algerian market, built as a monorepo of four packages running on Cloudflare.
 codflow-os/
 ├── cod-server/        # Backend API  — Cloudflare Worker (Hono + D1 + R2)
 ├── cod-client-astro/  # Merchant dashboard — Astro (prerendered + auth worker)
-├ cod-client/          # LEGACY dashboard (Next.js) — reference only, slated for removal
 ├── cod-astro/         # Customer storefront — Astro, trilingual (AR/FR/EN)
 │   └── theme01/       #   the default theme (theme layer is swappable)
 └── cod-shared/        # Source-shared TS — D1 schema, RBAC scopes, read queries
@@ -44,7 +43,6 @@ Install once at the repo root (`npm ci`) — never add per-package lockfiles.
 | `cod-server`        | `npm run dev`| `npm test`  | `npm run build:ci` |
 | `cod-client-astro`  | `npm run dev`| `npm test`  | `npm run build` |
 | `cod-astro/theme01` | `npm run dev`| `npm test`  | `npm run build` |
-| `cod-client` *(legacy)* | —        | `npm test`  | — |
 
 Run package scripts either from inside the package directory or with
 `npm run <script> --workspace <package-name>` from the repo root.

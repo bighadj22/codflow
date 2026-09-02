@@ -18,8 +18,6 @@ TypeScript, deployed on Cloudflare (Workers, D1, R2, KV).
 - `cod-astro/theme01/` — storefront theme (Astro). It is a swappable theme
   layer, not a platform package; keep engine logic out. Its commands and
   boundaries differ — read `cod-astro/theme01/AGENTS.md` before editing it.
-- `cod-client/` — **LEGACY** Next.js dashboard. Reference only, do not add
-  features; slated for removal. All dashboard work goes in `cod-client-astro`.
 
 There is **one root `package.json` with npm workspaces** and ONE root
 `package-lock.json`. Never add per-package lockfiles. The root also carries the
@@ -49,9 +47,8 @@ npm run seed:admin` (sign-up is disabled by design).
 
 - After changing TypeScript: run `npm run typecheck` in the affected package.
 - After changing behavior: run `npm test` in the affected package.
-- Full CI runs typecheck + tests for cod-server, cod-client-astro, and
-  cod-client (legacy), plus `astro check` + tests for theme01
-  (`.github/workflows/ci.yml`).
+- Full CI runs typecheck + tests for cod-server and cod-client-astro, plus
+  `astro check` + tests for theme01 (`.github/workflows/ci.yml`).
 
 ## Conventions
 

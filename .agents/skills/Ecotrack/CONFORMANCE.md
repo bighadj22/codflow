@@ -11,7 +11,7 @@ pricing belongs to shipping rules). Adapter fully characterized by tests
 against the Postman contract (mock server), typed errors, 82-courier catalog +
 idempotent seed, test-connection + reconciliation + returns routes, forward-only
 status mapping. Suite: cod-server 78 files / 1322 tests green; cod-client-astro
-33 files / 139 tests green (the MAIN dashboard — cod-client is legacy). Sibling
+33 files / 139 tests green (the main dashboard). Sibling
 provider folders (noest/yalidine/zr_express) zero-diff — isolation proven.
 
 **Deployed 2026-09-01 (wrangler only, no commit/push/PR):**
@@ -234,7 +234,7 @@ mapped status equals or ranks below current.
   `INSERT … ON CONFLICT(code) DO UPDATE` limited to name/nameAr/apiEndpoint.
 - **Capabilities registry is dead code**: `providers/capabilities.ts`
   (`getProviderCapabilities`, `hasCapability`, `validateAdapterCapabilities`)
-  has ZERO consumers in cod-server or cod-client. The per-provider capability
+  has ZERO consumers in cod-server. The per-provider capability
   flags are documentation-only today — reconciling them (PLAN Slice 4) carries
   no runtime risk, and they should be treated as machine-readable docs for
   future UI work.

@@ -27,20 +27,6 @@ jobs:
       - run: npm run typecheck --workspace codflow-server
       - run: npm test --workspace codflow-server
 
-  client:
-    name: cod-client (typecheck + test)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci
-      - run: npm run typecheck --workspace codflow-client
-      - run: npm test --workspace codflow-client
-
   dashboard:
     name: cod-client-astro (typecheck + test)
     runs-on: ubuntu-latest

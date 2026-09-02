@@ -302,9 +302,6 @@ cd cod-server && npm test
 # Dashboard tests (feature models, i18n guards, API seam)
 cd cod-client-astro && npm test
 
-# Legacy dashboard tests (until retirement)
-cd cod-client && npm test
-
 # Storefront tests (property-based, cart calculations)
 cd cod-astro/theme01 && npm test
 
@@ -313,8 +310,8 @@ cd cod-server && npm run typecheck
 cd cod-client-astro && npm run typecheck
 ```
 
-CI runs typecheck + tests for cod-server, cod-client-astro, cod-client
-(legacy), and astro check + tests for theme01.
+CI runs typecheck + tests for cod-server and cod-client-astro, plus
+astro check + tests for theme01.
 
 ---
 

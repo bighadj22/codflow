@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **legacy Next.js dashboard (`cod-client/`)** — superseded by cod-client-astro
+  in v1.1.0. Its CI job, dependabot entry, gitignore rules, and doc references
+  are gone; the sharp stub override (`vendor/sharp-stub`) was a cod-client
+  workaround and is removed with it
+- cod-client-astro/REFACTOR-CHECKPOINT.md (internal work log)
+
+### Changed
+
+- no production URLs or account identifiers in committed files: theme01's
+  `COD_SERVER_URL` defaults to localhost (production deploys pass the real URL
+  via `wrangler deploy --var`), security scripts default to localhost, test
+  fixtures use example.com placeholders
+
 ## [1.1.0] - 2026-09-02
 
 The dashboard cutover release: the merchant dashboard moves from Next.js

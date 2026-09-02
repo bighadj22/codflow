@@ -24,8 +24,7 @@ commands and boundaries live in each package's `AGENTS.md`
 ### 1. Locate the change
 
 - Identify the package(s) affected (cod-server / cod-client-astro / cod-shared /
-  cod-astro/theme01; cod-client is LEGACY — reference only). Read the root
-  `AGENTS.md`, then the package's `AGENTS.md`.
+  cod-astro/theme01). Read the root `AGENTS.md`, then the package's `AGENTS.md`.
 - Respect the `cod-shared` boundary: schema, queries, RBAC scopes, and error
   codes are defined there and only there. Do not duplicate them in a package.
 - Migrations: add a new migration; never rewrite an already-applied one.

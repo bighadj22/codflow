@@ -13,18 +13,6 @@ updates:
       - dependencies
 
   - package-ecosystem: npm
-    directory: /cod-client
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 10
-    commit-message:
-      prefix: chore(deps)
-      prefix-development: chore(deps-dev)
-    labels:
-      - dependencies
-
-  - package-ecosystem: npm
     directory: /cod-client-astro
     schedule:
       interval: weekly

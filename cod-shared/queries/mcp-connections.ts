@@ -1,7 +1,7 @@
 /**
  * Aggregate query for the /mcp page.
  *
- * Called from both cod-server (`/api/mcp/me`, `/api/mcp/team`) and cod-client's
+ * Called from cod-server (`/api/mcp/me`, `/api/mcp/team`) and the dashboard's
  * server component — keeping it here lets the page render directly from D1
  * without a cod-server round-trip. Revocation still lives on cod-server so
  * the audit log stays centralised.
