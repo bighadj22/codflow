@@ -44,7 +44,7 @@ verification, EcoTrack, and the MCP SDK v2 refactor.
   revocation) with stateless HMAC-sealed elicitation and a dashboard
   login-ticket relay; the MCP_SESSIONS Durable Object binding is replaced by
   the OAUTH_KV KV namespace; new secrets `MCP_REQUEST_STATE_KEY`,
-  `MCP_LOGIN_TICKET_SECRET`, `COOKIE_ENCRYPTION_KEY` (MCP_LOGIN_TICKET_SECRET
+  `MCP_LOGIN_TICKET_SECRET` (MCP_LOGIN_TICKET_SECRET
   must match on the dashboard worker)
 - cod-server: COD amount sent to carriers now includes the delivery fee
   (product price + fee); new `POST /orders/:id/ask-return` endpoint
@@ -60,8 +60,8 @@ verification, EcoTrack, and the MCP SDK v2 refactor.
 ### Migration notes (existing deployments)
 
 1. Create an `OAUTH_KV` KV namespace and bind it in cod-server's wrangler.toml
-2. Set new secrets on cod-server: `MCP_REQUEST_STATE_KEY`,
-   `COOKIE_ENCRYPTION_KEY`, `MCP_LOGIN_TICKET_SECRET`
+2. Set new secrets on cod-server: `MCP_REQUEST_STATE_KEY` and
+   `MCP_LOGIN_TICKET_SECRET`
 3. Set the same `BETTER_AUTH_SECRET` and `MCP_LOGIN_TICKET_SECRET` on the
    cod-client-astro worker
 4. Apply migration 0012 (`npm run db:migrate:remote` in cod-server)

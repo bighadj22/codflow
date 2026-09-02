@@ -44,8 +44,9 @@
 #   openssl rand -hex 32
 # MCP_LOGIN_TICKET_SECRET=
 
-# Cookie-encryption key for the @cloudflare/workers-oauth-provider consent flow.
-# Generate one with:  openssl rand -hex 32
+# Cookie-encryption key for the @cloudflare/workers-oauth-provider consent
+# flow. Generate one with:  openssl rand -hex 32
+# (Currently unused by the provider version in use; reserved for future need.)
 # COOKIE_ENCRYPTION_KEY=
 
 # In production all values are set with `wrangler secret put`, never in code.
