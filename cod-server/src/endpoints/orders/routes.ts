@@ -386,7 +386,7 @@ const updateShipmentRoute = defineRoute({
   summary: "Update shipment info at carrier",
   description: `Updates an existing shipment at the carrier API: customer info, COD amount, delivery preferences (fragile, weight, remarks). Changed fields sync back to the database.
 
-All fields are optional — omitted fields use current order values. EcoTrack requires ALL fields on every update call, so the server pre-fills from the order record and applies overrides.
+All fields are optional — omitted fields use current order values. EcoTrack requires ALL fields on every update call, so the server pre-fills from the order record and applies overrides. The COD amount sent to the carrier defaults to the order's COD total (price + delivery fee); an explicit \`amount\` overrides it and syncs back onto the order's price.
 
 **Update restrictions:** EcoTrack-family orders can only be updated before validation (status \`dispatched\`). NOEST rejects after validation; Yalidine after label print. ZR Express addresses parcels by internal parcel UUID.
 
@@ -590,6 +590,64 @@ Returns application/pdf with Content-Disposition: inline.`,
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 
+const askReturnRoute = defineRoute({
+  method: "post",
+  path: "/{id}/ask-return",
+  auth: { scope: SCOPES.DELIVERY_DISPATCH },
+  tags: ["Orders"],
+  summary: "Ask carrier to return the parcel",
+  description: `Requests a parcel return at the carrier API (EcoTrack: POST /api/v1/ask/for/order/return). This is a REQUEST, not a state change — the courier may take up to a day to action it and can decline (platform-documented), so the order stays out_for_delivery until the return is confirmed.
+
+Only callable while the order is out_for_delivery. Carrier error 10003 (not returnable) surfaces as 502 EXTERNAL_API_ERROR.
+
+Provider support: ecotrack ✅ | others ❌ OPERATION_NOT_SUPPORTED.`,
+  operationId: "askShipmentReturn",
+  params: IdParamSchema,
+  responses: {
+    200: {
+      description: "Return requested at the carrier",
+      content: jsonContent(MessageResponseSchema),
+    },
+    422: {
+      description:
+        "No tracking number, order not out_for_delivery, or provider does not support return requests",
+    },
+    500: {
+      description: "External API error (EXTERNAL_API_ERROR)",
+    },
+  },
+  handler: shipmentOps.askShipmentReturn,
+});
+
+const confirmReturnReceptionRoute = defineRoute({
+  method: "post",
+  path: "/{id}/confirm-return-reception",
+  auth: { scope: SCOPES.DELIVERY_DISPATCH },
+  tags: ["Orders"],
+  summary: "Confirm return reception at carrier",
+  description: `Confirms at the carrier that the merchant physically received the returned parcel (EcoTrack: POST /api/v1/valid/returns), then moves the order to "returned" through the normal status path (inventory restore, customer stats, history).
+
+Forward-only: only callable from out_for_delivery. If the carrier reports nothing eligible (already confirmed, or parcel not in a return state), returns 422 without touching the order.
+
+Provider support: ecotrack ✅ | others ❌ OPERATION_NOT_SUPPORTED.`,
+  operationId: "confirmReturnReception",
+  params: IdParamSchema,
+  responses: {
+    200: {
+      description: "Return reception confirmed — order marked returned",
+      content: jsonContent(MessageResponseSchema),
+    },
+    422: {
+      description:
+        "No tracking number, order not out_for_delivery, provider unsupported, or carrier reports nothing eligible for confirmation",
+    },
+    500: {
+      description: "External API error (EXTERNAL_API_ERROR)",
+    },
+  },
+  handler: shipmentOps.confirmReturnReception,
+});
+
 // IMPORTANT: /bulk-dispatch must come before /{id} routes — otherwise
 // "bulk-dispatch" would be captured as an id param.
 const router = new OpenAPIHono<AppContext>();
@@ -608,6 +666,8 @@ router.openapi(dispatchToCompanyRoute.route, dispatchToCompanyRoute.handler);
 router.openapi(validateShipmentRoute.route, validateShipmentRoute.handler);
 router.openapi(updateShipmentRoute.route, updateShipmentRoute.handler);
 router.openapi(cancelShipmentRoute.route, cancelShipmentRoute.handler);
+router.openapi(askReturnRoute.route, askReturnRoute.handler);
+router.openapi(confirmReturnReceptionRoute.route, confirmReturnReceptionRoute.handler);
 router.openapi(addRemarkRoute.route, addRemarkRoute.handler);
 router.openapi(getRemarksRoute.route, getRemarksRoute.handler);
 router.openapi(getTrackingRoute.route, getTrackingRoute.handler);
