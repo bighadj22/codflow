@@ -12,10 +12,12 @@
     "enabled": true
   },
   // Replace with your own values before deploying:
-  //   COD_SERVER_URL → your cod-server Worker's public URL (e.g. https://api.yourdomain.com)
+  //   COD_SERVER_URL → your cod-server Worker's public URL. The committed
+  //                    default targets local dev; for production deploy pass
+  //                    `wrangler deploy --var COD_SERVER_URL:https://api.yourdomain.com`
   //   STORE_API_KEY  → a secret — set it via `wrangler secret put STORE_API_KEY`
   //                     (do NOT put the real key here). Local dev reads both from .dev.vars.
   "vars": {
-    "COD_SERVER_URL": "https://api.codflow.store"
+    "COD_SERVER_URL": "http://localhost:8787"
   }
 }

@@ -26,8 +26,8 @@ const connection = (overrides: Partial<McpConnection> = {}): McpConnection => ({
 
 describe("mcp model", () => {
   it("derives the MCP URL from the API base", () => {
-    expect(mcpApiUrl("https://api.codflow.store")).toBe("https://api.codflow.store/mcp");
-    expect(mcpApiUrl("https://api.codflow.store/")).toBe("https://api.codflow.store/mcp");
+    expect(mcpApiUrl("https://api.example.com")).toBe("https://api.example.com/mcp");
+    expect(mcpApiUrl("https://api.example.com/")).toBe("https://api.example.com/mcp");
   });
 
   it("interpolates and pluralizes template strings", () => {

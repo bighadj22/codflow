@@ -1,6 +1,6 @@
 import type { McpConnection } from "./types";
 
-/** The MCP endpoint for a given API base URL, e.g. "https://api.codflow.store/mcp". */
+/** The MCP endpoint for a given API base URL, e.g. "https://api.example.com/mcp". */
 export function mcpApiUrl(apiBase: string): string {
   return `${apiBase.replace(/\/+$/, "")}/mcp`;
 }

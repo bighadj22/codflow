@@ -48,8 +48,8 @@ const authRequest: AuthRequest = {
   state: "xyz",
   codeChallenge: "abc",
   codeChallengeMethod: "S256",
-  resource: "https://api.codflow.store/mcp",
-  issuer: "https://api.codflow.store",
+  resource: "https://api.example.com/mcp",
+  issuer: "https://api.example.com",
 };
 
 const staffUser = { id: "user-1", name: "Ada", email: "ada@example.com", role: "staff", status: "active" };
@@ -70,7 +70,7 @@ function setDb(user: unknown, scopes: string[]): void {
 }
 
 function authzUrl(ticket?: string): string {
-  const url = new URL("https://api.codflow.store/authorize");
+  const url = new URL("https://api.example.com/authorize");
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", "claude");
   url.searchParams.set("redirect_uri", authRequest.redirectUri);
@@ -94,7 +94,7 @@ function makeEnv() {
     OAUTH_PROVIDER: { parseAuthRequest, lookupClient, completeAuthorization },
     MCP_LOGIN_TICKET_SECRET: KEY,
     OAUTH_KV: { get: kvGet, put: kvPut },
-    BETTER_AUTH_URL: "https://astro-v2.codflow.store/api/auth",
+    BETTER_AUTH_URL: "https://dashboard.example.com/api/auth",
     DB: {},
   } as unknown as Env;
   return { env, parseAuthRequest, lookupClient, completeAuthorization, kvGet, kvPut };
@@ -131,16 +131,16 @@ describe("authorize helpers", () => {
   });
 
   it("builds the dashboard sign-in redirect through the relay", () => {
-    const url = buildSignInRedirectUrl("https://astro-v2.codflow.store/api/auth", "https://api.codflow.store/authorize?a=1");
+    const url = buildSignInRedirectUrl("https://dashboard.example.com/api/auth", "https://api.example.com/authorize?a=1");
     const parsed = new URL(url);
-    expect(parsed.origin).toBe("https://astro-v2.codflow.store");
+    expect(parsed.origin).toBe("https://dashboard.example.com");
     expect(parsed.pathname).toBe("/sign-in");
     expect(parsed.searchParams.get("next")).toContain("/mcp/oauth/login");
     expect(parsed.searchParams.get("next")).toContain("authorize");
   });
 
   it("strips the ticket from the consent form action", () => {
-    const action = buildFormAction("https://api.codflow.store/authorize?client_id=c&ticket=t&state=s");
+    const action = buildFormAction("https://api.example.com/authorize?client_id=c&ticket=t&state=s");
     expect(action).toBe("/authorize?client_id=c&state=s");
   });
 
@@ -149,7 +149,7 @@ describe("authorize helpers", () => {
     const parsed = new URL(url);
     expect(parsed.searchParams.get("error")).toBe("access_denied");
     expect(parsed.searchParams.get("state")).toBe("xyz");
-    expect(parsed.searchParams.get("iss")).toBe("https://api.codflow.store");
+    expect(parsed.searchParams.get("iss")).toBe("https://api.example.com");
   });
 
   it("returns null from the error redirect without a validated redirect URI", () => {
@@ -198,7 +198,7 @@ describe("authorize GET", () => {
 
     expect(res.status).toBe(302);
     const location = new URL(res.headers.get("location")!);
-    expect(location.origin).toBe("https://astro-v2.codflow.store");
+    expect(location.origin).toBe("https://dashboard.example.com");
     expect(location.pathname).toBe("/sign-in");
     expect(location.searchParams.get("next")).toContain("/mcp/oauth/login");
   });

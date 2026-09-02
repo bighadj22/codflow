@@ -12,7 +12,7 @@
 #   SKIP_SEED=1        personas already in DB, skip seeding step
 #   REFRESH_KEYS=1     refetch persona API keys into cache
 #   PARALLEL=12        concurrent probes per domain
-#   BASE_URL=...       override target (default https://api.codflow.store)
+#   BASE_URL=...       override target (default http://localhost:8787)
 set -uo pipefail
 
 SEC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -2,8 +2,8 @@
  * Cross-worker login ticket for the MCP OAuth authorize flow.
  *
  * CodFlow's identity lives in Better Auth sessions on the Astro dashboard
- * (`astro-v2.codflow.store`), but the MCP OAuth authorization endpoint runs on
- * cod-server (`api.codflow.store`). The dashboard cannot share its session
+ * (the dashboard origin), but the MCP OAuth authorization endpoint runs on
+ * cod-server (the cod-server origin). The dashboard cannot share its session
  * cookie across origins, so after a successful sign-in it mints a short-lived,
  * single-use, HMAC-signed ticket proving "this user is authenticated", which
  * cod-server verifies before rendering consent.

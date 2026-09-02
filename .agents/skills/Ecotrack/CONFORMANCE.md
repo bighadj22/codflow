@@ -21,10 +21,10 @@ provider folders (noest/yalidine/zr_express) zero-diff — isolation proven.
   `https://packers.ecotrack.dz` entry).
 - Remote D1 seeded: 83 companies (82 EcoTrack inactive/no-token + ZR Express
   untouched). Verified by direct D1 query.
-- cod-server deployed: `codflow-os-server-production`
-  (version a4da8a55, api.codflow.store).
+- cod-server deployed: production worker (version a4da8a55, the account's
+  API domain).
 - Dashboard built + deployed: `codflow-os-dashboard`
-  (version d255cb72, astro-v2.codflow.store). The delivery-companies page now
+  (version d255cb72, the account's dashboard domain). The delivery-companies page now
   renders 85 provider cards (3 base + 82 EcoTrack); the API list endpoint
   correctly answers 401 to unauthenticated curl (auth wall verified).
 

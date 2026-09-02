@@ -9,7 +9,7 @@
 #   staff WITH needed scope → any non-40x (400/404 fine — wall passed, body rejected later)
 #   admin                   → any non-40x
 
-BASE_URL="${BASE_URL:-https://api.codflow.store}"
+BASE_URL="${BASE_URL:-http://localhost:8787}"
 DB_NAME="codflow-os-db"
 PARALLEL="${PARALLEL:-12}"
 SEC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
