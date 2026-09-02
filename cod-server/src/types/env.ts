@@ -28,7 +28,7 @@ export interface Env {
 
   // ─── MCP remote server (added MCP-8) ───────────────────────────────────────
   /**
-   * Origin of the Better Auth OAuth Authorization Server (cod-client URL).
+   * Origin of the Better Auth OAuth Authorization Server (dashboard URL).
    * Used as the `iss` claim when verifying MCP bearer tokens AND to derive
    * the JWKS URL (`${BETTER_AUTH_URL}/api/auth/jwks`).
    * Partner-server sets this per-tenant during provisioning.

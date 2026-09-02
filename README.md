@@ -75,28 +75,32 @@ E-commerce in Algeria is **95%+ Cash on Delivery (الدفع عند الاستل
 
 CodFlow v1.0.0 — here's what works today:
 
-### Storefront (`cod-astro`)
+### Storefront (`cod-astro/theme01`)
 - ✅ Single-page COD checkout with live shipping calculation
 - ✅ Home delivery **or** carrier stop-desk pickup selection
 - ✅ Quantity-tier offers ("Buy 2 get 10% off", "Buy 3 free shipping")
 - ✅ Order-verified product reviews (star ratings + Arabic/French text)
 - ✅ Trilingual: Arabic (RTL), French, English
 - ✅ Abandoned cart telemetry for recovery campaigns
+- ✅ Optional WhatsApp phone verification at checkout ([DZVerify](https://dzverify.com), off by default)
 
-### Merchant Dashboard (`cod-client`)
-- ✅ Analytics: revenue, delivery rate, return rate, active orders
+### Merchant Dashboard (`cod-client-astro`)
 - ✅ Order management with full COD lifecycle tracking
-- ✅ Product catalog with multi-attribute variants (size, color, SKU)
-- ✅ Inventory tracking with low-stock alerts
+- ✅ Product catalog with multi-attribute variants (size, color, SKU) and image uploads
+- ✅ Inventory tracking with low-stock alerts and adjustment history
 - ✅ Promotion engine (Buy X Get Y, free shipping rules)
 - ✅ Review moderation (approve, reject, delete)
-- ✅ Customer CRM with profiles, order history, segments
-- ✅ Team RBAC with granular permission scopes
-- ✅ Activity audit log for all admin actions
+- ✅ Customer CRM with profiles, order history, groups, and tags
+- ✅ Delivery: in-house drivers, per-wilaya compensation, cash settlement
+- ✅ Carrier company management (credentials, stop-desk sync, reconciliation)
+- ✅ Team RBAC with granular permission scopes and API keys
 - ✅ Meta Pixel & CAPI configuration UI
+- ✅ Abandoned order recovery
+- ✅ MCP agent connection management
+- ✅ Trilingual: Arabic (RTL), French, English
 
 ### Delivery Engine
-- ✅ 4 Algerian carriers: Yalidine, ZR Express, NOEST, EcoTrack
+- ✅ 4 Algerian carriers + EcoTrack (80+ couriers behind one API)
 - ✅ One-click shipment creation with printable labels
 - ✅ Real-time webhook tracking (Yalidine, ZR Express with HMAC verification)
 - ✅ Stop-desk catalog syncing across 58 wilayas
@@ -112,9 +116,10 @@ CodFlow v1.0.0 — here's what works today:
 - ✅ Durable retry with Cloudflare Workflows
 
 ### AI & Agentic (MCP)
-- ✅ RFC 9728 OAuth Protected Resource Discovery
-- ✅ Stateful agent sessions via Durable Objects
+- ✅ RFC 9728 OAuth Protected Resource Discovery with dynamic client registration
+- ✅ OAuth login relay from the dashboard (login-ticket bridge)
 - ✅ 14 RBAC-gated tool sets (orders, products, stock, offers, reviews, customers, drivers, etc.)
+- ✅ Stateless elicitation with HMAC-sealed confirmation state
 - ✅ Compatible with Claude, Cursor, ChatGPT, LibreChat
 
 ### Backend (`cod-server`)
@@ -151,9 +156,10 @@ npm ci
 ### 2. Create Cloudflare Resources
 ```bash
 wrangler login
-wrangler d1 create codflow-db
+wrangler d1 create codflow-os-db
 wrangler r2 bucket create codflow-images
-wrangler kv namespace create RATE_LIMIT_KV
+wrangler kv namespace create RATE_LIMIT
+wrangler kv namespace create OAUTH_KV
 ```
 
 ### 3. Configure Environment
@@ -161,13 +167,15 @@ wrangler kv namespace create RATE_LIMIT_KV
 # Backend
 cd cod-server
 cp .dev.vars.example .dev.vars
-# Update wrangler.toml with your D1 database_id and R2 bucket_name
+cp wrangler.toml.example wrangler.toml
+# Update wrangler.toml with your D1 database_id, R2 bucket_name, KV ids
 
 # Dashboard
-cd ../cod-client
+cd ../cod-client-astro
+cp wrangler.toml.example wrangler.toml   # same D1 database_id as cod-server + your KV id
+cp .env.example .env
 cp .dev.vars.example .dev.vars
-# Set BETTER_AUTH_SECRET (e.g., openssl rand -base64 32)
-# Update wrangler.toml with your KV namespace ID
+# Set BETTER_AUTH_SECRET (same value as cod-server's, e.g. openssl rand -hex 32)
 
 # Storefront
 cd ../cod-astro/theme01
@@ -179,8 +187,8 @@ cp .dev.vars.example .dev.vars
 cd cod-server
 npm run db:setup:local
 
-cd ../cod-client
-ADMIN_EMAIL=admin@example.com ADMIN_NAME=Admin node scripts/seed-admin.mjs
+cd ../cod-client-astro
+ADMIN_EMAIL=admin@example.com ADMIN_NAME=Admin npm run seed:admin
 # ⚠️ Save the generated password and API key
 ```
 
@@ -191,12 +199,16 @@ Open three terminals:
 # Terminal 1: Backend (http://localhost:8787)
 cd cod-server && npm run dev
 
-# Terminal 2: Dashboard (http://localhost:3000)
-cd cod-client && npm run dev
+# Terminal 2: Dashboard (http://localhost:4321)
+cd cod-client-astro && npm run dev
 
-# Terminal 3: Storefront (http://localhost:4321)
+# Terminal 3: Storefront (http://localhost:4321 → use a different port, see theme README)
 cd cod-astro/theme01 && npm run dev
 ```
+
+> ⚠️ The dashboard and storefront both default to port 4321 — run them on
+> different ports (`astro dev --port 4322` for one of them) or run only one
+> at a time.
 
 ### 6. Enable Image Uploads
 
@@ -216,18 +228,20 @@ Deploy all three apps to Cloudflare Workers:
 ```bash
 # 1. Backend
 cd cod-server
-npm run deploy
+npm run deploy -- --env production
 wrangler secret put BETTER_AUTH_SECRET
+wrangler secret put STORE_API_KEY
 
 # 2. Dashboard
-cd ../cod-client
-npm run deploy
-wrangler secret put BETTER_AUTH_SECRET
+cd ../cod-client-astro
+npm run build && npm run deploy
+wrangler secret put BETTER_AUTH_SECRET         # same value as cod-server's
+wrangler secret put MCP_LOGIN_TICKET_SECRET    # same value as cod-server's
 
 # 3. Storefront
 cd ../cod-astro/theme01
 # Set COD_SERVER_URL in wrangler.jsonc to your deployed backend URL
-npm run deploy
+npm run build && npm run deploy
 wrangler secret put STORE_API_KEY
 ```
 
@@ -242,37 +256,37 @@ wrangler secret put STORE_API_KEY
 ## 🏗️ Architecture
 
 ```
-                         ┌──────────────────────────────────────────┐
-                         │              cod-shared                  │
-                         │   D1 schema • RBAC scopes • queries      │
-                         └───────────────┬──────────────────────────┘
-                                         │ relative imports
-              ┌──────────────────────────┼──────────────────────────┐
-              │                          │                          │
-      ┌───────▼───────┐         ┌────────▼────────┐        ┌────────▼────────┐
-      │  Storefront   │         │     Backend     │        │   Dashboard     │
-      │  cod-astro    │──/store─▶  cod-server     │◀──/api─│  cod-client     │
-      │  (Astro 7)    │  API    │ (Hono + Workflows) API   │  (Next.js 16)   │
-      └───────┬───────┘         └───┬─────┬───────┘        └─────────────────┘
-              │                     │     │
-              │               /webhooks   │ CodCapiWorkflow
-              │              carrier calls│
-              │                     │     └─────────▶ Meta Conversions API
-              │                     │                 (Purchase @ delivered)
-              │                     │
-              │              ┌──────▼──────┐
-              │              │ Carriers    │   Yalidine • ZR Express  (webhooks)
-              │              │  APIs       │   NOEST • EcoTrack       (tracking pull)
-              │              └─────────────┘
-              │
-              │        /images (R2)      /mcp (AI agents, OAuth-scoped)
-              └───────────────────────────────────────────────▶
+                          ┌──────────────────────────────────────────┐
+                          │              cod-shared                  │
+                          │   D1 schema • RBAC scopes • queries      │
+                          └───────────────┬──────────────────────────┘
+                                          │ relative imports
+               ┌──────────────────────────┼──────────────────────────┐
+               │                          │                          │
+       ┌───────▼───────┐         ┌────────▼────────┐        ┌────────▼────────┐
+       │  Storefront   │         │     Backend     │        │   Dashboard     │
+       │  cod-astro    │──/store─▶  cod-server     │◀──/api─│ cod-client-astro│
+       │  (Astro 7)    │  API    │ (Hono + Workflows) API   │  (Astro 7)      │
+       └───────┬───────┘         └───┬─────┬───────┘        └─────────────────┘
+               │                     │     │
+               │               /webhooks   │ CodCapiWorkflow
+               │              carrier calls│
+               │                     │     └─────────▶ Meta Conversions API
+               │                     │                 (Purchase @ delivered)
+               │                     │
+               │              ┌──────▼─────┐
+               │              │ Carriers    │   Yalidine • ZR Express  (webhooks)
+               │              │  APIs       │   NOEST • EcoTrack       (tracking pull)
+               │              └─────────────┘
+               │
+               │        /images (R2)      /mcp (AI agents, OAuth-scoped)
+               └──────────────────────────────────────────────────────▶
 ```
 
 **Tech Stack:**
 - **Storefront:** Astro 7, Tailwind CSS v4 → Cloudflare Workers + Static Assets
 - **Backend:** Hono 4, Drizzle ORM, Better Auth, Workflows → Cloudflare Workers + D1 + R2 + KV
-- **Dashboard:** Next.js 16 (App Router), React 19, OpenNext → Cloudflare Workers
+- **Dashboard:** Astro 7 (prerendered static + auth worker) → Cloudflare Workers + D1 + KV
 - **Shared:** Drizzle schema, RBAC scopes, error codes
 
 **More detail:** [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
@@ -285,7 +299,10 @@ wrangler secret put STORE_API_KEY
 # Backend tests (handlers, workflows, OpenAPI, MCP)
 cd cod-server && npm test
 
-# Dashboard tests (actions, RBAC, i18n)
+# Dashboard tests (feature models, i18n guards, API seam)
+cd cod-client-astro && npm test
+
+# Legacy dashboard tests (until retirement)
 cd cod-client && npm test
 
 # Storefront tests (property-based, cart calculations)
@@ -293,8 +310,11 @@ cd cod-astro/theme01 && npm test
 
 # TypeScript verification
 cd cod-server && npm run typecheck
-cd ../cod-client && npm run typecheck
+cd cod-client-astro && npm run typecheck
 ```
+
+CI runs typecheck + tests for cod-server, cod-client-astro, cod-client
+(legacy), and astro check + tests for theme01.
 
 ---
 
@@ -306,6 +326,7 @@ cd ../cod-client && npm run typecheck
 | **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** | System map and data flows |
 | **[docs/CONFIGURATION.md](./docs/CONFIGURATION.md)** | All environment variables and configs |
 | **[docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md)** | Incomplete features and platform constraints |
+| **[docs/WHATSAPP-OTP-VERIFICATION.md](./docs/WHATSAPP-OTP-VERIFICATION.md)** | WhatsApp OTP verification feature |
 | **[CONTRIBUTING.md](./CONTRIBUTING.md)** | Development standards and PR workflow |
 | **[AGENTS.md](./AGENTS.md)** | Repository instructions for AI coding assistants |
 ### 🎬 Video Tutorial
@@ -316,17 +337,19 @@ cd ../cod-client && npm run typecheck
 
 ## 🗺️ Roadmap
 
-### In Progress
-
-- 🚧 **Dashboard Migration to Astro** — Migrating merchant dashboard from Next.js to Astro for consistency and performance
-
 ### Planned
 
+- 📈 **Deeper dashboard analytics** — revenue, delivery-rate, and return-rate trends
 - 📦 **More Themes** — Additional storefront themes beyond `theme01`
 - 📘 **Theme Editing Guides** — Comprehensive guides for customizing and creating themes
 - ☁️ **CodFlow Cloud** — One-click deployment from dashboard for agencies to resell CodFlow
 - 📧 **[Sendili.com](https://sendili.com) Integration** — Add Sendili as a second email option for order notifications and admin alerts
-- 📱 **[DZVerify.com](https://dzverify.com) WhatsApp OTP** — Integrate WhatsApp OTP verification in order form to prevent fake orders
+
+### Recently Shipped
+
+- ✅ **Astro Dashboard** — the merchant dashboard now runs on Astro (was Next.js)
+- ✅ **WhatsApp OTP Verification** — [DZVerify.com](https://dzverify.com) phone verification at checkout
+- ✅ **EcoTrack Integration** — 80+ Algerian couriers behind one API
 
 ---
 

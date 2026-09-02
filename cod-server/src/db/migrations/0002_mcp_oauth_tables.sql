@@ -1,6 +1,6 @@
 -- Migration: 0002_mcp_oauth_tables
 -- Adds the tables required by the Better Auth OAuth 2.1 Provider + JWT plugins
--- so cod-client can act as an OAuth Authorization Server for MCP clients
+-- so the dashboard can act as an OAuth Authorization Server for MCP clients
 -- (Claude Desktop, Claude.ai, ChatGPT, custom agents).
 --
 -- Five new tables:

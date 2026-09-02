@@ -19,7 +19,8 @@ Create production resources with unique names:
 ```bash
 wrangler d1 create <project>-prod-db
 wrangler r2 bucket create <project>-prod-images
-wrangler kv namespace create RATE_LIMIT_KV_PROD
+wrangler kv namespace create RATE_LIMIT
+wrangler kv namespace create OAUTH_KV
 ```
 
 **Save the IDs** from each command output.
@@ -30,7 +31,7 @@ wrangler kv namespace create RATE_LIMIT_KV_PROD
 
 ## Update wrangler.toml Files
 
-Update resource IDs in both `cod-server/wrangler.toml` and `cod-client/wrangler.toml`:
+Update resource IDs in both `cod-server/wrangler.toml` and `cod-client-astro/wrangler.toml`:
 
 ### cod-server/wrangler.toml
 
@@ -46,29 +47,46 @@ binding = "IMAGES"
 bucket_name = "<project>-prod-images"
 
 [[kv_namespaces]]
-binding = "RATE_LIMIT_KV"
+binding = "RATE_LIMIT"
 id = "your-kv-namespace-id"
+
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "your-oauth-kv-namespace-id"
 ```
 
-### cod-client/wrangler.toml
+### cod-client-astro/wrangler.toml
 
 ```toml
 name = "mystore-dashboard"  # Choose unique worker name
 
-[[kv_namespaces]]
-binding = "KV"
-id = "your-kv-namespace-id"  # Can be same or different
-
 [[d1_databases]]
 binding = "DB"
 database_id = "your-production-database-id"  # Same as cod-server
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "your-kv-namespace-id"  # Separate namespace from cod-server's
+
+[vars]
+PUBLIC_APP_URL = "https://dashboard.yourdomain.com"
+PUBLIC_API_URL = "https://api.yourdomain.com"
+PUBLIC_TRUSTED_ORIGINS = "https://mystore-dashboard.<your-subdomain>.workers.dev,https://dashboard.yourdomain.com"
+```
+
+Also set the build-time client env (used by the browser API client):
+
+```bash
+cd cod-client-astro
+cp .env.example .env
+# edit .env → PUBLIC_API_URL="https://api.yourdomain.com"
 ```
 
 **Verify no placeholders remain:**
 
 ```bash
 grep -rn "00000000-0000\|00000000000000000000000000000000" \
-  cod-server/wrangler.toml cod-client/wrangler.toml
+  cod-server/wrangler.toml cod-client-astro/wrangler.toml
 ```
 
 Expected: no matches.
@@ -93,8 +111,8 @@ The remote migration is **critical**. Without it, Better Auth will fail with 500
 ## Create Admin Account
 
 ```bash
-cd cod-client
-ADMIN_EMAIL=admin@yourdomain.com ADMIN_NAME=Admin node scripts/seed-admin.mjs <password> --remote
+cd cod-client-astro
+ADMIN_EMAIL=admin@yourdomain.com ADMIN_NAME=Admin npm run seed:admin:remote
 ```
 
 **Save the output** - it shows your admin password and API key (displayed once).
@@ -107,17 +125,17 @@ Deploy in order:
 
 ```bash
 cd cod-server && npm run deploy
-cd ../cod-client && npm run deploy
-cd ../cod-astro/theme01 && npm run deploy
+cd ../cod-client-astro && npm run build && npm run deploy
+cd ../cod-astro/theme01 && npm run build && npm run deploy
 ```
 
 **After first deploy, update URLs and redeploy:**
 
 1. Get your deployed worker URLs from the deploy output
-2. Update these in wrangler.toml files:
-   - `NEXT_PUBLIC_APP_URL` (cod-client) → your dashboard URL
-   - `NEXT_PUBLIC_WORKER_URL` (cod-client) → your API URL  
-   - `WORKER_URL` (cod-server) → your API URL
+2. Update these in the configs:
+   - `PUBLIC_APP_URL` + `PUBLIC_TRUSTED_ORIGINS` (cod-client-astro wrangler.toml) → your dashboard URL
+   - `.env` `PUBLIC_API_URL` (cod-client-astro) → your API URL — then **rebuild** (it is baked into the client bundle)
+   - `WORKER_URL`, `BETTER_AUTH_URL`, `WORKER_SELF_URL` (cod-server wrangler.toml) → your API + dashboard URLs
    - `COD_SERVER_URL` (cod-astro/theme01/wrangler.jsonc) → your API URL
 3. Redeploy affected workers
 
@@ -130,6 +148,7 @@ cd ../cod-astro/theme01 && npm run deploy
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # BETTER_AUTH_SECRET
 node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))" # STORE_API_KEY
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"       # MCP_LOGIN_TICKET_SECRET
 ```
 
 **Set secrets (use temp file for security):**
@@ -139,12 +158,18 @@ node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))" #
 cd cod-server
 echo "<BETTER_AUTH_SECRET>" > /tmp/secret.txt && chmod 600 /tmp/secret.txt
 wrangler secret put BETTER_AUTH_SECRET < /tmp/secret.txt
+echo "<STORE_API_KEY>" > /tmp/secret.txt && chmod 600 /tmp/secret.txt
+wrangler secret put STORE_API_KEY < /tmp/secret.txt
+echo "<MCP_LOGIN_TICKET_SECRET>" > /tmp/secret.txt && chmod 600 /tmp/secret.txt
+wrangler secret put MCP_LOGIN_TICKET_SECRET < /tmp/secret.txt
 rm /tmp/secret.txt
 
-# Dashboard (MUST match backend)
-cd ../cod-client
+# Dashboard (BETTER_AUTH_SECRET + MCP_LOGIN_TICKET_SECRET MUST match backend)
+cd ../cod-client-astro
 echo "<BETTER_AUTH_SECRET>" > /tmp/secret.txt && chmod 600 /tmp/secret.txt
 wrangler secret put BETTER_AUTH_SECRET < /tmp/secret.txt
+echo "<MCP_LOGIN_TICKET_SECRET>" > /tmp/secret.txt && chmod 600 /tmp/secret.txt
+wrangler secret put MCP_LOGIN_TICKET_SECRET < /tmp/secret.txt
 rm /tmp/secret.txt
 
 # Storefront
@@ -154,7 +179,9 @@ wrangler secret put STORE_API_KEY < /tmp/secret.txt
 rm /tmp/secret.txt
 ```
 
-**Critical:** `BETTER_AUTH_SECRET` must be identical in both cod-server and cod-client.
+**Critical:** `BETTER_AUTH_SECRET` and `MCP_LOGIN_TICKET_SECRET` must be
+identical in both cod-server and cod-client-astro (they share the auth D1 and
+the MCP login-ticket relay).
 
 ---
 
@@ -186,7 +213,7 @@ Paste this JSON (replace with your dashboard domain):
 [
   {
     "AllowedOrigins": [
-      "https://admin.yourdomain.com"
+      "https://dashboard.yourdomain.com"
     ],
     "AllowedMethods": ["PUT", "GET", "HEAD"],
     "AllowedHeaders": ["Content-Type", "Content-Length"],
@@ -228,7 +255,7 @@ rm /tmp/secret.txt
 
 ```bash
 cd cod-server && npm run deploy
-cd ../cod-astro/theme01 && npm run deploy
+cd ../cod-astro/theme01 && npm run build && npm run deploy
 ```
 
 **Full R2 setup details:** [cod-server/src/endpoints/images/README.md](../cod-server/src/endpoints/images/README.md)
@@ -245,9 +272,9 @@ Cloudflare dashboard:
 1. **Workers & Pages** → Your worker
 2. **Settings** → **Domains & Routes**
 3. **Add** → **Custom Domain**
-4. Enter: `api.yourdomain.com` (backend), `admin.yourdomain.com` (dashboard), `shop.yourdomain.com` (storefront)
+4. Enter: `api.yourdomain.com` (backend), `dashboard.yourdomain.com` (dashboard), `shop.yourdomain.com` (storefront)
 
-After custom domains are active, update URLs in wrangler.toml files and redeploy.
+After custom domains are active, update URLs in the wrangler configs and redeploy.
 
 ---
 
@@ -261,14 +288,16 @@ curl -s -o /dev/null -w "%{http_code}" https://api.yourdomain.com/api/docs
 # Expected: 200
 
 # Dashboard sign-in API (include Origin header!)
-curl -s -X POST https://admin.yourdomain.com/api/auth/sign-in/email \
+curl -s -X POST https://dashboard.yourdomain.com/api/auth/sign-in/email \
   -H "Content-Type: application/json" \
-  -H "Origin: https://admin.yourdomain.com" \
+  -H "Origin: https://dashboard.yourdomain.com" \
   -d '{"email":"admin@yourdomain.com","password":"<your-password>"}'
 # Expected: 200 + user JSON (not 403 INVALID_ORIGIN)
 ```
 
-**If sign-in returns 403 `INVALID_ORIGIN`:** Your `NEXT_PUBLIC_APP_URL` still points to localhost. Update it in `cod-client/wrangler.toml` and redeploy.
+**If sign-in returns 403 `INVALID_ORIGIN`:** your dashboard origin is missing
+from `PUBLIC_TRUSTED_ORIGINS` in `cod-client-astro/wrangler.toml`. Update it
+and redeploy.
 
 Visit your dashboard and storefront URLs to verify UI loads correctly.
 
@@ -328,7 +357,13 @@ Both workers on `workers.dev`? Move at least cod-server to custom domain.
 Run `npm run db:migrate:remote` - Better Auth 1.7 requires migration 0011.
 
 **Dashboard shows 403 `INVALID_ORIGIN` on sign-in**
-Update `NEXT_PUBLIC_APP_URL` in `cod-client/wrangler.toml` to your actual dashboard URL and redeploy.
+Add your dashboard domain to `PUBLIC_TRUSTED_ORIGINS` in
+`cod-client-astro/wrangler.toml` and redeploy.
+
+**Dashboard signs in but API calls fail (401)**
+`BETTER_AUTH_SECRET` differs between cod-server and cod-client-astro — the
+JWT the dashboard issues must be verifiable by cod-server's JWKS check. Set
+the same secret on both workers.
 
 **Image uploads fail**
 Check CORS policy on R2 bucket includes your dashboard domain and allows PUT requests.

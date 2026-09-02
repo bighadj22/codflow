@@ -8,8 +8,8 @@ Cloudflare Workers, Hono, and Drizzle ORM, with Durable Objects and Cloudflare
 Workflows under the hood.
 
 This package is part of the [CodFlow monorepo](../README.md). The dashboard
-(`cod-client`) and storefront (`cod-astro`) live in sibling folders and share
-database schema + query logic via `cod-shared`.
+(`cod-client-astro`) and storefront (`cod-astro`) live in sibling folders and
+share database schema + query logic via `cod-shared`.
 
 ## Tech Stack
 
@@ -43,8 +43,10 @@ database, and bucket is a placeholder you replace with your own resources.
 
    ```bash
    wrangler login
-   wrangler d1 create codflow-db            # → copy the returned database_id into wrangler.toml
+   wrangler d1 create codflow-os-db       # → copy the returned database_id into wrangler.toml
    wrangler r2 bucket create codflow-images # → match bucket_name in wrangler.toml
+   wrangler kv namespace create RATE_LIMIT  # → kv id
+   wrangler kv namespace create OAUTH_KV    # → kv id (MCP OAuth provider)
    ```
 
 2. **`.dev.vars`** — local secrets (gitignored):
@@ -64,10 +66,10 @@ The seed script also works standalone with `npm run db:seed:local`. It seeds a
 demo store whose API key is taken from `$STORE_API_KEY`, then
 `cod-astro/theme01/.dev.vars`, then a built-in dev default.
 
-> **First dashboard login:** better-auth lets you sign up in the dashboard, but
-> the first account defaults to role `staff`. To make yourself admin:
+> **First dashboard login:** the dashboard disables sign-up — create the admin
+> with the seeder instead (see `cod-client-astro/README.md`):
 > ```bash
-> wrangler d1 execute codflow-db --local --command "UPDATE users SET role='admin' WHERE email='you@example.com';"
+> cd ../cod-client-astro && npm run seed:admin
 > ```
 
 ### 4. Run locally
@@ -78,7 +80,7 @@ npm run dev
 # OpenAPI spec → http://localhost:8787/api/openapi.json
 ```
 
-Local D1 state is shared with `cod-client` through `<repo-root>/.wrangler-shared`,
+Local D1 state is shared with the dashboard through `<repo-root>/.wrangler-shared`,
 so dashboard and server read the same SQLite file during development.
 
 ### 5. Test
@@ -114,7 +116,7 @@ wrangler secret put R2_SECRET_ACCESS_KEY
 | `WORKER_URL` | Public URL of this Worker (used in OpenAPI docs) | `http://localhost:8787` |
 | `MEDIA_DOMAIN` | Domain fronting the R2 bucket (public image URLs) | `media.example.com` |
 | `R2_BUCKET_NAME` | R2 bucket name | `codflow-images` |
-| `BETTER_AUTH_URL` | Dashboard Worker's Better Auth origin — `iss` + JWKS source for MCP tokens | `http://localhost:3000/api/auth` |
+| `BETTER_AUTH_URL` | Dashboard Worker's Better Auth origin — `iss` + JWKS source for the JWTs the dashboard issues | `http://localhost:4321/api/auth` |
 | `WORKER_SELF_URL` | This Worker's own origin — required `aud` claim for MCP tokens | `http://localhost:8787/` |
 
 ### Secrets (`.dev.vars` locally / `wrangler secret put` in prod)
@@ -122,6 +124,10 @@ wrangler secret put R2_SECRET_ACCESS_KEY
 | Variable | Purpose |
 |----------|---------|
 | `STORE_API_KEY` | Shared secret the storefront sends as `X-Store-API-Key` (SHA-256 hashed at rest) |
+| `BETTER_AUTH_SECRET` | Better Auth signing secret — must match cod-client-astro's |
+| `MCP_LOGIN_TICKET_SECRET` | HMAC key for the MCP OAuth login-ticket relay — must match cod-client-astro's |
+| `MCP_REQUEST_STATE_KEY` | HMAC key sealing stateless MCP elicitation state |
+| `COOKIE_ENCRYPTION_KEY` | Cookie-encryption key for the OAuth consent flow |
 | `CF_ACCOUNT_ID` | Cloudflare account id — builds the R2 S3 endpoint |
 | `R2_ACCESS_KEY_ID` | R2 API token access key (presigned image uploads) |
 | `R2_SECRET_ACCESS_KEY` | R2 API token secret |
@@ -137,7 +143,7 @@ cod-server/
 │   ├── middleware/            # better-auth session/bearer auth, store API key, CORS, error handling
 │   ├── endpoints/             # One folder per domain (see route list below)
 │   ├── lib/                   # Meta CAPI client, activity log, shared errors
-│   ├── mcp/                   # MCP remote server (Durable Object agent + scope-gated tool registry)
+│   ├── mcp/                   # MCP remote server (OAuth provider wiring + scope-gated tool registry)
 │   ├── workflows/             # Durable Cloudflare Workflows (CodCapiWorkflow)
 │   ├── cron/                  # Scheduled handlers (abandoned-order sweep)
 │   ├── openapi/               # OpenAPI assembly: security schemes, Swagger UI, shared Zod schemas — the served spec generates from route definitions
@@ -178,9 +184,11 @@ Public routes: `/`, `/health`, `/images`, `/api` (OpenAPI spec + docs),
 
 ### MCP remote server
 `src/mcp/` implements an MCP (Model Context Protocol) server so AI agents can
-manage the store. Access tokens are **verified offline**: `iss`/`aud`/`exp`
-claims are checked against `BETTER_AUTH_URL`'s published JWKS — no per-request
-round trip to the dashboard. The 14 tool factories are gated by RBAC scopes.
+manage the store, fronted by `@cloudflare/workers-oauth-provider` (discovery,
+dynamic client registration, tokens, revocation; state in `OAUTH_KV`). The
+dashboard's sign-in sessions mint the access tokens via the login-ticket relay
+(`/authorize`), and dangerous tools require HMAC-sealed stateless
+confirmation. The tool factories are gated by RBAC scopes.
 
 ### Meta CAPI workflow
 `src/workflows/` (CodCapiWorkflow) fires Meta Conversions API `Purchase` events

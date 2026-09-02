@@ -10,7 +10,7 @@ Workers that make up the platform:
 | Worker | Role |
 |--------|------|
 | `cod-server` | Backend engine — REST API, `/store/*` storefront API, webhooks, MCP |
-| `cod-client` | Merchant dashboard (Next.js / OpenNext) |
+| `cod-client-astro` | Merchant dashboard (Astro) |
 | `cod-astro/theme01` | **Storefront — this package** |
 
 ## What it does
