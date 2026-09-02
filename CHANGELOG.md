@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-02
+
+The dashboard cutover release: the merchant dashboard moves from Next.js
+(cod-client, now LEGACY) to Astro (cod-client-astro), plus WhatsApp OTP
+verification, EcoTrack, and the MCP SDK v2 refactor.
+
 ### Added
 
 - storefront: optional per-store WhatsApp phone verification at checkout
@@ -20,24 +26,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tags), delivery (drivers, companies, shipping profiles), team RBAC,
   settings, abandoned orders, and MCP connections; Arabic/English/French with
   full RTL
+- cod-client-astro: admin seeding (`npm run seed:admin`) — sign-up is disabled
+  by design; the local-dev story shares one `.wrangler-shared` D1 across
+  cod-server and the dashboard
 - cod-client-astro: localized Arabic, English, and French toast feedback for
   authentication, CRUD, delivery, stock, settings, team, MCP, uploads, copies,
   and downloads, including success messages that survive page navigation
+- CI now covers all four packages (cod-server, cod-client-astro, theme01, and
+  the legacy cod-client until its removal)
 
 ### Changed
 
+- **cod-client-astro is the primary merchant dashboard**; cod-client (Next.js)
+  is LEGACY — reference only, slated for removal
 - cod-server: MCP remote server rebuilt on
   `@cloudflare/workers-oauth-provider` (RFC 9728/8414 discovery, DCR, token
-  revocation) with stateless HMAC-sealed elicitation; the MCP_SESSIONS
-  Durable Object binding is replaced by OAUTH_KV; new secrets
-  `MCP_REQUEST_STATE_KEY`, `MCP_LOGIN_TICKET_SECRET`, `COOKIE_ENCRYPTION_KEY`
+  revocation) with stateless HMAC-sealed elicitation and a dashboard
+  login-ticket relay; the MCP_SESSIONS Durable Object binding is replaced by
+  the OAUTH_KV KV namespace; new secrets `MCP_REQUEST_STATE_KEY`,
+  `MCP_LOGIN_TICKET_SECRET`, `COOKIE_ENCRYPTION_KEY` (MCP_LOGIN_TICKET_SECRET
+  must match on the dashboard worker)
 - cod-server: COD amount sent to carriers now includes the delivery fee
   (product price + fee); new `POST /orders/:id/ask-return` endpoint
+- docs, AGENTS.md, and the codflow-setup skill rewritten for the Astro
+  dashboard's environment contract (build-time `.env` PUBLIC_API_URL,
+  PUBLIC_APP_URL/PUBLIC_TRUSTED_ORIGINS runtime vars, secret parity)
 
 ### Fixed
 
 - theme01: WhatsApp OTP step now bundles correctly (raw script tag 404) and
   auto-submits the order form after verification
+
+### Migration notes (existing deployments)
+
+1. Create an `OAUTH_KV` KV namespace and bind it in cod-server's wrangler.toml
+2. Set new secrets on cod-server: `MCP_REQUEST_STATE_KEY`,
+   `COOKIE_ENCRYPTION_KEY`, `MCP_LOGIN_TICKET_SECRET`
+3. Set the same `BETTER_AUTH_SECRET` and `MCP_LOGIN_TICKET_SECRET` on the
+   cod-client-astro worker
+4. Apply migration 0012 (`npm run db:migrate:remote` in cod-server)
+5. Deploy cod-server → cod-client-astro → theme01
 
 ## [1.0.0] - 2026-08-22
 

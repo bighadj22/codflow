@@ -382,5 +382,5 @@ See [`LICENSE`](./LICENSE) and [`NOTICE`](./NOTICE) for details.
 
 ---
 
-**Version:** v1.0.0 — Self-hostable on Cloudflare.  
+**Version:** v1.1.0 — Self-hostable on Cloudflare.  
 Built with ❤️ for Algerian e-commerce.
