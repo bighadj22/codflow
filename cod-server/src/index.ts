@@ -38,6 +38,7 @@ import mcpManagementRoutes from "@/endpoints/mcp/routes";
 import analyticsRoutes from "@/endpoints/analytics/routes";
 import abandonedOrdersRoutes from "@/endpoints/abandoned-orders/routes";
 import storeAbandonedRoutes from "@/endpoints/abandoned-orders/store-routes";
+import storeOtpRoutes from "@/endpoints/store-otp/store-routes";
 
 import { sweepAbandonedOrders } from "@/cron/sweep-abandoned-orders";
 
@@ -78,6 +79,7 @@ app.route("/webhooks", webhooksRouter);
 app.use("/store/*", storeAuthMiddleware);
 app.route("/store", storeRoutes);
 app.route("/store", storeAbandonedRoutes);
+app.route("/store", storeOtpRoutes);
 
 // ─── MCP remote server (public discovery + bearer-gated endpoint) ──────────
 // Order matters: both routes are mounted BEFORE `app.use("/api/*", authMiddleware)`

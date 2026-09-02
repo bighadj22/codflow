@@ -279,6 +279,12 @@ export const StoreConfigSchema = z
       description: "When false, the reviews section is hidden on the storefront",
       example: true,
     }),
+    otpEnabled: z.boolean().openapi({
+      description:
+        "When true, storefront checkout requires WhatsApp phone verification (dzverify). " +
+        "True only when a store_otp_config row exists AND is enabled.",
+      example: false,
+    }),
     status: z.enum(["active", "inactive"]),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),

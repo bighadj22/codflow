@@ -33,6 +33,7 @@ export interface StoreConfig {
   ogImage: string | null;
   announcementBar: string | null;
   reviewsEnabled: boolean;
+  otpEnabled: boolean;
   status: "active" | "inactive";
   pixelId?: string | null;
 }

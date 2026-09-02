@@ -46,6 +46,12 @@ export interface Env {
    */
   MCP_SESSIONS: DurableObjectNamespace;
   /**
+   * KV namespace for rate limiting. Optional: the OTP send guards treat an
+   * absent binding as "no local guard" (the provider's own limits remain the
+   * hard bound) — a KV failure must never block a send.
+   */
+  RATE_LIMIT?: KVNamespace;
+  /**
    * Cloudflare Workflow binding for CodCapiWorkflow.
    * Fires CAPI Purchase events at order delivery — decoupled from status handler.
    */

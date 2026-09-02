@@ -24,6 +24,7 @@ import {
   productImages,
   stores,
   storePixelConfig,
+  storeOtpConfig,
   customers,
   orders,
   orderProducts,
@@ -63,14 +64,22 @@ export interface StoreOrderData {
 export async function getStoreConfig(db: AppDb, storeId: string) {
   const store = await db.select().from(stores).where(eq(stores.id, storeId)).get();
   if (!store) return null;
-  const pixelRow = await db
-    .select({ pixelId: storePixelConfig.pixelId, enabled: storePixelConfig.enabled })
-    .from(storePixelConfig)
-    .where(eq(storePixelConfig.storeId, storeId))
-    .get();
+  const [pixelRow, otpRow] = await Promise.all([
+    db
+      .select({ pixelId: storePixelConfig.pixelId, enabled: storePixelConfig.enabled })
+      .from(storePixelConfig)
+      .where(eq(storePixelConfig.storeId, storeId))
+      .get(),
+    db
+      .select({ enabled: storeOtpConfig.enabled })
+      .from(storeOtpConfig)
+      .where(eq(storeOtpConfig.storeId, storeId))
+      .get(),
+  ]);
   return {
     ...store,
     pixelId: pixelRow?.enabled ? pixelRow.pixelId : null,
+    otpEnabled: otpRow?.enabled === true,
   };
 }
 

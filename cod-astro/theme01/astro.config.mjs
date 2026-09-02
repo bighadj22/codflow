@@ -66,6 +66,7 @@ export default defineConfig({
           "gift",              // offer free label
           "exclamation-triangle", // warning/error
           "chat-bubble-left",  // WhatsApp CTA
+          "chat-bubble-left-ellipsis", // OTP step
           "star",              // reviews header
           "home-modern",       // delivery: home
         ],

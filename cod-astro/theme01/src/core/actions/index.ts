@@ -59,6 +59,12 @@ export const server = {
         (v) => (v === "" || v == null ? undefined : v),
         z.string().optional()
       ),
+      // WhatsApp OTP verification proof — set after the OTP step verifies.
+      // Absent when the store has verification disabled (schema stays additive).
+      otpToken: z.preprocess(
+        (v) => (v === "" || v == null ? undefined : v),
+        z.string().min(10).max(1024).optional()
+      ),
     }),
     handler: async (input) => {
       const result = await placeOrder({
@@ -79,6 +85,7 @@ export const server = {
         variantSelections: input.variantSelections,
         fbc: input.fbc,
         fbp: input.fbp,
+        otpToken: input.otpToken,
       });
 
       if (!result.success) {

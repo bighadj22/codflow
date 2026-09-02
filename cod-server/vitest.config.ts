@@ -6,8 +6,11 @@ export default defineConfig({
     globals: true,
     
     // Test file patterns
+    // cod-shared tests run through this package (no vitest setup there);
+    // the include is relative to this config, hence the ../cod-shared path.
     include: [
-      'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}'
+      'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}',
+      '../cod-shared/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}',
     ],
     exclude: [
       '**/node_modules/**',

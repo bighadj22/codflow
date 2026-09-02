@@ -33,6 +33,7 @@ export const DEFAULT_CONFIG: StoreConfig = {
   ogImage: null,
   announcementBar: null,
   reviewsEnabled: true,
+  otpEnabled: false,
   status: "active",
   pixelId: null,
 };

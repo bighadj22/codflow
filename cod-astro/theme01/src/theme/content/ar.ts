@@ -105,6 +105,22 @@ export const ar: StoreFrontContent = {
   formSubmit: "تأكيد الطلب",
   formConfirmNote: "سيتصل بك فريقنا لتأكيد طلبك خلال 24 ساعة",
 
+  // ── WhatsApp OTP verification ─────────────────────────────────────────────
+  otpTitle: "تأكيد رقم الهاتف",
+  otpSubtitle: "أرسلنا رمزاً من 6 أرقام إلى واتساب",
+  otpInputLabel: "رمز التحقق",
+  otpInputPlaceholder: "••••••",
+  otpVerifyBtn: "تأكيد الرمز",
+  otpVerifying: "جارٍ التحقق...",
+  otpResendIn: "إعادة الإرسال بعد",
+  otpResend: "إعادة إرسال الرمز",
+  otpChangePhone: "تغيير رقم الهاتف",
+  otpErrorWrong: "الرمز غير صحيح — تحقق من واتساب وأعد المحاولة",
+  otpErrorAttempts: "المحاولات المتبقية:",
+  otpErrorExpired: "انتهت صلاحية الرمز — اطلب رمزاً جديداً",
+  otpErrorRate: "طلبت رموزاً كثيرة — انتظر قليلاً ثم أعد المحاولة",
+  otpErrorGeneric: "تعذر إرسال الرمز — أعد المحاولة",
+
   // ── Order summary ─────────────────────────────────────────────────────────
   qtyLabel: "الكمية",
   qtyUnit: "قطعة",

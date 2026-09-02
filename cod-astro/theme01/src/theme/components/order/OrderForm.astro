@@ -8,6 +8,7 @@ import VariantSelector from "./VariantSelector.astro";
 import OfferTiers from "./OfferTiers.astro";
 import CustomerFields from "./CustomerFields.astro";
 import OrderSummary from "./OrderSummary.astro";
+import OtpStep from "./OtpStep.astro";
 
 interface Props {
   product: Product;
@@ -21,9 +22,10 @@ interface Props {
   offers: Offer[];
   defaultVariantId: string | null;
   isOutOfStock?: boolean;
+  otpEnabled?: boolean;
 }
 
-const { product, content, fieldErrors, serverError, basePrice, defaultVariant, cur, isRTL, offers, defaultVariantId, isOutOfStock = false } = Astro.props;
+const { product, content, fieldErrors, serverError, basePrice, defaultVariant, cur, isRTL, offers, defaultVariantId, isOutOfStock = false, otpEnabled = false } = Astro.props;
 
 const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ?? null;
 ---
@@ -67,6 +69,8 @@ const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ??
     <input type="hidden" name="variantLabel"       value="" id="variant-label-input" />
     <input type="hidden" name="offerId"            value="" id="offer-id-input" />
     <input type="hidden" name="variantSelections"  value="[]" id="variant-selections-input" />
+    {/* WhatsApp OTP proof — set by the OTP step script after verification */}
+    <input type="hidden" name="otpToken" id="otp-token-input" value="" />
 
     {/* Standalone variant selector only when no offers — otherwise it lives inside the tier cards */}
     {offers.length === 0 && <VariantSelector product={product} />}
@@ -87,6 +91,8 @@ const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ??
       fieldErrors={fieldErrors}
       isRTL={isRTL}
     />
+
+    {otpEnabled && <OtpStep content={content} isRTL={isRTL} />}
 
     <OrderSummary
       product={product}

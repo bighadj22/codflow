@@ -97,6 +97,8 @@ export const SCOPES = {
   SETTINGS_INTEGRATIONS: "settings:integrations",
   /** Manage notification templates */
   SETTINGS_NOTIFICATIONS: "settings:notifications",
+  /** Manage WhatsApp OTP verification settings (dzverify key, enable/disable) */
+  SETTINGS_VERIFICATION: "settings:verification",
 
   // Reviews
   /** View product reviews and their moderation status */
@@ -220,5 +222,15 @@ export const SCOPE_CATEGORIES = {
   mcp: {
     label: "AI Agents (MCP)",
     scopes: [SCOPES.MCP_VIEW],
+  },
+  settings: {
+    label: "Settings",
+    scopes: [
+      SCOPES.SETTINGS_VIEW,
+      SCOPES.SETTINGS_TEAM,
+      SCOPES.SETTINGS_INTEGRATIONS,
+      SCOPES.SETTINGS_NOTIFICATIONS,
+      SCOPES.SETTINGS_VERIFICATION,
+    ],
   },
 } as const;
