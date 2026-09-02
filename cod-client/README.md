@@ -1,4 +1,14 @@
-# CodFlow Dashboard
+# CodFlow Dashboard (LEGACY)
+
+> ⚠️ **This package is LEGACY and slated for removal.**
+>
+> The merchant dashboard now lives in **[`cod-client-astro/`](../cod-client-astro/)**
+> (Astro 7 — prerendered static app + auth worker). All new dashboard work goes
+> there; do not add features, fix bugs, or deploy this package for new
+> installations. It is kept in the tree only as a historical behavior reference
+> and will be deleted in a future release.
+>
+> Everything below documents the legacy implementation as it was.
 
 CodFlow's admin dashboard for Algerian e-commerce businesses — orders, customers, products, drivers, delivery-carrier integration, and MCP agent access. Built with Next.js 16, OpenNext on Cloudflare Workers, and D1.
 
