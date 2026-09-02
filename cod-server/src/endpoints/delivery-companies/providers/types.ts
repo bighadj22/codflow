@@ -95,6 +95,21 @@ export interface TrackingEvent {
   date?: string;
 }
 
+/**
+ * Result of a connection check against the carrier API.
+ * An invalid token is a successful CHECK (ok:false, HTTP 200) — not a server
+ * error; the endpoint's job is to report the outcome.
+ */
+export interface ConnectionCheck {
+  ok: boolean;
+  /** Provider-specific outcome code (e.g. "valid" | "invalid_token" | "not_allowed"). */
+  code: string;
+  /** Human-readable outcome for the dashboard. */
+  message: string;
+  /** Optional provider enrichment — e.g. EcoTrack lists served wilaya ids. */
+  details?: Record<string, unknown>;
+}
+
 // ─── Provider interface ────────────────────────────────────────────────────────
 
 export interface DeliveryProvider {
@@ -150,4 +165,26 @@ export interface DeliveryProvider {
    * Not all providers support this — check before calling.
    */
   getTrackingInfo?(trackingNumber: string): Promise<TrackingEvent[]>;
+
+  /**
+   * Verify the stored credentials against the carrier API.
+   * Returns the outcome (valid / invalid / etc.) — throws only on transport
+   * failures, never for a negative result.
+   * Not all providers support this — check before calling.
+   */
+  verifyConnection?(): Promise<ConnectionCheck>;
+
+  /**
+   * Ask the carrier to return a parcel that is currently in delivery.
+   * The carrier may IGNORE the request — this is a request, not a state change.
+   * Not all providers support this — check before calling.
+   */
+  askReturn?(trackingNumber: string): Promise<boolean>;
+
+  /**
+   * Confirm physical reception of returned parcels at the sender.
+   * Returns true when the carrier confirmed; false when nothing was eligible.
+   * Not all providers support this — check before calling.
+   */
+  validateReturns?(trackingNumbers: string[]): Promise<boolean>;
 }
