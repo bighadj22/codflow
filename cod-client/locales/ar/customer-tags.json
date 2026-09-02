@@ -6,6 +6,11 @@
   "create_tag": "إنشاء وسم",
   "success_deleted": "تم حذف الوسم",
   "error_delete_failed": "فشل حذف الوسم",
+  "error_load": "تعذر تحميل بيانات الوسوم",
+  "error_not_found": "الوسم غير موجود",
+  "error_generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+  "error_tag_has_assignments": "لا يمكن حذف وسم لا يزال مرتبطاً بعملاء",
+  "error_duplicate_name": "يوجد وسم بهذا الاسم مسبقاً",
   "actions": {
     "view": "عرض",
     "edit": "تعديل",

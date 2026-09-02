@@ -23,6 +23,9 @@
   "toast_deleted": "Avis supprimé",
   "toast_error_update": "Échec de la mise à jour de l'avis",
   "toast_error_delete": "Échec de la suppression de l'avis",
+  "error_load": "Impossible de charger les avis",
+  "error_not_found": "Avis introuvable",
+  "error_generic": "Une erreur est survenue. Veuillez réessayer.",
   "page_prev": "Précédent",
   "page_next": "Suivant",
   "page_of": "Page {current} sur {total}"

@@ -6,6 +6,11 @@
   "create_tag": "Créer une étiquette",
   "success_deleted": "Étiquette supprimée",
   "error_delete_failed": "Échec de la suppression de l'étiquette",
+  "error_load": "Impossible de charger les étiquettes",
+  "error_not_found": "Étiquette introuvable",
+  "error_generic": "Une erreur est survenue. Veuillez réessayer.",
+  "error_tag_has_assignments": "Impossible de supprimer une étiquette encore associée à des clients",
+  "error_duplicate_name": "Une étiquette avec ce nom existe déjà",
   "actions": {
     "view": "Voir",
     "edit": "Modifier",

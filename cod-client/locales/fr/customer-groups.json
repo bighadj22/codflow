@@ -6,6 +6,11 @@
   "create_group": "Créer un groupe",
   "success_deleted": "Groupe supprimé",
   "error_delete_failed": "Échec de la suppression du groupe",
+  "error_load": "Impossible de charger les groupes",
+  "error_not_found": "Groupe introuvable",
+  "error_generic": "Une erreur est survenue. Veuillez réessayer.",
+  "error_group_has_members": "Impossible de supprimer un groupe contenant encore des membres",
+  "error_duplicate_name": "Un groupe avec ce nom existe déjà",
   "actions": {
     "view": "Voir",
     "edit": "Modifier",

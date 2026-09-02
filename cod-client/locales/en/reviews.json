@@ -23,6 +23,9 @@
   "toast_deleted": "Review deleted",
   "toast_error_update": "Failed to update review",
   "toast_error_delete": "Failed to delete review",
+  "error_load": "Could not load reviews",
+  "error_not_found": "Review not found",
+  "error_generic": "Something went wrong. Please try again.",
   "page_prev": "Previous",
   "page_next": "Next",
   "page_of": "Page {current} of {total}"

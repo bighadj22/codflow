@@ -23,6 +23,9 @@
   "toast_deleted": "تم حذف التقييم",
   "toast_error_update": "فشل تحديث التقييم",
   "toast_error_delete": "فشل حذف التقييم",
+  "error_load": "تعذر تحميل التقييمات",
+  "error_not_found": "التقييم غير موجود",
+  "error_generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
   "page_prev": "السابق",
   "page_next": "التالي",
   "page_of": "صفحة {current} من {total}"

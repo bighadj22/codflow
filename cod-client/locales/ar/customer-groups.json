@@ -6,6 +6,11 @@
   "create_group": "إنشاء مجموعة",
   "success_deleted": "تم حذف المجموعة",
   "error_delete_failed": "فشل حذف المجموعة",
+  "error_load": "تعذر تحميل بيانات المجموعات",
+  "error_not_found": "المجموعة غير موجودة",
+  "error_generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+  "error_group_has_members": "لا يمكن حذف مجموعة لا تزال تحتوي على أعضاء",
+  "error_duplicate_name": "توجد مجموعة بهذا الاسم مسبقاً",
   "actions": {
     "view": "عرض",
     "edit": "تعديل",

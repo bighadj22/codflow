@@ -6,6 +6,11 @@
   "create_group": "Create Group",
   "success_deleted": "Group deleted",
   "error_delete_failed": "Failed to delete group",
+  "error_load": "Could not load customer groups",
+  "error_not_found": "Customer group not found",
+  "error_generic": "Something went wrong. Please try again.",
+  "error_group_has_members": "Cannot delete a group that still has members",
+  "error_duplicate_name": "A group with this name already exists",
   "actions": {
     "view": "View",
     "edit": "Edit",
