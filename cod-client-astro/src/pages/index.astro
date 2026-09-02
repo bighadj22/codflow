@@ -1,0 +1,10 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { RootGate } from "@/features/auth/components/RootPageApp";
+---
+
+<BaseLayout title="CodFlow">
+  <main class="min-h-screen">
+    <RootGate client:only="react" />
+  </main>
+</BaseLayout>

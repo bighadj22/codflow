@@ -1,0 +1,15 @@
+# CodFlow dashboard (Astro) — local development secrets
+# Copy this file to .dev.vars and fill in your values.
+# (.dev.vars is gitignored — your real values never get committed.)
+
+# ── Required for local dev ────────────────────────────────────────────────────
+
+# Better Auth signing secret. Generate with:  openssl rand -hex 32
+# Must match the secret used by any worker sharing the same D1 database.
+# BETTER_AUTH_SECRET=
+
+# HMAC key shared with cod-server for MCP OAuth login tickets (must be >= 32
+# bytes). Set the SAME value on cod-server. Generate with:  openssl rand -hex 32
+# MCP_LOGIN_TICKET_SECRET=
+
+# In production both values are set with `wrangler secret put`, never in code.

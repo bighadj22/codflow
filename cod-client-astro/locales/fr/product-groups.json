@@ -1,0 +1,62 @@
+{
+  "page_title": "Groupes de produits",
+  "add_group": "Ajouter un groupe",
+  "groups_count": "groupes",
+  "search_placeholder": "Rechercher des groupes...",
+  "success_deleted": "Groupe supprimé",
+  "error_load": "Impossible de charger les groupes de produits",
+  "error_not_found": "Groupe de produits introuvable",
+  "error_generic": "Une erreur est survenue. Veuillez réessayer.",
+  "table": {
+    "name": "Nom",
+    "parent": "Groupe parent",
+    "products": "Produits",
+    "status": "Statut",
+    "created_at": "Créé le"
+  },
+  "actions": {
+    "edit": "Modifier",
+    "delete": "Supprimer"
+  },
+  "empty_state": {
+    "title": "Aucun groupe pour le moment",
+    "description": "Créez des groupes pour catégoriser et organiser vos produits pour une meilleure gestion du catalogue.",
+    "action": "Ajouter votre premier groupe"
+  },
+  "form": {
+    "title_add": "Ajouter un groupe",
+    "title_edit": "Modifier le groupe",
+    "name_label": "Nom (Anglais)",
+    "name_ar_label": "Nom (Arabe)",
+    "name_placeholder": "ex: Vêtements",
+    "name_ar_placeholder": "مثال: ملابس",
+    "slug_label": "Slug",
+    "description_label": "Description",
+    "description_ar_label": "Description (Arabe)",
+    "parent_label": "Groupe parent",
+    "parent_placeholder": "Aucun (niveau supérieur)",
+    "image_label": "Image du groupe",
+    "image_help": "Téléchargez une image pour représenter cette catégorie dans la boutique",
+    "section_image": "Image",
+    "section_seo": "Paramètres SEO",
+    "meta_title_label": "Titre SEO",
+    "meta_title_placeholder": "Titre SEO pour les moteurs de recherche",
+    "meta_title_help": "Recommandé : 50-60 caractères",
+    "meta_description_label": "Description SEO",
+    "meta_description_placeholder": "Brève description pour les résultats de recherche",
+    "meta_description_help": "Recommandé : 150-160 caractères",
+    "meta_keywords_label": "Mots-clés",
+    "meta_keywords_placeholder": "mot1, mot2, mot3",
+    "meta_keywords_help": "Mots-clés séparés par des virgules pour les moteurs de recherche",
+    "active_label": "Actif",
+    "error_name_required": "Le nom est requis",
+    "error_save_failed": "Échec de l'enregistrement",
+    "cancel": "Annuler",
+    "save": "Enregistrer le groupe",
+    "saving": "Enregistrement...",
+    "success_add": "Groupe créé avec succès",
+    "success_edit": "Groupe mis à jour avec succès",
+    "delete_confirm": "Supprimer ce groupe ? Les produits qu'il contient ne seront plus groupés.",
+    "cannot_delete": "Impossible de supprimer un groupe contenant des produits"
+  }
+}

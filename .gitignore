@@ -9,6 +9,8 @@ cod-client/.wrangler-output/
 cod-server/dist/
 cod-astro/theme01/dist/
 cod-astro/theme01/.astro/
+cod-client-astro/dist/
+cod-client-astro/.astro/
 
 # TypeScript incremental build cache
 *.tsbuildinfo
@@ -32,6 +34,7 @@ cod-shared/node_modules/
 # Copy wrangler.toml.example → wrangler.toml and fill in your own IDs.
 cod-server/wrangler.toml
 cod-client/wrangler.toml
+cod-client-astro/wrangler.toml
 
 # OS
 .DS_Store

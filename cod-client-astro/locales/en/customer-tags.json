@@ -1,0 +1,54 @@
+{
+  "page_title": "Customer Tags",
+  "tags_count": "tags",
+  "search_placeholder": "Search tags...",
+  "new_tag": "New Tag",
+  "create_tag": "Create Tag",
+  "success_deleted": "Tag deleted",
+  "error_delete_failed": "Failed to delete tag",
+  "error_load": "Could not load customer tags",
+  "error_not_found": "Customer tag not found",
+  "error_generic": "Something went wrong. Please try again.",
+  "error_tag_has_assignments": "Cannot delete a tag that still has assigned customers",
+  "error_duplicate_name": "A tag with this name already exists",
+  "actions": {
+    "view": "View",
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "empty_state": {
+    "title": "No tags yet",
+    "description": "Create tags to quickly label and filter your customers based on specific criteria.",
+    "action": "Add Your First Tag"
+  },
+  "table": {
+    "name": "Name",
+    "customers": "Customers",
+    "created": "Created"
+  },
+  "detail": {
+    "customers": "Customers",
+    "no_customers": "No customers with this tag",
+    "add_customer": "Add Customer",
+    "remove_customer": "Remove Tag",
+    "customer_added": "Tag assigned to customer",
+    "customer_removed": "Tag removed from customer",
+    "search_add": "Search customer...",
+    "no_available": "No customers available to add",
+    "search_customers": "Search customers...",
+    "orders_label": "orders"
+  },
+  "form": {
+    "title_add": "Add Tag",
+    "title_edit": "Edit Tag",
+    "name_label": "Tag Name",
+    "name_placeholder": "e.g. vip, returner, wholesale...",
+    "color_label": "Color",
+    "cancel": "Cancel",
+    "save": "Save Tag",
+    "saving": "Saving...",
+    "success_add": "Tag created",
+    "success_edit": "Tag updated",
+    "error_required": "Please fill in all required fields"
+  }
+}

@@ -1,0 +1,16 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import GateSpinner from "@/features/auth/components/GateSpinner";
+import OfferFormPageApp from "@/features/offers/components/OfferFormPageApp";
+---
+
+<BaseLayout title="CodFlow">
+  <main class="min-h-screen">
+    <div data-gate-spinner="required" class="flex min-h-screen items-center justify-center" aria-busy="true">
+      <GateSpinner branded />
+    </div>
+    <div data-auth-gate="required" hidden>
+      <OfferFormPageApp client:only="react" />
+    </div>
+  </main>
+</BaseLayout>

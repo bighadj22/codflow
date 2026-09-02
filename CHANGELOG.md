@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- storefront: optional per-store WhatsApp phone verification at checkout
+  (dzverify) — off by default; merchant-configurable from the dashboard
+  (Settings → Verification); fail-open on provider quota exhaustion
+- delivery: EcoTrack carrier integration (82 Algerian couriers behind one API)
+  with credentials, catalog sync, and reconciliation in the dashboard
+- cod-client-astro: Astro-based merchant dashboard — prerendered static app
+  (zero Worker CPU for page serving), better-auth sign-in surface, React
+  islands for orders, products, stock, offers, reviews, customers (+groups,
+  tags), delivery (drivers, companies, shipping profiles), team RBAC,
+  settings, abandoned orders, and MCP connections; Arabic/English/French with
+  full RTL
+- cod-client-astro: localized Arabic, English, and French toast feedback for
+  authentication, CRUD, delivery, stock, settings, team, MCP, uploads, copies,
+  and downloads, including success messages that survive page navigation
+
+### Changed
+
+- cod-server: MCP remote server rebuilt on
+  `@cloudflare/workers-oauth-provider` (RFC 9728/8414 discovery, DCR, token
+  revocation) with stateless HMAC-sealed elicitation; the MCP_SESSIONS
+  Durable Object binding is replaced by OAUTH_KV; new secrets
+  `MCP_REQUEST_STATE_KEY`, `MCP_LOGIN_TICKET_SECRET`, `COOKIE_ENCRYPTION_KEY`
+- cod-server: COD amount sent to carriers now includes the delivery fee
+  (product price + fee); new `POST /orders/:id/ask-return` endpoint
+
+### Fixed
+
+- theme01: WhatsApp OTP step now bundles correctly (raw script tag 404) and
+  auto-submits the order form after verification
+
 ## [1.0.0] - 2026-08-22
 
 First stable release of CodFlow.

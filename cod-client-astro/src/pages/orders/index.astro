@@ -1,0 +1,24 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import GateSpinner from "@/features/auth/components/GateSpinner";
+import OrdersPageApp from "@/features/orders/components/OrdersPageApp";
+
+// Static shell ships NOTHING of the gated UI: a silent spinner plus a
+// [hidden] region that RequireAuth reveals after the session verdict.
+---
+
+<BaseLayout title="الطلبات — CodFlow">
+  <main class="min-h-screen">
+    <div
+      data-gate-spinner="required"
+      class="flex min-h-screen items-center justify-center"
+      aria-busy="true"
+    >
+      <GateSpinner branded />
+    </div>
+
+    <div data-auth-gate="required" hidden>
+      <OrdersPageApp client:only="react" />
+    </div>
+  </main>
+</BaseLayout>
