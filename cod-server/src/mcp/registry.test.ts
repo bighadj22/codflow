@@ -325,12 +325,14 @@ describe("buildToolsForUser — scope gating", () => {
     ]);
   });
 
-  it("DELIVERY_READ + DELIVERY_UPDATE grants driver/shipping/wilaya tools", () => {
+  it("DELIVERY_READ + DELIVERY_UPDATE grants driver/shipping/wilaya tools + payment reads", () => {
     expect(names(makeProps({ scopes: [SCOPES.DELIVERY_READ, SCOPES.DELIVERY_UPDATE] }))).toEqual([
       "getDefaultShippingRules",
       "getDriverDetails",
+      "getPendingSettlements",
       "getShippingProfile",
       "listCommuneOverrides",
+      "listDriverPayments",
       "listDrivers",
       "listShippingProfiles",
       "listWilayaCommunes",
@@ -340,13 +342,11 @@ describe("buildToolsForUser — scope gating", () => {
     ]);
   });
 
-  it("DELIVERY_MANAGE grants the payment + shipping-write suite", () => {
+  it("DELIVERY_MANAGE grants the payment write + shipping-write suite", () => {
     expect(names(makeProps({ scopes: [SCOPES.DELIVERY_MANAGE] }))).toEqual([
       "createDriverSettlement",
       "createShippingProfile",
       "deleteShippingProfile",
-      "getPendingSettlements",
-      "listDriverPayments",
       "resetShippingCommuneOverride",
       "setShippingCommuneOverride",
       "setShippingProfileRules",

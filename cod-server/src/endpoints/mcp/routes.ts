@@ -16,6 +16,7 @@ import {
   listTeamConnections,
   revokeMyConnection,
   revokeUserConnection,
+  deleteMcpClient,
 } from "./handlers";
 
 const router = new Hono<AppContext>();
@@ -27,8 +28,9 @@ router.use("*", requireScope(SCOPES.MCP_VIEW));
 router.get("/me",                              listMyConnections);
 router.delete("/connections/:clientId",        revokeMyConnection);
 
-// Admin-only team visibility + cross-user revocation.
+// Admin-only team visibility + cross-user revocation + client deletion.
 router.get("/team",                                          requireAdmin(), listTeamConnections);
 router.delete("/connections/:clientId/users/:userId",        requireAdmin(), revokeUserConnection);
+router.delete("/clients/:clientId",                          requireAdmin(), deleteMcpClient);
 
 export default router;

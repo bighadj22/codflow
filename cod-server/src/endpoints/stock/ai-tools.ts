@@ -11,6 +11,55 @@ import {
 import { getDb } from "@/db";
 
 /**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ */
+export const getStockOverviewSchema = z.object({});
+export const getStockAlertsSchema = stockAlertsFiltersSchema;
+export const getProductStockHistoryToolSchema = z.object({
+  productId: z.string().uuid().describe("UUID of the product"),
+  variantId: z.string().uuid().optional().describe("UUID of a specific variant to filter history"),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export const adjustProductStockToolSchema = z.object({
+  productId: z.string().uuid().describe("UUID of the simple product to adjust"),
+  agentName: z.string().min(1).describe("Name of the AI agent or staff member making this adjustment"),
+  type: z.enum(MOVEMENT_TYPES),
+  delta: z.number().int().refine((v) => v !== 0, "delta must be non-zero"),
+  reason: z.string().min(1).max(500).optional(),
+});
+export const adjustVariantStockToolSchema = z.object({
+  productId: z.string().uuid().describe("UUID of the parent product"),
+  variantId: z.string().uuid().describe("UUID of the variant to adjust"),
+  agentName: z.string().min(1).describe("Name of the AI agent or staff member making this adjustment"),
+  type: z.enum(MOVEMENT_TYPES),
+  delta: z.number().int().refine((v) => v !== 0, "delta must be non-zero"),
+  reason: z.string().min(1).max(500).optional(),
+});
+export const updateProductStockThresholdToolSchema = z.object({
+  productId: z.string().uuid().describe("UUID of the simple product"),
+  lowStockThreshold: updateThresholdSchema.shape.lowStockThreshold,
+});
+export const updateVariantStockThresholdToolSchema = z.object({
+  productId: z.string().uuid().describe("UUID of the parent product"),
+  variantId: z.string().uuid().describe("UUID of the variant"),
+  lowStockThreshold: updateThresholdSchema.shape.lowStockThreshold,
+});
+
+export const STOCK_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  getStockOverview: getStockOverviewSchema.shape,
+  getStockAlerts: getStockAlertsSchema.shape,
+  getProductStockHistory: getProductStockHistoryToolSchema.shape,
+  adjustProductStock: adjustProductStockToolSchema.shape,
+  adjustVariantStock: adjustVariantStockToolSchema.shape,
+  updateProductStockThreshold: updateProductStockThresholdToolSchema.shape,
+  updateVariantStockThreshold: updateVariantStockThresholdToolSchema.shape,
+};
+
+/**
  * AI Tools for Stock / Inventory Management
  *
  * Stock is tracked at two levels:
@@ -102,12 +151,7 @@ export const getStockTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        productId: z.string().uuid().describe("UUID of the product"),
-        variantId: z.string().uuid().optional().describe("UUID of a specific variant to filter history"),
-        limit: z.coerce.number().int().positive().max(100).default(20),
-        offset: z.coerce.number().int().min(0).default(0),
-      });
+      const validationSchema = getProductStockHistoryToolSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -149,13 +193,7 @@ export const getStockTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        productId: z.string().uuid().describe("UUID of the simple product to adjust"),
-        agentName: z.string().min(1).describe("Name of the AI agent or staff member making this adjustment"),
-        type: z.enum(MOVEMENT_TYPES),
-        delta: z.number().int().refine((v) => v !== 0, "delta must be non-zero"),
-        reason: z.string().min(1).max(500).optional(),
-      });
+      const validationSchema = adjustProductStockToolSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -236,14 +274,7 @@ export const getStockTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        productId: z.string().uuid().describe("UUID of the parent product"),
-        variantId: z.string().uuid().describe("UUID of the variant to adjust"),
-        agentName: z.string().min(1).describe("Name of the AI agent or staff member making this adjustment"),
-        type: z.enum(MOVEMENT_TYPES),
-        delta: z.number().int().refine((v) => v !== 0, "delta must be non-zero"),
-        reason: z.string().min(1).max(500).optional(),
-      });
+      const validationSchema = adjustVariantStockToolSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -321,10 +352,7 @@ export const getStockTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        productId: z.string().uuid().describe("UUID of the simple product"),
-        lowStockThreshold: updateThresholdSchema.shape.lowStockThreshold,
-      });
+      const validationSchema = updateProductStockThresholdToolSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -370,11 +398,7 @@ export const getStockTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        productId: z.string().uuid().describe("UUID of the parent product"),
-        variantId: z.string().uuid().describe("UUID of the variant"),
-        lowStockThreshold: updateThresholdSchema.shape.lowStockThreshold,
-      });
+      const validationSchema = updateVariantStockThresholdToolSchema;
 
       const parsed = validationSchema.safeParse(args);
 

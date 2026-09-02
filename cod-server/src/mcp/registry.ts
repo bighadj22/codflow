@@ -32,8 +32,8 @@ import type { Env } from "@/types/env";
 import type { McpProps } from "./props";
 
 // Factories from the existing ai-tools files. These are Vercel-AI-SDK
-// tool bundles — NOT MCP tools yet. The CodMcpAgent adapter (src/mcp/server.ts)
-// translates each to an MCP-SDK tool at registration time.
+// tool bundles — NOT MCP tools yet. The server factory (src/mcp/server-factory.ts)
+// translates each to an MCP-SDK v2 tool at registration time.
 import { getCustomerTools }      from "@/endpoints/customers/ai-tools";
 import { getDriverTools }        from "@/endpoints/drivers/ai-tools";
 import { getDriverPaymentTools } from "@/endpoints/driver-payments/ai-tools";
@@ -140,14 +140,20 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   },
 
   // ─── Driver payments ──────────────────────────────────────────────────────
-  // Read and write both live under DELIVERY_MANAGE (matching the existing
-  // REST routes). The risky `createDriverSettlement` gets an extra HITL
-  // elicitation gate — wired in MCP-11 via the DANGEROUS_TOOLS set.
+  // Scope semantics match the REST routes: list + pending-settlements reads
+  // require delivery:read; the risky `createDriverSettlement` write requires
+  // delivery:manage and gets an extra HITL elicitation gate — wired in
+  // MCP-11 via the DANGEROUS_TOOLS set.
   {
-    requires: [SCOPES.DELIVERY_MANAGE],
+    requires: [SCOPES.DELIVERY_READ],
     build: (db) => pick(getDriverPaymentTools(db), [
       "listDriverPayments",
       "getPendingSettlements",
+    ]),
+  },
+  {
+    requires: [SCOPES.DELIVERY_MANAGE],
+    build: (db) => pick(getDriverPaymentTools(db), [
       "createDriverSettlement",
     ]),
   },
@@ -237,8 +243,12 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   },
 
   // ─── Stock ────────────────────────────────────────────────────────────────
+  // Scope semantics match the REST /api/stock/* routes, which gate reads with
+  // products:read and adjustments/thresholds with products:manage. (The
+  // stock:read/stock:manage scopes exist in cod-shared but no REST route
+  // uses them; MCP now follows the REST family.)
   {
-    requires: [SCOPES.STOCK_READ],
+    requires: [SCOPES.PRODUCTS_READ],
     build: (db) => pick(getStockTools(db), [
       "getStockOverview",
       "getStockAlerts",
@@ -246,7 +256,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
     ]),
   },
   {
-    requires: [SCOPES.STOCK_MANAGE],
+    requires: [SCOPES.PRODUCTS_MANAGE],
     build: (db) => pick(getStockTools(db), [
       "adjustProductStock",
       "adjustVariantStock",

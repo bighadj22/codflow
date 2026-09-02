@@ -4,10 +4,7 @@
  * The Astro dashboard authenticates users via better-auth and forwards a
  * short-lived JWT (issued by the jwt() plugin) as `Authorization: Bearer`.
  * This module verifies those tokens offline against the auth server's JWKS
- * endpoint — the same infrastructure cod-server already trusts for MCP
- * tokens — and returns the caller's user id.
- *
- * Unlike bearerToProps (MCP), this performs REAL cryptographic verification.
+ * endpoint and returns the caller's user id.
  */
 import { eq } from "drizzle-orm";
 

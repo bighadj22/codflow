@@ -10,6 +10,38 @@ import {
 import { getDb } from "@/db";
 
 /**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ */
+export const listProductsSchema = productFiltersSchema;
+export const getProductDetailsSchema = z.object({
+  productId: z.string().uuid().describe("The unique UUID of the product to retrieve"),
+});
+export const createNewProductSchema = createProductSchema;
+export const updateProductDetailsSchema = z.object({
+  productId: z.string().uuid().describe("The UUID of the product to update"),
+  updates: updateProductSchema,
+});
+export const updateProductStatusToolSchema = z.object({
+  productId: z.string().uuid().describe("The UUID of the product"),
+  status: updateStatusSchema.shape.status,
+});
+export const deleteProductSchema = z.object({
+  productId: z.string().uuid().describe("The UUID of the product to delete"),
+});
+
+export const PRODUCT_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  listProducts: listProductsSchema.shape,
+  getProductDetails: getProductDetailsSchema.shape,
+  createNewProduct: createNewProductSchema.shape,
+  updateProductDetails: updateProductDetailsSchema.shape,
+  updateProductStatus: updateProductStatusToolSchema.shape,
+  deleteProduct: deleteProductSchema.shape,
+};
+
+/**
  * AI Tools for Product Management
  *
  * These tools allow the AI Agent to interact directly with the products database
@@ -36,7 +68,7 @@ export const getProductTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation with graceful error handling
-      const parsed = productFiltersSchema.safeParse(args);
+      const parsed = listProductsSchema.safeParse(args);
 
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -88,9 +120,7 @@ export const getProductTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        productId: z.string().uuid().describe("The unique UUID of the product to retrieve"),
-      });
+      const validationSchema = getProductDetailsSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -134,7 +164,7 @@ export const getProductTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const parsed = createProductSchema.safeParse(args);
+      const parsed = createNewProductSchema.safeParse(args);
 
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -196,10 +226,7 @@ export const getProductTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        productId: z.string().uuid().describe("The UUID of the product to update"),
-        updates: updateProductSchema,
-      });
+      const validationSchema = updateProductDetailsSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -252,10 +279,7 @@ export const getProductTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        productId: z.string().uuid().describe("The UUID of the product"),
-        status: updateStatusSchema.shape.status,
-      });
+      const validationSchema = updateProductStatusToolSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -302,9 +326,7 @@ export const getProductTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        productId: z.string().uuid().describe("The UUID of the product to delete"),
-      });
+      const validationSchema = deleteProductSchema;
 
       const parsed = validationSchema.safeParse(args);
 

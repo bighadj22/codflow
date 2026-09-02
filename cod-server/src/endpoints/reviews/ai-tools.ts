@@ -37,6 +37,27 @@ const reviewFiltersSchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
+/**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ */
+export const listReviewsSchema = reviewFiltersSchema;
+export const moderateReviewSchema = z.object({
+  reviewId: z.string().uuid().describe("UUID of the review to moderate"),
+  status: reviewStatusEnum.describe("New moderation status: approved | rejected | pending"),
+});
+export const deleteReviewSchema = z.object({
+  reviewId: z.string().uuid().describe("UUID of the review to delete"),
+});
+
+export const REVIEW_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  listReviews: listReviewsSchema.shape,
+  moderateReview: moderateReviewSchema.shape,
+  deleteReview: deleteReviewSchema.shape,
+};
+
 export const getReviewTools = (db: ReturnType<typeof getDb>) => ({
 
   listReviews: tool({
@@ -49,7 +70,8 @@ export const getReviewTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const parsed = reviewFiltersSchema.safeParse(args);
+      const validationSchema = listReviewsSchema;
+      const parsed = validationSchema.safeParse(args);
 
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -100,10 +122,7 @@ export const getReviewTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        reviewId: z.string().uuid().describe("UUID of the review to moderate"),
-        status: reviewStatusEnum.describe("New moderation status: approved | rejected | pending"),
-      });
+      const validationSchema = moderateReviewSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -146,9 +165,7 @@ export const getReviewTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        reviewId: z.string().uuid().describe("UUID of the review to delete"),
-      });
+      const validationSchema = deleteReviewSchema;
 
       const parsed = validationSchema.safeParse(args);
 

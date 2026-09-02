@@ -29,3 +29,19 @@
 # WORKER_URL=http://localhost:8787
 # MEDIA_DOMAIN=media.example.com
 # R2_BUCKET_NAME=codflow-images
+
+# ── MCP SDK v2 (used by the stateless elicitation + OAuth work) ───────────────
+# HMAC key that seals stateless MCP elicitation request state (must be >= 32
+# bytes). Generate one with:  openssl rand -hex 32
+# MCP_REQUEST_STATE_KEY=
+
+# HMAC key shared with the Astro dashboard for MCP OAuth login tickets
+# (must be >= 32 bytes). Set the SAME value on cod-client-astro. Generate with:
+#   openssl rand -hex 32
+# MCP_LOGIN_TICKET_SECRET=
+
+# Cookie-encryption key for the @cloudflare/workers-oauth-provider consent flow.
+# Generate one with:  openssl rand -hex 32
+# COOKIE_ENCRYPTION_KEY=
+
+# In production all values are set with `wrangler secret put`, never in code.

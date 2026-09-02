@@ -9,6 +9,44 @@ import {
 import { getDb } from "@/db";
 
 /**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ */
+export const listCustomerGroupsSchema = customerGroupFiltersSchema;
+export const getCustomerGroupDetailsSchema = z.object({
+  groupId: z.string().uuid().describe("UUID of the customer group"),
+  withMembers: z.boolean().optional().default(false).describe("Include full member list"),
+});
+export const createCustomerGroupToolSchema = createCustomerGroupSchema;
+export const updateCustomerGroupToolSchema = z.object({
+  groupId: z.string().uuid().describe("UUID of the group to update"),
+  updates: updateCustomerGroupSchema,
+});
+export const deleteCustomerGroupSchema = z.object({
+  groupId: z.string().uuid().describe("UUID of the customer group to delete"),
+});
+export const addCustomerToGroupSchema = z.object({
+  groupId: z.string().uuid().describe("UUID of the customer group"),
+  customerId: z.string().uuid().describe("UUID of the customer to add"),
+});
+export const removeCustomerFromGroupSchema = z.object({
+  groupId: z.string().uuid().describe("UUID of the customer group"),
+  customerId: z.string().uuid().describe("UUID of the customer to remove"),
+});
+
+export const CUSTOMER_GROUP_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  listCustomerGroups: listCustomerGroupsSchema.shape,
+  getCustomerGroupDetails: getCustomerGroupDetailsSchema.shape,
+  createCustomerGroup: createCustomerGroupToolSchema.shape,
+  updateCustomerGroup: updateCustomerGroupToolSchema.shape,
+  deleteCustomerGroup: deleteCustomerGroupSchema.shape,
+  addCustomerToGroup: addCustomerToGroupSchema.shape,
+  removeCustomerFromGroup: removeCustomerFromGroupSchema.shape,
+};
+
+/**
  * AI Tools for Customer Group Management
  *
  * Customer groups are named segments of customers used for targeted
@@ -38,7 +76,7 @@ export const getCustomerGroupTools = (db: ReturnType<typeof getDb>) => ({
       "Optional: search (string), limit (1-100, default 50), offset (default 0).",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const parsed = customerGroupFiltersSchema.safeParse(args);
+      const parsed = listCustomerGroupsSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
           .map((e: any) => `${e.path.join(".")}: ${e.message}`)
@@ -64,10 +102,7 @@ export const getCustomerGroupTools = (db: ReturnType<typeof getDb>) => ({
       "Required: groupId (UUID). Optional: withMembers (boolean, default false).",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        groupId: z.string().uuid().describe("UUID of the customer group"),
-        withMembers: z.boolean().optional().default(false).describe("Include full member list"),
-      });
+      const validationSchema = getCustomerGroupDetailsSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -99,7 +134,7 @@ export const getCustomerGroupTools = (db: ReturnType<typeof getDb>) => ({
       "Optional: description (max 500 chars), color (hex color string e.g. '#6366f1', default #6366f1).",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const parsed = createCustomerGroupSchema.safeParse(args);
+      const parsed = createCustomerGroupToolSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
           .map((e: any) => `${e.path.join(".")}: ${e.message}`)
@@ -129,10 +164,7 @@ export const getCustomerGroupTools = (db: ReturnType<typeof getDb>) => ({
       "color must be a valid hex string e.g. '#ef4444'.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        groupId: z.string().uuid().describe("UUID of the group to update"),
-        updates: updateCustomerGroupSchema,
-      });
+      const validationSchema = updateCustomerGroupToolSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -162,9 +194,7 @@ export const getCustomerGroupTools = (db: ReturnType<typeof getDb>) => ({
       "This action is irreversible.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        groupId: z.string().uuid().describe("UUID of the customer group to delete"),
-      });
+      const validationSchema = deleteCustomerGroupSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -204,10 +234,7 @@ export const getCustomerGroupTools = (db: ReturnType<typeof getDb>) => ({
       "Both the group and the customer must exist.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        groupId: z.string().uuid().describe("UUID of the customer group"),
-        customerId: z.string().uuid().describe("UUID of the customer to add"),
-      });
+      const validationSchema = addCustomerToGroupSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -241,10 +268,7 @@ export const getCustomerGroupTools = (db: ReturnType<typeof getDb>) => ({
       "If the customer is not a member, the operation completes silently.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
-      const validationSchema = z.object({
-        groupId: z.string().uuid().describe("UUID of the customer group"),
-        customerId: z.string().uuid().describe("UUID of the customer to remove"),
-      });
+      const validationSchema = removeCustomerFromGroupSchema;
       const parsed = validationSchema.safeParse(args);
       if (!parsed.success) {
         const errorDetails = parsed.error.issues

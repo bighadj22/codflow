@@ -9,6 +9,33 @@ import {
 import { getDb } from "@/db";
 
 /**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ */
+export const listProductGroupsSchema = groupFiltersSchema;
+export const getProductGroupDetailsSchema = z.object({
+  groupId: z.string().uuid().describe("The unique UUID of the product group to retrieve"),
+});
+export const createProductGroupToolSchema = createGroupSchema;
+export const updateProductGroupToolSchema = z.object({
+  groupId: z.string().uuid().describe("The UUID of the product group to update"),
+  updates: updateGroupSchema,
+});
+export const deleteProductGroupSchema = z.object({
+  groupId: z.string().uuid().describe("The UUID of the product group to delete"),
+});
+
+export const PRODUCT_GROUP_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  listProductGroups: listProductGroupsSchema.shape,
+  getProductGroupDetails: getProductGroupDetailsSchema.shape,
+  createProductGroup: createProductGroupToolSchema.shape,
+  updateProductGroup: updateProductGroupToolSchema.shape,
+  deleteProductGroup: deleteProductGroupSchema.shape,
+};
+
+/**
  * AI Tools for Product Group Management
  *
  * Product groups are the category/collection tree for the product catalog.
@@ -36,7 +63,7 @@ export const getProductGroupTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const parsed = groupFiltersSchema.safeParse(args);
+      const parsed = listProductGroupsSchema.safeParse(args);
 
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -83,9 +110,7 @@ export const getProductGroupTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        groupId: z.string().uuid().describe("The unique UUID of the product group to retrieve"),
-      });
+      const validationSchema = getProductGroupDetailsSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -129,7 +154,7 @@ export const getProductGroupTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const parsed = createGroupSchema.safeParse(args);
+      const parsed = createProductGroupToolSchema.safeParse(args);
 
       if (!parsed.success) {
         const errorDetails = parsed.error.issues
@@ -174,10 +199,7 @@ export const getProductGroupTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        groupId: z.string().uuid().describe("The UUID of the product group to update"),
-        updates: updateGroupSchema,
-      });
+      const validationSchema = updateProductGroupToolSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -228,9 +250,7 @@ export const getProductGroupTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        groupId: z.string().uuid().describe("The UUID of the product group to delete"),
-      });
+      const validationSchema = deleteProductGroupSchema;
 
       const parsed = validationSchema.safeParse(args);
 

@@ -52,12 +52,12 @@ _Avoid_: Error, rejection failure
 Every agent invocation lands in the activity trail tagged as via-MCP with its arguments and outcome — including declines and failures — so operations can reconstruct exactly what each agent did.
 
 **Connection Revocation**:
-Cutting an agent's access deletes its consent grant and both token families in sequence — tokens first so live sessions die instantly. Retries are safe; the steps are idempotent.
+Cutting an agent's access revokes the provider grant — the grant and every access token under it disappear, and token validation rejects any token whose grant is gone, so live sessions die instantly. Retries are safe; revocation is idempotent.
 
 ### Management
 
 **Connection**:
-A synthetic view per user-and-client pair assembled from three separate tables: unioned token scopes, newest-token timestamp standing in for last use, plus the client's display name.
+A view per user-and-client pair assembled from the provider's KV grants: unioned grant scopes, a last-used marker written at every token issuance, plus the client's display name (from the registered client, falling back to grant metadata for CIMD clients).
 _Avoid_: Account, login device
 
 **Self vs Team Views**:
@@ -80,6 +80,6 @@ Terms owned by neighboring contexts — use them, don't redefine them here:
 
 **Three ways to decline**: Denying the dialog, leaving the confirm box unchecked, or timing out all count identically as decline — recorded, never raised.
 
-**Revocation closes the race window**: Tokens are deleted before the consent row so an in-flight agent call cannot slip through between the two deletions.
+**Revocation closes the race window**: Revoking the grant removes the grant itself, and token validation requires the grant to exist, so an in-flight agent call cannot slip through after revocation.
 
-**Schema duplication is deliberate**: Tool parameter definitions are re-declared for the MCP surface so clients receive proper schemas, independent of the internal validation schemas.
+**Schemas come from one source**: Tool parameter definitions are the same Zod objects the tools validate with — the MCP surface advertises and enforces them, so clients receive proper schemas and drift is impossible.

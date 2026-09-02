@@ -5,6 +5,38 @@ import { createVariantSchema, updateVariantSchema } from "./validation";
 import { getDb } from "@/db";
 
 /**
+ * Layer-2 validation schemas, hoisted to module level and exported so the MCP
+ * layer (src/mcp/schemas.ts) can derive tools/list inputSchema from the exact
+ * same definitions — the advertised schema and the executed validation cannot
+ * drift apart.
+ */
+export const listProductVariantsSchema = z.object({
+  productId: z.string().uuid().describe("UUID of the parent product"),
+});
+export const getVariantDetailsSchema = z.object({
+  variantId: z.string().uuid().describe("UUID of the variant to retrieve"),
+});
+export const createProductVariantToolSchema = z.object({
+  productId: z.string().uuid().describe("UUID of the parent product"),
+  variant: createVariantSchema,
+});
+export const updateVariantToolSchema = z.object({
+  variantId: z.string().uuid().describe("UUID of the variant to update"),
+  updates: updateVariantSchema,
+});
+export const deleteProductVariantSchema = z.object({
+  variantId: z.string().uuid().describe("UUID of the variant to delete"),
+});
+
+export const VARIANT_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
+  listProductVariants: listProductVariantsSchema.shape,
+  getVariantDetails: getVariantDetailsSchema.shape,
+  createProductVariant: createProductVariantToolSchema.shape,
+  updateVariant: updateVariantToolSchema.shape,
+  deleteProductVariant: deleteProductVariantSchema.shape,
+};
+
+/**
  * AI Tools for Product Variant Management
  *
  * Variants represent distinct configurations of a product (e.g. Color: Red / Size: M).
@@ -38,9 +70,7 @@ export const getVariantTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        productId: z.string().uuid().describe("UUID of the parent product"),
-      });
+      const validationSchema = listProductVariantsSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -92,9 +122,7 @@ export const getVariantTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        variantId: z.string().uuid().describe("UUID of the variant to retrieve"),
-      });
+      const validationSchema = getVariantDetailsSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -141,10 +169,7 @@ export const getVariantTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation — productId is separate from the variant body
-      const validationSchema = z.object({
-        productId: z.string().uuid().describe("UUID of the parent product"),
-        variant: createVariantSchema,
-      });
+      const validationSchema = createProductVariantToolSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -196,10 +221,7 @@ export const getVariantTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        variantId: z.string().uuid().describe("UUID of the variant to update"),
-        updates: updateVariantSchema,
-      });
+      const validationSchema = updateVariantToolSchema;
 
       const parsed = validationSchema.safeParse(args);
 
@@ -254,9 +276,7 @@ export const getVariantTools = (db: ReturnType<typeof getDb>) => ({
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {
       // Layer 2: Strict validation
-      const validationSchema = z.object({
-        variantId: z.string().uuid().describe("UUID of the variant to delete"),
-      });
+      const validationSchema = deleteProductVariantSchema;
 
       const parsed = validationSchema.safeParse(args);
 
