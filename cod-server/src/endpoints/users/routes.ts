@@ -45,6 +45,10 @@ const createBodySchema = z.object({
     description: "Initial permission scopes. Ignored if role is `admin`.",
     example: ["orders:read", "customers:read"],
   }),
+  language: z.enum(["ar", "en"]).optional().openapi({
+    description: "Language for the invite email. Defaults to `en`.",
+    example: "ar",
+  }),
 });
 
 const updateBodySchema = z.object({
@@ -100,12 +104,13 @@ const createUserRoute = defineRoute({
     "1. A user account is created in the database with a secure temporary password\n" +
     "2. The password is hashed using scrypt (same algorithm as better-auth)\n" +
     "3. An API key is generated for programmatic access\n" +
-    "4. Initial permission scopes are assigned (if role is staff)\n\n" +
+    "4. Initial permission scopes are assigned (if role is staff)\n" +
+    "5. A best-effort invite email is sent via Sendili when the store's email config exists and is enabled — the outcome is reported in `emailSent`/`emailError`, and creation never fails because of the email\n\n" +
     "**Authentication:**\n" +
-    "- The new user receives a temporary password (returned once in this response)\n" +
+    "- The new user receives a temporary password (returned once in this response, and included in the invite email when it sends)\n" +
     "- They can sign in using email + temporary password\n" +
     "- They should change their password on first login for security\n\n" +
-    '**Note:** `scopes` are ignored for `admin` users — admins always have `["*"]`.',
+    '**Note:** `scopes` are ignored for `admin` users — admins always have `["*"]`. The API key is never emailed.',
   operationId: "createUser",
   body: createBodySchema,
   responses: {
@@ -125,6 +130,16 @@ const createUserRoute = defineRoute({
             description:
               "Temporary password for the new user — returned once at creation. Share this with the user securely. They should change it on first login.",
             example: "a1b2c3d4e5f6g7h8i9j0",
+          }),
+          emailSent: z.boolean().openapi({
+            description:
+              "Whether the invite email was handed to Sendili. False when email sending is not configured or the send failed — check `emailError`.",
+            example: true,
+          }),
+          emailError: z.string().nullable().openapi({
+            description:
+              "Stable failure code when the invite email could not be sent: out_of_credits | invalid_key | forbidden | rate_limited | validation | transient. Null when sent or simply not configured.",
+            example: null,
           }),
           message: z.string().openapi({
             example: "User created. Share the tempPassword with the user — it will not be shown again.",

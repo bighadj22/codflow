@@ -1,0 +1,79 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import GateSpinner from "@/features/auth/components/GateSpinner";
+import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
+import { ForgotPasswordForm } from "@/features/auth/components/ForgotPasswordForm";
+import { PublicAuthPageApp } from "@/features/auth/components/PublicAuthPageApp";
+import darkLogoUrl from "@/images/logo-codflow.svg?url";
+---
+
+<BaseLayout title="CodFlow">
+  <main class="flex min-h-[100dvh] items-center justify-center bg-background p-4 sm:p-6 lg:p-10">
+    <div
+      class="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-card shadow-md lg:grid-cols-2"
+    >
+      <section class="flex flex-col p-6 sm:p-10 lg:p-12">
+        <header class="flex items-center justify-between gap-3">
+          <a href="/" class="flex items-center py-1" aria-label="CodFlow — home">
+            <img
+              src={darkLogoUrl}
+              alt="CodFlow"
+              height="30"
+              width="90"
+              class="h-[30px] w-auto"
+              decoding="async"
+              draggable="false"
+            />
+          </a>
+          <LanguageSwitcher client:only="react" />
+        </header>
+
+        <div class="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-12">
+          <div data-auth-gate="reverse" hidden>
+            <PublicAuthPageApp client:only="react">
+              <ForgotPasswordForm client:only="react" />
+            </PublicAuthPageApp>
+          </div>
+
+          <div
+            data-gate-spinner="reverse"
+            class="flex justify-center py-10"
+            aria-busy="true"
+          >
+            <GateSpinner branded />
+          </div>
+        </div>
+      </section>
+
+      <aside aria-hidden="true" class="relative hidden min-h-[560px] overflow-hidden bg-[var(--topbar)] lg:block">
+        <div class="absolute inset-0 bg-[var(--topbar)]"></div>
+        <div
+          class="absolute inset-0"
+          style="background:
+            radial-gradient(120% 90% at 85% 8%, rgb(109 45 217 / 0.28) 0%, transparent 55%),
+            radial-gradient(90% 70% at 12% 92%, rgb(109 45 217 / 0.16) 0%, transparent 60%);"
+        >
+        </div>
+        <div class="absolute inset-x-10 bottom-10">
+          <p class="max-w-xs text-2xl font-semibold leading-tight text-white">
+            {"Move every order forward."}
+          </p>
+          <p class="mt-3 max-w-xs text-sm leading-6 text-white/60">
+            {"One calm workspace for your COD operation."}
+          </p>
+        </div>
+        <div
+          class="absolute -bottom-24 -start-24 size-80 rounded-full border-[28px] border-[#6d28d9]/20"
+        >
+        </div>
+        <div class="absolute -end-16 top-16 size-56 rounded-full bg-[#6d28d9]/10 blur-2xl">
+        </div>
+        <div
+          class="absolute inset-0 opacity-[0.05]"
+          style="background-image: repeating-linear-gradient(135deg, rgb(255 255 255 / 0.5) 0 1px, transparent 1px 28px);"
+        >
+        </div>
+      </aside>
+    </div>
+  </main>
+</BaseLayout>

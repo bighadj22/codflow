@@ -231,6 +231,114 @@ const testOtpConfigRoute = defineRoute({
   handler: handlers.testOtpConnection,
 });
 
+// ─── Sendili transactional email config ──────────────────────────────────────
+
+const emailConfigResponse = z.object({
+  success: z.boolean(),
+  data: z
+    .object({
+      fromEmail: z.string().email().openapi({ example: "noreply@acme.com" }),
+      fromName: z.string().nullable().openapi({ example: "Acme Store" }),
+      enabled: z.boolean(),
+      apiKeyMasked: z.string().openapi({ example: "••••a9f2" }),
+      createdAt: z.string().datetime(),
+      updatedAt: z.string().datetime(),
+    })
+    .nullable(),
+});
+
+const saveEmailConfigBodySchema = z.object({
+  apiKey: z.string().default("").openapi({
+    description:
+      "Sendili API key. Empty string keeps the previously stored key (the key is never sent back to the client).",
+  }),
+  fromEmail: z.string().email().openapi({
+    description: "Sender address — its domain must be verified in the Sendili workspace.",
+    example: "noreply@acme.com",
+  }),
+  fromName: z.string().max(200).nullable().optional().openapi({
+    description: "Optional sender display name (e.g. the store name).",
+    example: "Acme Store",
+  }),
+  enabled: z.boolean().optional(),
+});
+
+const getEmailConfigRoute = defineRoute({
+  method: "get",
+  path: "/email-config",
+  auth: { scope: SCOPES.SETTINGS_EMAIL },
+  tags: ["Store Settings"],
+  summary: "Get transactional email configuration",
+  description:
+    "Returns the store's Sendili email configuration, or `null` when never configured (email sending disabled). The API key is never returned — only a masked hint.",
+  operationId: "getEmailConfig",
+  responses: {
+    200: { description: "Email configuration (null when not configured)", content: jsonContent(emailConfigResponse) },
+  },
+  handler: handlers.getEmailConfig,
+});
+
+const saveEmailConfigRoute = defineRoute({
+  method: "post",
+  path: "/email-config",
+  auth: { scope: SCOPES.SETTINGS_EMAIL },
+  tags: ["Store Settings"],
+  summary: "Save transactional email configuration",
+  description:
+    "Upserts the store's Sendili email configuration. An empty `apiKey` keeps the stored key. Requires a key before enabling. No row = email sending disabled (safe default).",
+  operationId: "saveEmailConfig",
+  body: saveEmailConfigBodySchema,
+  responses: {
+    200: { description: "Saved email configuration", content: jsonContent(emailConfigResponse) },
+    400: { description: "No API key stored or submitted (REQUIRED_FIELD_MISSING), or invalid fromEmail" },
+  },
+  handler: handlers.saveEmailConfig,
+});
+
+const testEmailConfigBodySchema = z.object({
+  apiKey: z.string().optional().openapi({
+    description: "Test this key instead of the stored one (pre-save validation).",
+  }),
+});
+
+const testEmailConfigRoute = defineRoute({
+  method: "post",
+  path: "/email-config/test",
+  auth: { scope: SCOPES.SETTINGS_EMAIL },
+  tags: ["Store Settings"],
+  summary: "Test Sendili connection",
+  description:
+    "Checks the stored (or submitted) Sendili API key against GET /v1/account and returns the verified sending domains for the from-address picker. Negative outcomes return 200 with ok:false — the check itself succeeded.",
+  operationId: "testEmailConnection",
+  body: testEmailConfigBodySchema,
+  responses: {
+    200: {
+      description: "Connection check executed",
+      content: jsonContent(
+        z.object({
+          success: z.boolean(),
+          data: z.object({
+            ok: z.boolean(),
+            reason: z.string().optional(),
+            message: z.string().optional(),
+            domains: z.array(z.string()).optional().openapi({
+              description: "Verified sending domains — populate the from-address picker.",
+              example: ["acme.com"],
+            }),
+            account: z.record(z.string(), z.unknown()).optional().openapi({
+              description: "Raw account payload (usage, plan) as returned by Sendili.",
+            }),
+            outOfCredits: z.boolean().optional(),
+          }),
+        })
+      ),
+    },
+    400: { description: "No API key stored or submitted (REQUIRED_FIELD_MISSING)" },
+    502: { description: "Sendili unreachable (EXTERNAL_API_FAILURE)" },
+  },
+  handler: handlers.testEmailConnection,
+});
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 const router = new OpenAPIHono<AppContext>();
@@ -242,5 +350,8 @@ router.openapi(savePixelConfigRoute.route, savePixelConfigRoute.handler);
 router.openapi(getOtpConfigRoute.route, getOtpConfigRoute.handler);
 router.openapi(saveOtpConfigRoute.route, saveOtpConfigRoute.handler);
 router.openapi(testOtpConfigRoute.route, testOtpConfigRoute.handler);
+router.openapi(getEmailConfigRoute.route, getEmailConfigRoute.handler);
+router.openapi(saveEmailConfigRoute.route, saveEmailConfigRoute.handler);
+router.openapi(testEmailConfigRoute.route, testEmailConfigRoute.handler);
 
 export default router;

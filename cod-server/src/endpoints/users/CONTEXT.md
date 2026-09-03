@@ -15,8 +15,16 @@ Exactly two levels: `admin` (everything, always) and `staff` (only what scopes g
 _Avoid_: Permission group, access level
 
 **Temporary Password**:
-A randomly generated credential issued once at creation, shown exactly once in that response. The member should replace it at first sign-in.
+A randomly generated credential issued once at creation. Shown exactly once in that response, and — when email sending is configured — also carried by the invite email so the member gets it without the admin relaying it. The member should replace it at first sign-in.
 _Avoid_: Default password, reset link
+
+**Invite Email**:
+The welcome message sent to a newly created member: sign-in link, temporary password, and a change-your-password nudge, rendered in the member's language. Best-effort — creation always succeeds with or without it, and the response reports the outcome (`emailSent`/`emailError`) so the admin knows to hand over the password manually when it fails.
+_Avoid_: Activation link, verification email
+
+**Invite Language**:
+The member's `language` preference (`ar` | `en`), chosen at invitation, that the invite email is rendered in.
+_Avoid_: Locale, translation setting
 
 **32-Hex Identity**:
 User IDs are 32-character hexadecimal strings matching Better Auth's format — not UUIDs with dashes.
@@ -53,6 +61,7 @@ Terms owned by neighboring contexts — use them, don't redefine them here:
 - **What the scopes unlock**: each endpoint context defines its own read/manage requirements
 - **Who did it**: every management action here lands in Activity Logs with actor attribution
 - **Shopper identity**: Customers context — completely separate universe from team members
+- **How email is sent and why it can fail**: the transactional email module (cod-shared) owns the send path; the invite just hands it rendered content
 
 ## Edge Cases
 
@@ -63,5 +72,9 @@ Terms owned by neighboring contexts — use them, don't redefine them here:
 **Scopes vanish silently on promotion**: Granting admin makes stored scope rows irrelevant; demoting back to staff does not restore them — they must be re-granted explicitly.
 
 **One-time means one-time**: Neither the temporary password nor the raw API key can ever be retrieved again — losing them forces rotation or password reset through other means.
+
+**The API key never rides the email**: Only the temporary password travels in the invite email — the API key is admin-to-admin material, shown once in the creation response.
+
+**Creation outranks the email**: A failing invite email (missing config, out of credits, provider outage) never fails or delays user creation — the outcome is reported, not raised.
 
 **Inactive Kills Access Instantly**: Flipping a member to `inactive` makes their API key rejected at the authentication gate before any scope check runs — the key remains valid-looking but is dead in practice.

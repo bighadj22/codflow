@@ -1133,6 +1133,29 @@ export const storeOtpConfig = sqliteTable("store_otp_config", {
 });
 
 /**
+ * Per-store Sendili transactional email configuration.
+ * One row per store. No row = email sending disabled (safe default).
+ * Kept separate from `stores` — outbound email is a distinct concern, and
+ * the API key is merchant integration config (like carrier tokens and the
+ * dzverify key), never a worker secret.
+ */
+export const storeEmailConfig = sqliteTable("store_email_config", {
+  id: text("id").primaryKey(),
+  storeId: text("store_id")
+    .notNull()
+    .unique()
+    .references(() => stores.id, { onDelete: "cascade" }),
+  apiKey: text("api_key").notNull(),
+  /** Verified sender address — its domain must be verified in the Sendili workspace. */
+  fromEmail: text("from_email").notNull(),
+  /** Optional sender display name (e.g. the store name). */
+  fromName: text("from_name"),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/**
  * Audit log for every CAPI event attempt sent by CodCapiWorkflow.
  * status: 'sent' | 'failed' | 'skipped'
  * metaEventId: fbtrace_id from Meta response (present on success only).

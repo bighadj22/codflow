@@ -25,7 +25,13 @@ compatibility_flags = [
 directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/auth/*", "/mcp/oauth/login"]
+run_worker_first = [
+  "/api/auth/*",
+  "/mcp/oauth/login",
+  # Email-link landing: /reset-password/<token> is an SSR redirect to the
+  # prerendered form page — it must reach the Worker, not the SPA fallback.
+  "/reset-password/*",
+]
 
 [[d1_databases]]
 # MUST be the same D1 database cod-server binds to — the dashboard's

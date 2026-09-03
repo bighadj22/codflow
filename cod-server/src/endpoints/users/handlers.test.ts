@@ -11,9 +11,16 @@ import { errorHandler } from "@/middleware/error";
 import { ERROR_CODES, ERROR_CATEGORIES } from "../../../../cod-shared/errors/codes";
 import * as handlers from "./handlers";
 import * as queries from "./queries";
+import * as inviteEmail from "./invite-email";
 
 // Mock the queries module
 vi.mock("./queries");
+
+// Mock the invite email (best-effort side effect — its contract is pinned
+// in invite-email.test.ts; here only the response wiring matters)
+vi.mock("./invite-email", () => ({
+  sendInviteEmail: vi.fn(),
+}));
 
 // Mock the database
 const mockDb = {} as any;
@@ -298,6 +305,85 @@ describe("Users Endpoint - Error Scenarios", () => {
         category: ERROR_CATEGORIES.BUSINESS_LOGIC,
         context: { email: "existing@example.com" },
       });
+    });
+
+    it("reports the invite email outcome without ever failing creation", async () => {
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            get: vi.fn().mockResolvedValue(undefined),
+          }),
+        }),
+      });
+      vi.mocked(queries.createUser).mockResolvedValue({
+        id: "new-user",
+        email: "amina@example.com",
+        name: "Amina",
+        role: "staff",
+        status: "active",
+        language: "ar",
+        scopes: [],
+      } as any);
+      vi.mocked(inviteEmail.sendInviteEmail).mockResolvedValue({ sent: true, error: null });
+
+      const res = await app.request("/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "amina@example.com",
+          name: "Amina",
+          role: "staff",
+          language: "ar",
+        }),
+      });
+
+      expect(res.status).toBe(201);
+      const body: any = await res.json();
+      expect(body.emailSent).toBe(true);
+      expect(body.emailError).toBeNull();
+      expect(typeof body.apiKey).toBe("string");
+      expect(typeof body.tempPassword).toBe("string");
+      // The invite send carries the one-time secrets and the chosen language.
+      expect(inviteEmail.sendInviteEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({
+          email: "amina@example.com",
+          language: "ar",
+          tempPassword: body.tempPassword,
+        })
+      );
+    });
+
+    it("still creates the user when the invite email fails", async () => {
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            get: vi.fn().mockResolvedValue(undefined),
+          }),
+        }),
+      });
+      vi.mocked(queries.createUser).mockResolvedValue({
+        id: "new-user",
+        email: "bob@example.com",
+        name: "Bob",
+        role: "staff",
+        status: "active",
+        language: "en",
+        scopes: [],
+      } as any);
+      vi.mocked(inviteEmail.sendInviteEmail).mockResolvedValue({ sent: false, error: "out_of_credits" });
+
+      const res = await app.request("/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "bob@example.com", name: "Bob", role: "staff" }),
+      });
+
+      expect(res.status).toBe(201);
+      const body: any = await res.json();
+      expect(body.emailSent).toBe(false);
+      expect(body.emailError).toBe("out_of_credits");
     });
   });
 

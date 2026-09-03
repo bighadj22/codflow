@@ -1,8 +1,11 @@
 import { apiFetch } from "@/lib/api";
 import type {
+  EmailConfig,
+  EmailConnectionCheck,
   OtpConfig,
   OtpConnectionCheck,
   PixelConfig,
+  SaveEmailConfigData,
   SaveOtpConfigData,
   SavePixelConfigData,
   StoreConfig,
@@ -48,4 +51,16 @@ export async function saveOtpConfig(data: SaveOtpConfigData) {
 
 export async function testOtpConnection(apiKey?: string) {
   return (await apiFetch<DataEnvelope<OtpConnectionCheck>>("/api/stores/otp-config/test", json({ method: "POST", body: JSON.stringify(apiKey ? { apiKey } : {}) }))).data;
+}
+
+export async function getEmailConfig() {
+  return (await apiFetch<DataEnvelope<EmailConfig | null>>("/api/stores/email-config")).data;
+}
+
+export async function saveEmailConfig(data: SaveEmailConfigData) {
+  return (await apiFetch<DataEnvelope<EmailConfig>>("/api/stores/email-config", json({ method: "POST", body: JSON.stringify(data) }))).data;
+}
+
+export async function testEmailConnection(apiKey?: string) {
+  return (await apiFetch<DataEnvelope<EmailConnectionCheck>>("/api/stores/email-config/test", json({ method: "POST", body: JSON.stringify(apiKey ? { apiKey } : {}) }))).data;
 }

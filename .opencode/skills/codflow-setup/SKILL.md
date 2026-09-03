@@ -408,6 +408,29 @@ production storefront, put cod-server on a custom domain/route and point
 `COD_SERVER_URL` at it (or wire a Service Binding), then re-deploy theme01 and
 confirm `/products` shows the seeded catalog. Local development is unaffected.
 
+## Step 6b — Optional: Transactional Email (Sendili)
+
+Offer this to the developer after the smoke tests pass; skip entirely if they
+decline — the feature is inert by default (no `store_email_config` row).
+
+1. Ask the developer to: create a [sendili.com](https://sendili.com) account,
+   buy credits, **verify their sending domain** (DNS records in the Sendili
+   dashboard), and create an API key (`sk_live_…`).
+2. In the deployed dashboard: sign in as admin → **Settings → Email Sending** →
+   paste the key (domains auto-load) → set the from address by typing the
+   local part (`support`, `notify`…) and picking the verified domain →
+   toggle **Enable email sending** → **Save**.
+3. Verify: **Test connection** shows `Connection OK` with the domain listed;
+   then invite a team member with an email the developer can check and
+   confirm the invite email arrives (sign-in link + temporary password), and
+   that the invited member can sign in.
+4. Docs: `docs/EMAIL-SENDING.md` (feature guide) and
+   `docs/adr/0001-sendili-key-at-rest.md` (key storage decision).
+
+No wrangler secrets, no worker config — the key lives in D1
+(`store_email_config`, applied by migration `0013` in Step 5) and is masked
+in every API response.
+
 ## Step 7 — Closing Summary (Mandatory)
 
 Print a resource inventory:

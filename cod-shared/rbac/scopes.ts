@@ -99,6 +99,8 @@ export const SCOPES = {
   SETTINGS_NOTIFICATIONS: "settings:notifications",
   /** Manage WhatsApp OTP verification settings (dzverify key, enable/disable) */
   SETTINGS_VERIFICATION: "settings:verification",
+  /** Manage transactional email sending settings (Sendili key, sender address, enable/disable) */
+  SETTINGS_EMAIL: "settings:email",
 
   // Reviews
   /** View product reviews and their moderation status */
@@ -231,6 +233,7 @@ export const SCOPE_CATEGORIES = {
       SCOPES.SETTINGS_INTEGRATIONS,
       SCOPES.SETTINGS_NOTIFICATIONS,
       SCOPES.SETTINGS_VERIFICATION,
+      SCOPES.SETTINGS_EMAIL,
     ],
   },
 } as const;

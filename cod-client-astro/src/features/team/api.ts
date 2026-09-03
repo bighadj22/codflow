@@ -60,16 +60,25 @@ export interface CreateTeamMemberBody {
   email: string;
   role: TeamRole;
   scopes?: string[];
+  /** Invite email language. Defaults to en server-side. */
+  language?: "ar" | "en";
 }
 
 export async function createTeamMember(body: CreateTeamMemberBody) {
   const response = await apiFetch<
-    DataEnvelope<TeamMember> & { apiKey: string; tempPassword: string }
+    DataEnvelope<TeamMember> & {
+      apiKey: string;
+      tempPassword: string;
+      emailSent: boolean;
+      emailError: string | null;
+    }
   >("/api/users", json({ method: "POST", body: JSON.stringify(body) }));
   return {
     user: response.data,
     apiKey: response.apiKey,
     tempPassword: response.tempPassword,
+    emailSent: response.emailSent ?? false,
+    emailError: response.emailError ?? null,
   } satisfies CreateTeamMemberResult;
 }
 

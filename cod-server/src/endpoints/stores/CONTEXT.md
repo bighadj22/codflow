@@ -1,6 +1,6 @@
 # Store Settings Context
 
-The merchant's control panel for their one store: branding, theme, language, storefront text, SEO, and the Meta pixel that powers conversion tracking. Everything here shapes what shoppers see; nothing here records transactions.
+The merchant's control panel for their one store: branding, theme, language, storefront text, SEO, the Meta pixel that powers conversion tracking, and the outbound email integration. Everything here shapes what shoppers and teammates see; nothing here records transactions.
 
 ## Language
 
@@ -53,6 +53,24 @@ _Avoid_: Analytics account, tracking cookie
 **Test Event Code**:
 A routing flag that sends events to Meta's test stream during integration work — must be cleared for production measurement.
 
+### Email
+
+**Email Config**:
+The Sendili integration row: API key, from address, optional sender name, and an enabled switch. Absent until first saved. No row = email sending disabled (safe default — same rule as the verification config).
+_Avoid_: SMTP settings, mail account
+
+**From Address**:
+The sending address; its domain must be verified in the merchant's Sendili workspace or every send is refused. The dashboard picks it from the verified-domain list, so merchants never guess.
+_Avoid_: Sender account, reply address
+
+**Accepted, Not Delivered**:
+A Sendili 200 means the message was queued, not that it arrived — delivery is the receiving mail server's decision. Nothing in CodFlow ever claims "delivered" from a send response.
+_Avoid_: Delivery confirmation
+
+**Suppressed Recipient**:
+An address Sendili stopped delivering to (hard bounce or spam report). Skipped without charge and listed in the send result; a fully-suppressed send is recorded as rejected.
+_Avoid_: Bounced list, blacklist
+
 ## Boundaries
 
 Terms owned by neighboring contexts — use them, don't redefine them here:
@@ -61,6 +79,7 @@ Terms owned by neighboring contexts — use them, don't redefine them here:
 - **Delivery pricing**: Shipping Profiles context — nothing in these settings sets a fee
 - **Team access**: Users context — admin role gates every endpoint here
 - **Review content**: Reviews context owns moderation; the switch here merely silences the channel
+- **What gets emailed and how it survives failure**: the transactional email module (cod-shared) owns the send path; this context only stores its configuration
 
 ## Edge Cases
 
@@ -71,3 +90,5 @@ Terms owned by neighboring contexts — use them, don't redefine them here:
 **Currency symbol is cosmetic**: Merchants can retitle the symbol shoppers see while every amount in the system remains DZD integer math underneath.
 
 **Pixel defaults fill silently**: Saving without an access token stores an empty string and enables tracking — omission equals permissive.
+
+**The email key never comes back**: Like the verification key, the Sendili API key is write-only through the API — reads return a masked hint, and saving with an empty key keeps the stored one. (Storage decision: ADR-0001.)

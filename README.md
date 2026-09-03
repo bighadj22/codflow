@@ -324,6 +324,7 @@ astro check + tests for theme01.
 | **[docs/CONFIGURATION.md](./docs/CONFIGURATION.md)** | All environment variables and configs |
 | **[docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md)** | Incomplete features and platform constraints |
 | **[docs/WHATSAPP-OTP-VERIFICATION.md](./docs/WHATSAPP-OTP-VERIFICATION.md)** | WhatsApp OTP verification feature |
+| **[docs/EMAIL-SENDING.md](./docs/EMAIL-SENDING.md)** | Transactional email feature (Sendili) |
 | **[CONTRIBUTING.md](./CONTRIBUTING.md)** | Development standards and PR workflow |
 | **[AGENTS.md](./AGENTS.md)** | Repository instructions for AI coding assistants |
 ### 🎬 Video Tutorial
@@ -340,13 +341,14 @@ astro check + tests for theme01.
 - 📦 **More Themes** — Additional storefront themes beyond `theme01`
 - 📘 **Theme Editing Guides** — Comprehensive guides for customizing and creating themes
 - ☁️ **CodFlow Cloud** — One-click deployment from dashboard for agencies to resell CodFlow
-- 📧 **[Sendili.com](https://sendili.com) Integration** — Add Sendili as a second email option for order notifications and admin alerts
+- 📧 **Email order notifications & admin alerts** — extend the Sendili integration beyond transactional mail
 
 ### Recently Shipped
 
 - ✅ **Astro Dashboard** — the merchant dashboard now runs on Astro (was Next.js)
 - ✅ **WhatsApp OTP Verification** — [DZVerify.com](https://dzverify.com) phone verification at checkout
 - ✅ **EcoTrack Integration** — 80+ Algerian couriers behind one API
+- ✅ **Transactional Email (Sendili)** — [Sendili.com](https://sendili.com) powers team-invite emails and password-reset emails; merchants configure their API key and verified sending domain in Settings → Email Sending
 
 ---
 
