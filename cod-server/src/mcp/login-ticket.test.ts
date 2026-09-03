@@ -30,8 +30,19 @@ describe("login ticket", () => {
 
   it("rejects a tampered ticket", async () => {
     const ticket = await mintLoginTicket(KEY, "user-1", NOW);
-    const tampered = ticket.endsWith("a") ? `${ticket.slice(0, -1)}b` : `${ticket.slice(0, -1)}a`;
 
+    // Tamper a MIDDLE character of the MAC: base64url strips the padding, so
+    // the final char encodes only its top 2 bits — flipping the last char
+    // between same-top-2-bits letters (a/b/c/d/e/f…) leaves the decoded MAC
+    // unchanged and the ticket still verifies (flaky, ~12% of mints). Middle
+    // characters contribute every bit, so this tamper is always real.
+    const parts = ticket.split(".");
+    const mac = parts[2];
+    const i = Math.floor(mac.length / 2);
+    parts[2] = mac.slice(0, i) + (mac[i] === "A" ? "B" : "A") + mac.slice(i + 1);
+    const tampered = parts.join(".");
+
+    expect(tampered).not.toBe(ticket);
     expect(await verifyLoginTicket(KEY, tampered, NOW)).toBeNull();
   });
 
