@@ -155,9 +155,17 @@ export function createAuth(env: AuthEnv, cloudflare?: AuthCloudflareContext) {
         },
         user: {
           additionalFields: {
-            role:     { type: "string", defaultValue: "staff",  required: false },
-            status:   { type: "string", defaultValue: "active", required: false },
-            apiKey:   { type: "string", required: false },
+            /**
+             * Privileged fields are `input: false` — better-auth's
+             * session-authenticated /update-user must never accept them, or
+             * any staff member could self-promote (`{role:"admin"}` was
+             * accepted before this). Admin-side changes go through
+             * cod-server's PATCH /api/users/:id, which writes D1 directly.
+             */
+            role:     { type: "string", defaultValue: "staff",  required: false, input: false },
+            status:   { type: "string", defaultValue: "active", required: false, input: false },
+            apiKey:   { type: "string", required: false, input: false },
+            /** Email language preference — the one field users may self-edit. */
             language: { type: "string", defaultValue: "en", required: false },
           },
         },

@@ -78,10 +78,10 @@ export function EmailSettings() {
 
   async function handleSave() {
     if (!EMAIL_PATTERN.test(fromEmail.trim())) {
-      throw new Error(`${t("store.email_from_label")}: ${t("store.password_error_required")}`);
+      throw new Error(`${t("store.email_from_label")}: ${t("store.field_required")}`);
     }
     if (enabled && !apiKey.trim() && !apiKeyMasked) {
-      throw new Error(`${t("store.email_key_label")}: ${t("store.password_error_required")}`);
+      throw new Error(`${t("store.email_key_label")}: ${t("store.field_required")}`);
     }
     const result = await saveEmailConfig({
       apiKey: apiKey.trim() || undefined,

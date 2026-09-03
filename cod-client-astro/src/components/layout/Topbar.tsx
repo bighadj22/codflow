@@ -46,16 +46,23 @@ export function AccountControl({ onDark = false }: { onDark?: boolean }) {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand text-xs font-bold text-brand-foreground">
-        {initial}
-      </span>
-      <span className="hidden min-w-0 text-start lg:block">
-        <span
-          className={`block max-w-36 truncate text-xs font-semibold ${onDark ? "text-white" : "text-foreground"}`}
-        >
-          {identity?.user.name ?? identity?.user.email}
+      <a
+        href="/profile"
+        className="flex min-w-0 items-center gap-2 rounded-lg p-1 -m-1 transition-colors hover:bg-white/10"
+        aria-label={tA("profile_link_aria")}
+        title={tA("profile_link_aria")}
+      >
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand text-xs font-bold text-brand-foreground">
+          {initial}
         </span>
-      </span>
+        <span className="hidden min-w-0 text-start lg:block">
+          <span
+            className={`block max-w-36 truncate text-xs font-semibold ${onDark ? "text-white" : "text-foreground"}`}
+          >
+            {identity?.user.name ?? identity?.user.email}
+          </span>
+        </span>
+      </a>
       <button
         type="button"
         onClick={() => void signOut()}

@@ -26,6 +26,10 @@ _Avoid_: Activation link, verification email
 The member's `language` preference (`ar` | `en`), chosen at invitation, that the invite email is rendered in.
 _Avoid_: Locale, translation setting
 
+**Profile**:
+The member's self-service surface (dashboard topbar → /profile): display name, invite/email language, and password change (current password required). Members own exactly these fields — role, status, and API key are rejected on the self-update endpoint by config (`input: false`), so self-service can never touch them.
+_Avoid_: Account settings (store settings are a different surface)
+
 **32-Hex Identity**:
 User IDs are 32-character hexadecimal strings matching Better Auth's format — not UUIDs with dashes.
 _Avoid_: UUID, GUID
@@ -78,3 +82,5 @@ Terms owned by neighboring contexts — use them, don't redefine them here:
 **Creation outranks the email**: A failing invite email (missing config, out of credits, provider outage) never fails or delays user creation — the outcome is reported, not raised.
 
 **Inactive Kills Access Instantly**: Flipping a member to `inactive` makes their API key rejected at the authentication gate before any scope check runs — the key remains valid-looking but is dead in practice.
+
+**Self-service stops at identity, not power**: The auth server's own update-user endpoint accepts only `name`, `image`, and `language` — privileged additionalFields (`role`, `status`, `apiKey`) are `input: false`, so even a valid session cannot grant itself power. (Before that flag existed, a staff member could self-promote with `{"role":"admin"}` — fixed and regression-verified.)

@@ -32,7 +32,7 @@ export function TrackingSettings() {
   async function handleSave() {
     if (enabled && !pixelId.trim()) {
       throw new Error(
-        `${t("store.tracking_pixel_id_label")} ${t("store.password_error_required")}`,
+        `${t("store.tracking_pixel_id_label")} ${t("store.field_required")}`,
       );
     }
     const result = await savePixelConfig({

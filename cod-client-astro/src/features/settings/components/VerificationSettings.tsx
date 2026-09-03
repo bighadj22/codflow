@@ -35,7 +35,7 @@ export function VerificationSettings() {
 
   async function handleSave() {
     if (enabled && !apiKey.trim() && !apiKeyMasked) {
-      throw new Error(`${t("store.otp_key_label")} ${t("store.password_error_required")}`);
+      throw new Error(`${t("store.otp_key_label")} ${t("store.field_required")}`);
     }
     const result = await saveOtpConfig({
       apiKey: apiKey.trim() || undefined,
