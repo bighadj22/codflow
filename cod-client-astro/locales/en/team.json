@@ -166,6 +166,7 @@
     "team": "Team",
     "integrations": "Integrations",
     "notifications": "Notifications",
+    "email": "Email Sending",
     "verification": "Verification"
   },
   "invite_dialog_extra": {
@@ -177,7 +178,12 @@
     "api_key_warning": "This API key will not be shown again. Copy it now and share it securely with the team member.",
     "temp_password_warning": "Share the temporary password with the user so they can sign in for the first time.",
     "success_title": "Member Added",
-    "success_subtitle": "Onboard new team member"
+    "success_subtitle": "Onboard new team member",
+    "email_sent": "Invitation email sent successfully.",
+    "email_failed": "The invite email could not be sent.",
+    "email_not_configured": "Email sending is not configured.",
+    "email_share_manually": "Share the temporary password with the member manually.",
+    "email_language_label": "Invite email language"
   },
   "error_member_not_found": "Team member not found",
   "error_duplicate_email": "A user with this email already exists",

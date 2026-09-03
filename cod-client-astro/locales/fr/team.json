@@ -166,6 +166,7 @@
     "team": "Équipe",
     "integrations": "Intégrations",
     "notifications": "Notifications",
+    "email": "Envoi d'e-mails",
     "verification": "Vérification"
   },
   "invite_dialog_extra": {
@@ -177,7 +178,12 @@
     "api_key_warning": "Cette clé API ne sera plus affichée. Copiez-la maintenant et partagez-la de manière sécurisée avec le membre.",
     "temp_password_warning": "Partagez le mot de passe temporaire avec l'utilisateur pour qu'il puisse se connecter pour la première fois.",
     "success_title": "Membre ajouté",
-    "success_subtitle": "Intégration d'un nouveau membre"
+    "success_subtitle": "Intégration d'un nouveau membre",
+    "email_sent": "E-mail d'invitation envoyé avec succès.",
+    "email_failed": "L'e-mail d'invitation n'a pas pu être envoyé.",
+    "email_not_configured": "L'envoi d'e-mails n'est pas configuré.",
+    "email_share_manually": "Partagez le mot de passe temporaire avec le membre manuellement.",
+    "email_language_label": "Langue de l'e-mail d'invitation"
   },
   "error_member_not_found": "Membre de l’équipe introuvable",
   "error_duplicate_email": "Un utilisateur avec cet e-mail existe déjà",

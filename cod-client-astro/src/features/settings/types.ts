@@ -91,3 +91,28 @@ export interface OtpConnectionCheck {
   plan?: string;
   outOfCredits?: boolean;
 }
+
+/** Sendili transactional email configuration. Absent until first saved — null = disabled. */
+export interface EmailConfig {
+  fromEmail: string;
+  fromName: string | null;
+  enabled: boolean;
+  apiKeyMasked: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SaveEmailConfigData {
+  apiKey?: string;
+  fromEmail: string;
+  fromName?: string | null;
+  enabled?: boolean;
+}
+
+export interface EmailConnectionCheck {
+  ok: boolean;
+  reason?: string;
+  message?: string;
+  domains?: string[];
+  outOfCredits?: boolean;
+}

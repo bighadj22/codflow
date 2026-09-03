@@ -3,6 +3,9 @@ import { withCloudflare } from "better-auth-cloudflare";
 import { customSession, jwt } from "better-auth/plugins";
 import { getDb } from "../../../../cod-shared/db/client";
 import { userScopes } from "../../../../cod-shared/db/schema";
+import { getStore } from "../../../../cod-shared/queries/stores";
+import { renderPasswordResetEmail } from "../../../../cod-shared/lib/email-templates";
+import { sendTransactionalEmail } from "../../../../cod-shared/lib/transactional-email";
 import { eq } from "drizzle-orm";
 
 export interface AuthEnv {
@@ -113,12 +116,56 @@ export function createAuth(env: AuthEnv, cloudflare?: AuthCloudflareContext) {
           autoSignIn: true,
           // No self-service registration: accounts are provisioned by an admin.
           disableSignUp: true,
+          /**
+           * Password-reset email via the shared Sendili send path.
+           *
+           * Security contract: this callback runs only for users that exist,
+           * while better-auth answers unknown emails with the same generic
+           * "check your email" response — so the callback must never throw
+           * or change observable behavior (no enumeration). Every failure is
+           * caught here, logged with its stable code, and swallowed.
+           * Residual risk (accepted): the provider round-trip adds latency
+           * only for existing emails — a timing side channel mitigated by the
+           * 3/hour rate limit on /request-password-reset.
+           */
+          sendResetPassword: async ({ user, url, token }) => {
+            try {
+              const store = await getStore(db);
+              const language = (user as { language?: string }).language === "ar" ? "ar" : "en";
+              const email = renderPasswordResetEmail({
+                storeName: store?.name ?? "CodFlow",
+                userName: user.name,
+                resetUrl: url,
+                language,
+              });
+              const outcome = await sendTransactionalEmail(db, {
+                to: user.email,
+                subject: email.subject,
+                html: email.html,
+                text: email.text,
+                idempotencyKey: `reset-${user.id}-${token.slice(0, 12)}`,
+              });
+              if (!outcome.sent && outcome.error) {
+                console.error("[auth] password-reset email failed:", outcome.error);
+              }
+            } catch (err) {
+              console.error("[auth] password-reset email error:", err);
+            }
+          },
         },
         user: {
           additionalFields: {
-            role:     { type: "string", defaultValue: "staff",  required: false },
-            status:   { type: "string", defaultValue: "active", required: false },
-            apiKey:   { type: "string", required: false },
+            /**
+             * Privileged fields are `input: false` — better-auth's
+             * session-authenticated /update-user must never accept them, or
+             * any staff member could self-promote (`{role:"admin"}` was
+             * accepted before this). Admin-side changes go through
+             * cod-server's PATCH /api/users/:id, which writes D1 directly.
+             */
+            role:     { type: "string", defaultValue: "staff",  required: false, input: false },
+            status:   { type: "string", defaultValue: "active", required: false, input: false },
+            apiKey:   { type: "string", required: false, input: false },
+            /** Email language preference — the one field users may self-edit. */
             language: { type: "string", defaultValue: "en", required: false },
           },
         },

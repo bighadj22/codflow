@@ -11,6 +11,8 @@ export const createUserSchema = z.object({
   name: z.string().min(1, "Name is required"),
   role: z.enum(["admin", "staff"]).default("staff"),
   scopes: z.array(z.string()).default([]),
+  /** Invite-email language. Falls back to the users.language column default ("en"). */
+  language: z.enum(["ar", "en"]).optional(),
 });
 
 export const updateUserSchema = z.object({

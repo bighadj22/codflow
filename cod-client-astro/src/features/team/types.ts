@@ -46,10 +46,15 @@ export interface TeamMemberFormValues {
   email: string;
   role: TeamRole;
   scopes: string[];
+  language: "ar" | "en";
 }
 
 export interface CreateTeamMemberResult {
   user: TeamMember;
   apiKey: string;
   tempPassword: string;
+  /** Whether the invite email was handed to Sendili. */
+  emailSent: boolean;
+  /** Stable failure code (out_of_credits | invalid_key | forbidden | rate_limited | validation | transient). Null = sent or not configured. */
+  emailError: string | null;
 }

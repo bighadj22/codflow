@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
-import { Check, ChevronDown, ChevronUp, Copy, KeyRound, UserPlus } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Copy, KeyRound, MailCheck, MailWarning, UserPlus } from "lucide-react";
 import { Button, Dialog, Field, Input, Select } from "@/components/ui";
 import { useT } from "@/i18n/react";
 import { notify } from "@/lib/notify";
@@ -21,6 +21,7 @@ const EMPTY_FORM: TeamMemberFormValues = {
   email: "",
   role: "staff",
   scopes: [],
+  language: "en",
 };
 
 function GroupCheckbox({
@@ -58,6 +59,9 @@ export function InviteDialog({ open, onClose, onSuccess }: Props) {
   const [createdApiKey, setCreatedApiKey] = useState("");
   const [createdTempPassword, setCreatedTempPassword] = useState("");
   const [createdName, setCreatedName] = useState("");
+  const [createdEmail, setCreatedEmail] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedPassword, setCopiedPassword] = useState(false);
   const [form, setForm] = useState<TeamMemberFormValues>(EMPTY_FORM);
@@ -73,6 +77,9 @@ export function InviteDialog({ open, onClose, onSuccess }: Props) {
       setCreatedApiKey("");
       setCreatedTempPassword("");
       setCreatedName("");
+      setCreatedEmail("");
+      setEmailSent(false);
+      setEmailError(null);
       setCopied(false);
       setCopiedPassword(false);
       setError(null);
@@ -140,10 +147,14 @@ export function InviteDialog({ open, onClose, onSuccess }: Props) {
         email: form.email.trim(),
         role: form.role,
         scopes: isAdmin ? [] : form.scopes,
+        language: form.language,
       });
       setCreatedApiKey(result.apiKey);
       setCreatedTempPassword(result.tempPassword);
       setCreatedName(result.user.name || form.name.trim());
+      setCreatedEmail(form.email.trim());
+      setEmailSent(result.emailSent);
+      setEmailError(result.emailError);
       setDialogState("success");
       notify.success(t("invite_dialog.success"));
     } catch (cause) {
@@ -185,6 +196,40 @@ export function InviteDialog({ open, onClose, onSuccess }: Props) {
       {dialogState === "success" ? (
         <>
           <div className="space-y-4">
+            <div
+              className={`flex items-start gap-2.5 rounded-xl border p-3 ${
+                emailSent
+                  ? "border-[var(--status-confirmed-border)] bg-[var(--status-confirmed-bg)]"
+                  : "border-yellow-500/20 bg-yellow-500/5"
+              }`}
+            >
+              {emailSent ? (
+                <MailCheck size={16} className="mt-0.5 shrink-0 text-[var(--status-confirmed-text)]" />
+              ) : (
+                <MailWarning size={16} className="mt-0.5 shrink-0 text-yellow-600" />
+              )}
+              <div className="space-y-0.5 text-xs">
+                {emailSent ? (
+                  <p className="font-semibold text-[var(--status-confirmed-text)]">
+                    {t("invite_dialog_extra.email_sent")}
+                  </p>
+                ) : (
+                  <p className="font-semibold text-foreground">
+                    {emailError
+                      ? t("invite_dialog_extra.email_failed")
+                      : t("invite_dialog_extra.email_not_configured")}
+                  </p>
+                )}
+                <p className="text-muted-foreground" dir="ltr">
+                  {createdEmail}
+                </p>
+                {!emailSent && (
+                  <p className="font-semibold text-amber-600">
+                    {t("invite_dialog_extra.email_share_manually")}
+                  </p>
+                )}
+              </div>
+            </div>
             <Field label={t("invite_dialog_extra.api_key_label")}>
               <div className="flex items-center gap-2">
                 <Input value={createdApiKey} readOnly dir="ltr" className="font-mono" />
@@ -266,6 +311,17 @@ export function InviteDialog({ open, onClose, onSuccess }: Props) {
             >
               <option value="staff">{common("roles.staff")}</option>
               <option value="admin">{common("roles.admin")}</option>
+            </Select>
+          </Field>
+
+          <Field label={t("invite_dialog_extra.email_language_label")}>
+            <Select
+              value={form.language}
+              onChange={(event) => update("language", event.currentTarget.value as "ar" | "en")}
+              disabled={loading}
+            >
+              <option value="en">English</option>
+              <option value="ar">العربية</option>
             </Select>
           </Field>
 

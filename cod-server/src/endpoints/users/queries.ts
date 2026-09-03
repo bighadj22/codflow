@@ -6,8 +6,8 @@
  * revokeScope) stay here because `clearScopeCache` is server-only.
  */
 
-import { eq, and, sql } from "drizzle-orm";
-import { users, userScopes } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import { users, userScopes, accounts } from "@/db/schema";
 import { clearScopeCache } from "@/rbac/permissions";
 import { getDb } from "@/db";
 
@@ -35,12 +35,12 @@ export async function createUser(
     status: "active" | "inactive";
     apiKey: string;
     passwordHash: string;
+    language?: "ar" | "en";
   },
   initialScopes: string[],
   grantedBy: string,
 ) {
   const nowDate = new Date();
-  const nowMs = nowDate.getTime();
   const nowIso = nowDate.toISOString();
 
   await db.insert(users).values({
@@ -51,16 +51,24 @@ export async function createUser(
     role: userData.role,
     status: userData.status,
     apiKey: userData.apiKey,
+    language: userData.language ?? "en",
     createdAt: nowDate,
     updatedAt: nowDate,
   });
 
-  // Insert credential account (password hash) into the better-auth accounts table.
-  // We use raw SQL to avoid declaring the accounts table in this schema.
-  await db.run(sql`
-    INSERT INTO accounts (id, user_id, account_id, provider_id, password, created_at, updated_at)
-    VALUES (${crypto.randomUUID()}, ${userData.id}, ${userData.email}, 'credential', ${userData.passwordHash}, ${nowMs}, ${nowMs})
-  `);
+  // Credential account for better-auth password sign-in. 1.7 lookup semantics
+  // (see migration 0010 + scripts/seed-admin.mjs): issuer = 'local:credential'
+  // and account_id = USER ID — not the email. Wrong shape = every sign-in 401s.
+  await db.insert(accounts).values({
+    id: crypto.randomUUID(),
+    userId: userData.id,
+    accountId: userData.id,
+    providerId: "credential",
+    issuer: "local:credential",
+    password: userData.passwordHash,
+    createdAt: nowDate,
+    updatedAt: nowDate,
+  });
 
   if (userData.role !== "admin" && initialScopes.length > 0) {
     await db.insert(userScopes).values(

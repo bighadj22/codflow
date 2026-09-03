@@ -12,11 +12,13 @@ describe("settings model", () => {
       "reviews",
       "analytics",
       "verification",
+      "email",
       "api",
     ]);
     expect(SETTINGS_CATEGORIES[0].labelKey).toBe("general_title");
     expect(SETTINGS_CATEGORIES[5].labelKey).toBe("otp_title");
-    expect(SETTINGS_CATEGORIES[6].labelKey).toBe("api_key_title");
+    expect(SETTINGS_CATEGORIES[6].labelKey).toBe("email_title");
+    expect(SETTINGS_CATEGORIES[7].labelKey).toBe("api_key_title");
   });
 
   it("maps every save failure to the store save error", () => {

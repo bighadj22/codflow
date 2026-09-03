@@ -14,6 +14,7 @@ import { NotFoundError, ConflictError, SystemError } from "@/lib/errors/classes"
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 import { scryptAsync } from "@noble/hashes/scrypt.js";
 import { bytesToHex, randomBytes } from "@noble/hashes/utils.js";
+import { sendInviteEmail } from "./invite-email";
 
 /**
  * GET /users
@@ -69,8 +70,10 @@ async function hashPassword(password: string): Promise<string> {
  *   1. Hash a generated temporary password (same scrypt as better-auth)
  *   2. Generate an API key
  *   3. Insert into D1: users + accounts (credential) + initial scopes
+ *   4. Best-effort invite email via Sendili (never blocks or fails creation)
  *
  * Returns the temp password and API key once — they cannot be retrieved again.
+ * `emailSent`/`emailError` report the invite outcome (stable codes only).
  * Admin-only — enforced at the route level via requireAdmin().
  */
 export async function createUser(c: Context<AppContext>) {
@@ -104,7 +107,16 @@ export async function createUser(c: Context<AppContext>) {
   // 5. Insert user + credential account + scopes
   const user = await queries.createUser(
     db,
-    { id: userId, email: validated.email, name: validated.name, role: validated.role, status: "active", apiKey: rawApiKey, passwordHash },
+    {
+      id: userId,
+      email: validated.email,
+      name: validated.name,
+      role: validated.role,
+      status: "active",
+      apiKey: rawApiKey,
+      passwordHash,
+      language: validated.language,
+    },
     validated.scopes,
     actor.id,
   );
@@ -117,11 +129,21 @@ export async function createUser(c: Context<AppContext>) {
     type: "user", id: userId, label: validated.name,
   }, { role: validated.role });
 
+  const invite = await sendInviteEmail(db, c.env, {
+    userId,
+    name: validated.name,
+    email: validated.email,
+    tempPassword,
+    language: validated.language ?? "en",
+  });
+
   return c.json({
     success: true,
     data: user,
     apiKey: rawApiKey,
     tempPassword,
+    emailSent: invite.sent,
+    emailError: invite.error,
     message: "User created. Share the tempPassword with the user — it will not be shown again.",
   }, 201);
 }

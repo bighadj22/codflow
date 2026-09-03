@@ -166,6 +166,7 @@
     "team": "الفريق",
     "integrations": "التكاملات",
     "notifications": "الإشعارات",
+    "email": "إرسال البريد الإلكتروني",
     "verification": "التحقق"
   },
   "invite_dialog_extra": {
@@ -177,7 +178,12 @@
     "api_key_warning": "لن يُعرض مفتاح API هذا مجددًا. انسخه الآن وشاركه بأمان مع عضو الفريق.",
     "temp_password_warning": "شارك كلمة المرور المؤقتة مع المستخدم ليتمكن من تسجيل الدخول للمرة الأولى.",
     "success_title": "تمت إضافة العضو",
-    "success_subtitle": "تأهيل عضو فريق جديد"
+    "success_subtitle": "تأهيل عضو فريق جديد",
+    "email_sent": "تم إرسال دعوة البريد الإلكتروني بنجاح.",
+    "email_failed": "تعذر إرسال بريد الدعوة.",
+    "email_not_configured": "إرسال البريد الإلكتروني غير مُهيّأ.",
+    "email_share_manually": "شارك كلمة المرور المؤقتة مع العضو يدوياً.",
+    "email_language_label": "لغة بريد الدعوة"
   },
   "error_member_not_found": "عضو الفريق غير موجود",
   "error_duplicate_email": "يوجد مستخدم بهذا البريد الإلكتروني بالفعل",

@@ -3,7 +3,13 @@
 // browser does once it checks the session (see Identity in CONTEXT.md).
 
 export interface Identity {
-  user: { id: string; name?: string | null; email: string };
+  user: {
+    id: string;
+    name?: string | null;
+    email: string;
+    /** Email language preference (ar | en) — carried for the profile page. */
+    language?: string;
+  };
   role: "admin" | "staff";
   scopes: string[];
 }

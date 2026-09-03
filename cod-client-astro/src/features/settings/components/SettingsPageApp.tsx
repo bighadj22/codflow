@@ -15,6 +15,7 @@ import { SeoSettings } from "@/features/settings/components/SeoSettings";
 import { ReviewsSettings } from "@/features/settings/components/ReviewsSettings";
 import { TrackingSettings } from "@/features/settings/components/TrackingSettings";
 import { VerificationSettings } from "@/features/settings/components/VerificationSettings";
+import { EmailSettings } from "@/features/settings/components/EmailSettings";
 import { ApiSettings } from "@/features/settings/components/ApiSettings";
 
 function SettingsContent() {
@@ -97,6 +98,8 @@ function SettingsContent() {
         return <TrackingSettings />;
       case "verification":
         return <VerificationSettings />;
+      case "email":
+        return <EmailSettings />;
       case "api":
         return <ApiSettings storeConfig={storeConfig} />;
       default:

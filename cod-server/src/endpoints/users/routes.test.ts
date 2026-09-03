@@ -19,6 +19,10 @@ vi.mock("@/db", () => ({
   getDb: vi.fn(() => mockDb),
 }));
 vi.mock("./queries");
+// Email side effect — its own contract is pinned in invite-email.test.ts.
+vi.mock("./invite-email", () => ({
+  sendInviteEmail: vi.fn().mockResolvedValue({ sent: false, error: null }),
+}));
 vi.mock("@/lib/activity", () => ({
   logActivity: vi.fn(),
   ACTIONS: {

@@ -67,12 +67,20 @@ export function SignInForm({ next }: { next?: string | null }) {
         />
       </div>
       <div>
-        <label
-          className="mb-1.5 block text-sm font-semibold text-foreground"
-          htmlFor="password"
-        >
-          {t("password")}
-        </label>
+        <div className="mb-1.5 flex items-center justify-between">
+          <label
+            className="block text-sm font-semibold text-foreground"
+            htmlFor="password"
+          >
+            {t("password")}
+          </label>
+          <a
+            href="/forgot-password"
+            className="text-xs font-semibold text-primary underline underline-offset-4"
+          >
+            {t("forgot_password")}
+          </a>
+        </div>
         <input
           id="password"
           type="password"

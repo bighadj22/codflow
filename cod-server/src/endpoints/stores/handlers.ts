@@ -7,7 +7,9 @@ import { NotFoundError, SystemError, ValidationError, ExternalApiError } from "@
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 import { getPixelConfig as queryPixelConfig, upsertPixelConfig } from "../../../../cod-shared/queries/pixel-config";
 import { getOtpConfigRaw, upsertOtpConfig } from "../../../../cod-shared/queries/otp-config";
+import { getEmailConfigRaw, upsertEmailConfig } from "../../../../cod-shared/queries/email-config";
 import { createDzverifyClient, DzverifyError, DZVERIFY_ERRORS } from "@/endpoints/store-otp/dzverify";
+import { createSendiliClient, SendiliError, SENDILI_ERRORS } from "../../../../cod-shared/lib/sendili";
 import { z } from "zod";
 
 export async function getMyStore(c: Context<AppContext>) {
@@ -214,5 +216,141 @@ export async function testOtpConnection(c: Context<AppContext>) {
       );
     }
     throw new ExternalApiError("dzverify", err instanceof Error ? err.message : "Connection check failed");
+  }
+}
+
+// ─── Sendili transactional email config ──────────────────────────────────────
+
+const emailConfigSchema = z.object({
+  /** Empty string = keep the existing stored key (dashboard never re-sends it). */
+  apiKey: z.string().default(""),
+  fromEmail: z.string().email(),
+  fromName: z.string().max(200).nullable().optional(),
+  enabled: z.boolean().optional(),
+});
+
+export async function getEmailConfig(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const store = await queries.getStore(db);
+  if (!store) throw new NotFoundError("Store");
+
+  const raw = await getEmailConfigRaw(db, store.id);
+  if (!raw) return c.json({ success: true, data: null }, 200);
+
+  return c.json(
+    {
+      success: true,
+      data: {
+        fromEmail: raw.fromEmail,
+        fromName: raw.fromName,
+        enabled: raw.enabled,
+        apiKeyMasked: maskApiKey(raw.apiKey),
+        createdAt: raw.createdAt,
+        updatedAt: raw.updatedAt,
+      },
+    },
+    200
+  );
+}
+
+export async function saveEmailConfig(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const store = await queries.getStore(db);
+  if (!store) throw new NotFoundError("Store");
+
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const validated = jsonBody ?? emailConfigSchema.parse(await c.req.json());
+
+  const existing = await getEmailConfigRaw(db, store.id);
+  const apiKey = validated.apiKey.trim() || existing?.apiKey || "";
+  if (!apiKey) {
+    throw new ValidationError(
+      "A Sendili API key is required to configure email sending",
+      ERROR_CODES.REQUIRED_FIELD_MISSING
+    );
+  }
+
+  const result = await upsertEmailConfig(db, store.id, {
+    apiKey,
+    fromEmail: validated.fromEmail,
+    fromName: validated.fromName,
+    enabled: validated.enabled,
+  });
+
+  return c.json(
+    {
+      success: true,
+      data: {
+        fromEmail: result.fromEmail,
+        fromName: result.fromName,
+        enabled: result.enabled,
+        apiKeyMasked: maskApiKey(apiKey),
+        createdAt: result.createdAt,
+        updatedAt: result.updatedAt,
+      },
+    },
+    200
+  );
+}
+
+/**
+ * POST /api/stores/email-config/test
+ * Checks the stored (or submitted) Sendili key against GET /v1/account and
+ * returns the verified sending domains so the dashboard can populate its
+ * from-address picker. Negative outcomes return 200 with ok:false — the
+ * check itself succeeded.
+ */
+export async function testEmailConnection(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const store = await queries.getStore(db);
+  if (!store) throw new NotFoundError("Store");
+
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const submittedKey = (jsonBody?.apiKey ?? "").trim();
+  const existing = await getEmailConfigRaw(db, store.id);
+  const apiKey = submittedKey || existing?.apiKey;
+  if (!apiKey) {
+    throw new ValidationError(
+      "Save a Sendili API key first",
+      ERROR_CODES.REQUIRED_FIELD_MISSING
+    );
+  }
+
+  const client = createSendiliClient(apiKey);
+  try {
+    const account = await client.getAccount();
+    return c.json(
+      {
+        success: true,
+        data: {
+          ok: true,
+          domains: account.domains,
+          account: account.raw,
+        },
+      },
+      200
+    );
+  } catch (err) {
+    if (err instanceof SendiliError) {
+      if (err.code === SENDILI_ERRORS.UNAUTHORIZED) {
+        return c.json(
+          { success: true, data: { ok: false, reason: "invalid_key", message: "The API key was rejected by Sendili" } },
+          200
+        );
+      }
+      return c.json(
+        {
+          success: true,
+          data: {
+            ok: false,
+            reason: err.code,
+            message: err.message,
+            ...(err.isOutOfCredits ? { outOfCredits: true } : {}),
+          },
+        },
+        200
+      );
+    }
+    throw new ExternalApiError("sendili", err instanceof Error ? err.message : "Connection check failed");
   }
 }

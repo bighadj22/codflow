@@ -37,19 +37,39 @@ describe("team API adapters", () => {
     expect(seam.apiFetch).toHaveBeenLastCalledWith("/api/users?limit=50&offset=50");
   });
 
-  it("creates a member and returns the one-time secrets", async () => {
+  it("creates a member and returns the one-time secrets plus the invite email outcome", async () => {
     seam.apiFetch.mockResolvedValue({
       success: true,
       data: { id: "m1", name: "Ahmed", email: "a@b.dz", role: "staff", status: "active", createdAt: "2026-08-26T00:00:00.000Z", updatedAt: "2026-08-26T00:00:00.000Z", scopes: ["orders:read"] },
       apiKey: "cod_123",
       tempPassword: "abc123",
+      emailSent: true,
+      emailError: null,
     });
     await expect(createTeamMember({ name: "Ahmed", email: "a@b.dz", role: "staff", scopes: ["orders:read"] })).resolves.toEqual({
       user: expect.objectContaining({ id: "m1" }),
       apiKey: "cod_123",
       tempPassword: "abc123",
+      emailSent: true,
+      emailError: null,
     });
     expect(seam.apiFetch).toHaveBeenCalledWith("/api/users", expect.objectContaining({ method: "POST", body: JSON.stringify({ name: "Ahmed", email: "a@b.dz", role: "staff", scopes: ["orders:read"] }) }));
+  });
+
+  it("sends the invite email language when provided", async () => {
+    seam.apiFetch.mockResolvedValue({
+      success: true,
+      data: { id: "m2", name: "Amina", email: "a@b.dz", role: "staff", status: "active", createdAt: "t", updatedAt: "t", scopes: [] },
+      apiKey: "cod_456",
+      tempPassword: "def456",
+      emailSent: false,
+      emailError: "out_of_credits",
+    });
+    await createTeamMember({ name: "Amina", email: "a@b.dz", role: "staff", language: "ar" });
+    expect(seam.apiFetch).toHaveBeenCalledWith("/api/users", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ name: "Amina", email: "a@b.dz", role: "staff", language: "ar" }),
+    }));
   });
 
   it("updates members, roles, scopes and rotates API keys with URL-encoded IDs", async () => {

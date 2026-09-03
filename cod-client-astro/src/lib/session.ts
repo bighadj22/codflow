@@ -26,13 +26,18 @@ export function fetchIdentity(): Promise<Identity | null> {
     if (jwt) cachedJwt = jwt;
     const body = (await res.json()) as
       | {
-          user?: { id: string; name?: string | null; email: string; role?: string } | null;
+          user?: { id: string; name?: string | null; email: string; role?: string; language?: string } | null;
           scopes?: string[];
         }
       | null;
     if (!body?.user) return null;
     return {
-      user: { id: body.user.id, name: body.user.name ?? null, email: body.user.email },
+      user: {
+        id: body.user.id,
+        name: body.user.name ?? null,
+        email: body.user.email,
+        language: body.user.language,
+      },
       role: body.user.role === "admin" ? "admin" : "staff",
       scopes: body.scopes ?? [],
     };
