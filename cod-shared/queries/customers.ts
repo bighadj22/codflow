@@ -4,7 +4,7 @@
  * deleteCustomer stays in cod-server because it raises BusinessLogicError.
  */
 
-import { eq, and, like, or, inArray, desc } from "drizzle-orm";
+import { eq, and, like, or, desc, exists, sql } from "drizzle-orm";
 import {
   customers,
   orders,
@@ -17,6 +17,7 @@ import {
   communes,
 } from "../db/schema";
 import type { AppDb } from "../db/client";
+import { safeLikeTerm } from "./search";
 
 export interface CustomerFilters {
   wilayaId?: number;
@@ -53,40 +54,49 @@ export async function getAllCustomers(db: AppDb, filters?: CustomerFilters) {
   }
 
   if (filters?.search) {
+    const term = `%${safeLikeTerm(filters.search)}%`;
     conditions.push(
       or(
-        like(customers.name, `%${filters.search}%`),
-        like(customers.phone, `%${filters.search}%`),
+        like(customers.name, term),
+        like(customers.phone, term),
+      ),
+    );
+  }
+
+  if (filters?.groupId) {
+    conditions.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(customerGroupMembers)
+          .where(
+            and(
+              eq(customerGroupMembers.customerId, customers.id),
+              eq(customerGroupMembers.groupId, filters.groupId),
+            ),
+          ),
+      ),
+    );
+  }
+
+  if (filters?.tagId) {
+    conditions.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(customerTagAssignments)
+          .where(
+            and(
+              eq(customerTagAssignments.customerId, customers.id),
+              eq(customerTagAssignments.tagId, filters.tagId),
+            ),
+          ),
       ),
     );
   }
 
   const limit = filters?.limit || 50;
   const offset = filters?.offset || 0;
-
-  if (filters?.groupId) {
-    const members = await db
-      .select({ customerId: customerGroupMembers.customerId })
-      .from(customerGroupMembers)
-      .where(eq(customerGroupMembers.groupId, filters.groupId))
-      .all();
-
-    const memberIds = members.map((m) => m.customerId);
-    if (memberIds.length === 0) return [];
-    conditions.push(inArray(customers.id, memberIds));
-  }
-
-  if (filters?.tagId) {
-    const assigned = await db
-      .select({ customerId: customerTagAssignments.customerId })
-      .from(customerTagAssignments)
-      .where(eq(customerTagAssignments.tagId, filters.tagId))
-      .all();
-
-    const assignedIds = assigned.map((a) => a.customerId);
-    if (assignedIds.length === 0) return [];
-    conditions.push(inArray(customers.id, assignedIds));
-  }
 
   if (conditions.length > 0) {
     return await db

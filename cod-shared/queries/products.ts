@@ -1,6 +1,7 @@
-import { eq, and, like, or, count, sum, isNull, sql } from "drizzle-orm";
+import { eq, and, like, or, sum, isNull, sql, inArray, getTableColumns } from "drizzle-orm";
 import { products, productCategories, productVariants, productImages, reviews } from "../db/schema";
 import type { AppDb } from "../db/client";
+import { safeLikeTerm } from "./search";
 
 export interface VariantOption {
   name: string;
@@ -103,6 +104,17 @@ async function buildProductDetail(db: AppDb, productId: string) {
   };
 }
 
+const MAX_IN_ARRAY_IDS = 90;
+
+function chunkIds(ids: string[]): string[][] {
+  if (ids.length === 0) return [];
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += MAX_IN_ARRAY_IDS) {
+    chunks.push(ids.slice(i, i + MAX_IN_ARRAY_IDS));
+  }
+  return chunks;
+}
+
 export async function getAllProducts(db: AppDb, filters?: ProductFilters) {
   const conditions: ReturnType<typeof eq>[] = [];
   conditions.push(isNull(products.deletedAt) as any);
@@ -111,42 +123,69 @@ export async function getAllProducts(db: AppDb, filters?: ProductFilters) {
   if (filters?.status) conditions.push(eq(products.status, filters.status) as any);
   if (filters?.visibility !== undefined) conditions.push(eq(products.visibility, filters.visibility) as any);
   if (filters?.search) {
+    const term = `%${safeLikeTerm(filters.search)}%`;
     conditions.push(or(
-      like(products.name, `%${filters.search}%`),
-      like(products.handle, `%${filters.search}%`),
-      like(products.description, `%${filters.search}%`),
+      like(products.name, term),
+      like(products.handle, term),
     ) as any);
   }
 
   const rows = await db
-    .select()
+    .select({
+      ...getTableColumns(products),
+      reviewCount: sql<number>`(SELECT COUNT(*) FROM reviews WHERE reviews.product_id = products.id AND reviews.status = 'approved')`,
+      avgRating: sql<number | null>`(SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.product_id = products.id AND r.status = 'approved')`,
+      primaryImageSrc: sql<string | null>`(SELECT src FROM product_images WHERE product_images.product_id = products.id ORDER BY product_images.position LIMIT 1)`,
+    })
     .from(products)
     .where(conditions.length ? and(...conditions) : undefined)
     .limit(filters?.limit ?? 50)
     .offset(filters?.offset ?? 0)
     .all();
 
-  return Promise.all(rows.map(async (p) => {
-    const [variantsCountRow, totalInventoryRow, imagesRow, variantRows, reviewCountRow, avgRatingRow] = await Promise.all([
-      db.select({ count: count() }).from(productVariants).where(eq(productVariants.productId, p.id)).get(),
-      db.select({ total: sum(productVariants.inventory) }).from(productVariants).where(eq(productVariants.productId, p.id)).get(),
-      db.select({ src: productImages.src }).from(productImages).where(eq(productImages.productId, p.id)).orderBy(productImages.position).limit(1).get(),
-      db.select().from(productVariants).where(eq(productVariants.productId, p.id)).orderBy(productVariants.position).all(),
-      db.select({ count: count() }).from(reviews).where(and(eq(reviews.productId, p.id), eq(reviews.status, "approved"))).get(),
-      db.select({ avg: sql<number | null>`ROUND(AVG(${reviews.rating}), 1)` }).from(reviews).where(and(eq(reviews.productId, p.id), eq(reviews.status, "approved"))).get(),
-    ]);
+  if (rows.length === 0) return [];
+
+  const variantRows: (typeof productVariants.$inferSelect)[] = [];
+  for (const chunk of chunkIds(rows.map((p) => p.id))) {
+    const chunkRows = await db
+      .select()
+      .from(productVariants)
+      .where(inArray(productVariants.productId, chunk))
+      .orderBy(productVariants.productId, productVariants.position)
+      .all();
+    variantRows.push(...chunkRows);
+  }
+
+  const variantsByProduct = new Map<string, (typeof productVariants.$inferSelect)[]>();
+  for (const v of variantRows) {
+    const list = variantsByProduct.get(v.productId);
+    if (list) {
+      list.push(v);
+    } else {
+      variantsByProduct.set(v.productId, [v]);
+    }
+  }
+
+  return rows.map((p) => {
+    const { reviewCount, avgRating, primaryImageSrc, ...productData } = p;
+    const variants = variantsByProduct.get(p.id) ?? [];
+    const totalInventory =
+      variants.length > 0
+        ? variants.reduce((sumTotal, v) => sumTotal + v.inventory, 0)
+        : p.inventory;
+
     return {
-      ...p,
+      ...productData,
       variantOptions: p.variantOptions ? JSON.parse(p.variantOptions) : null,
       tags: p.tags ? JSON.parse(p.tags) : [],
-      variantsCount: variantsCountRow?.count ?? 0,
-      totalInventory: Number(totalInventoryRow?.total ?? p.inventory),
-      primaryImageSrc: imagesRow?.src ?? null,
-      variants: variantRows.map((v) => ({ ...v, variations: JSON.parse(v.variations) as Record<string, string> })),
-      reviewCount: reviewCountRow?.count ?? 0,
-      avgRating: avgRatingRow?.avg ?? null,
+      variantsCount: variants.length,
+      totalInventory,
+      primaryImageSrc,
+      variants: variants.map((v) => ({ ...v, variations: JSON.parse(v.variations) as Record<string, string> })),
+      reviewCount,
+      avgRating,
     };
-  }));
+  });
 }
 
 export async function getProductById(db: AppDb, productId: string) {

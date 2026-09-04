@@ -5,6 +5,7 @@
 import { eq, and, desc, lt, sql, like, or } from "drizzle-orm";
 import { abandonedOrders, wilayas, communes } from "../db/schema";
 import type { AppDb } from "../db/client";
+import { safeLikeTerm } from "./search";
 
 export interface UpsertAbandonedOrderData {
   sessionId: string;
@@ -154,17 +155,18 @@ export async function listAbandonedOrders(
   }
 
   if (search) {
+    const term = `%${safeLikeTerm(search)}%`;
     conditions.push(
       or(
-        like(abandonedOrders.customerName, `%${search}%`),
-        like(abandonedOrders.phone, `%${search}%`)
+        like(abandonedOrders.customerName, term),
+        like(abandonedOrders.phone, term)
       )
     );
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const [rows, countResult] = await Promise.all([
+  const [rows, countRows] = await db.batch([
     db
       .select()
       .from(abandonedOrders)
@@ -172,17 +174,14 @@ export async function listAbandonedOrders(
       .orderBy(desc(abandonedOrders.createdAt))
       .limit(limit)
       .offset(offset),
-    db
-      .select({ count: sql<number>`count(*)` })
-      .from(abandonedOrders)
-      .where(where),
+    db.select({ count: sql<number>`count(*)` }).from(abandonedOrders).where(where),
   ]);
 
-  return { rows, total: countResult[0]?.count ?? 0 };
+  return { rows, total: countRows[0]?.count ?? 0 };
 }
 
 export async function getAbandonedOrderStats(db: AppDb) {
-  const [totalRow, convertedRow, revenueRow] = await Promise.all([
+  const [totalRows, convertedRows, revenueRows] = await db.batch([
     db
       .select({ count: sql<number>`count(*)` })
       .from(abandonedOrders)
@@ -197,12 +196,12 @@ export async function getAbandonedOrderStats(db: AppDb) {
       .where(eq(abandonedOrders.status, "abandoned")),
   ]);
 
-  const totalAbandoned = totalRow[0]?.count ?? 0;
-  const totalConverted = convertedRow[0]?.count ?? 0;
+  const totalAbandoned = totalRows[0]?.count ?? 0;
+  const totalConverted = convertedRows[0]?.count ?? 0;
   const totalAttempted = totalAbandoned + totalConverted;
   const conversionRate =
     totalAttempted > 0 ? Math.round((totalConverted / totalAttempted) * 100) : 0;
-  const estimatedLostRevenue = revenueRow[0]?.total ?? 0;
+  const estimatedLostRevenue = revenueRows[0]?.total ?? 0;
 
   return { totalAbandoned, totalConverted, conversionRate, estimatedLostRevenue };
 }

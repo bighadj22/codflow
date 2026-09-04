@@ -17,47 +17,43 @@ export async function getAllReviews(db: AppDb, filters: ReviewFilters) {
   if (filters.status) conditions.push(eq(reviews.status, filters.status));
   if (filters.productId) conditions.push(eq(reviews.productId, filters.productId));
 
-  const rows = await db
-    .select({
-      id: reviews.id,
-      storeId: reviews.storeId,
-      productId: reviews.productId,
-      orderId: reviews.orderId,
-      orderNumber: reviews.orderNumber,
-      customerName: reviews.customerName,
-      rating: reviews.rating,
-      title: reviews.title,
-      body: reviews.body,
-      status: reviews.status,
-      helpfulCount: reviews.helpfulCount,
-      createdAt: reviews.createdAt,
-      updatedAt: reviews.updatedAt,
-      productName: products.name,
-    })
-    .from(reviews)
-    .leftJoin(products, eq(reviews.productId, products.id))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(reviews.createdAt))
-    .limit(filters.limit)
-    .offset(filters.offset)
-    .all();
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const totalResult = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(reviews)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .get();
-
-  const pendingResult = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(reviews)
-    .where(eq(reviews.status, "pending"))
-    .get();
+  const [rows, totalRows, pendingRows] = await db.batch([
+    db
+      .select({
+        id: reviews.id,
+        storeId: reviews.storeId,
+        productId: reviews.productId,
+        orderId: reviews.orderId,
+        orderNumber: reviews.orderNumber,
+        customerName: reviews.customerName,
+        rating: reviews.rating,
+        title: reviews.title,
+        body: reviews.body,
+        status: reviews.status,
+        helpfulCount: reviews.helpfulCount,
+        createdAt: reviews.createdAt,
+        updatedAt: reviews.updatedAt,
+        productName: products.name,
+      })
+      .from(reviews)
+      .leftJoin(products, eq(reviews.productId, products.id))
+      .where(where)
+      .orderBy(desc(reviews.createdAt))
+      .limit(filters.limit)
+      .offset(filters.offset),
+    db.select({ count: sql<number>`count(*)` }).from(reviews).where(where),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(reviews)
+      .where(eq(reviews.status, "pending")),
+  ]);
 
   return {
     rows,
-    total: totalResult?.count ?? 0,
-    pendingCount: pendingResult?.count ?? 0,
+    total: totalRows[0]?.count ?? 0,
+    pendingCount: pendingRows[0]?.count ?? 0,
   };
 }
 

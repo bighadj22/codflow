@@ -89,125 +89,110 @@ export async function getStockHistory(
 
   const whereClause = and(...conditions)!;
 
-  const [rows, countRow] = await Promise.all([
+  const [rows, countRows] = await db.batch([
     db
       .select()
       .from(stockMovements)
       .where(whereClause)
       .orderBy(desc(stockMovements.createdAt))
       .limit(filters.limit)
-      .offset(filters.offset)
-      .all(),
+      .offset(filters.offset),
     db
       .select({ count: sql<number>`count(*)` })
       .from(stockMovements)
-      .where(whereClause)
-      .get(),
+      .where(whereClause),
   ]);
 
   return {
     movements: rows,
-    total: countRow?.count ?? 0,
+    total: countRows[0]?.count ?? 0,
   };
 }
 
 // ─── Stock Overview ───────────────────────────────────────────────────────────
 
-export async function getStockOverview(db: AppDb): Promise<StockOverview> {
-  const simpleProducts = await db
-    .select({
-      productId: products.id,
-      productName: products.name,
-      inventory: products.inventory,
-      lowStockThreshold: products.lowStockThreshold,
-      price: products.price,
-    })
-    .from(products)
-    .where(
-      and(
-        eq(products.hasVariants, false),
-        eq(products.trackInventory, true),
-        isNull(products.deletedAt),
-      ),
-    )
-    .all();
+interface TrackedSkuRow {
+  product_id: string;
+  variant_id: string | null;
+  product_name: string;
+  variations: string | null;
+  inventory: number;
+  low_stock_threshold: number;
+  inventory_value: number;
+  is_out_of_stock: number;
+}
 
-  const variantRows = await db
-    .select({
-      productId: products.id,
-      productName: products.name,
-      variantId: productVariants.id,
-      variations: productVariants.variations,
-      inventory: productVariants.inventory,
-      lowStockThreshold: productVariants.lowStockThreshold,
-      price: productVariants.price,
-    })
-    .from(productVariants)
-    .innerJoin(products, eq(productVariants.productId, products.id))
-    .where(
-      and(
-        eq(products.hasVariants, true),
-        eq(products.trackInventory, true),
-        isNull(products.deletedAt),
-        eq(productVariants.active, true),
-      ),
-    )
-    .all();
+/**
+ * One UNION ALL over tracked simple products and tracked active variants.
+ * Mirrors the pre-Slice-6 semantics exactly: no status/visibility filter
+ * (untracked, soft-deleted, inactive variants, and variants of
+ * non-variant products are excluded).
+ */
+function trackedSkuSql(alertsOnly: boolean) {
+  const simpleAlertFilter = alertsOnly
+    ? sql` AND (products.inventory <= 0 OR (products.inventory > 0 AND products.inventory <= products.low_stock_threshold))`
+    : sql``;
+  const variantAlertFilter = alertsOnly
+    ? sql` AND (product_variants.inventory <= 0 OR (product_variants.inventory > 0 AND product_variants.inventory <= product_variants.low_stock_threshold))`
+    : sql``;
+
+  return sql`
+    SELECT products.id AS product_id, NULL AS variant_id, products.name AS product_name,
+           NULL AS variations, products.inventory AS inventory,
+           products.low_stock_threshold AS low_stock_threshold,
+           products.inventory * products.price AS inventory_value,
+           products.inventory <= 0 AS is_out_of_stock
+    FROM products
+    WHERE products.has_variants = 0 AND products.track_inventory = 1 AND products.deleted_at IS NULL${simpleAlertFilter}
+    UNION ALL
+    SELECT product_variants.product_id, product_variants.id, products.name,
+           product_variants.variations, product_variants.inventory,
+           product_variants.low_stock_threshold,
+           product_variants.inventory * product_variants.price,
+           product_variants.inventory <= 0
+    FROM product_variants
+    INNER JOIN products ON products.id = product_variants.product_id
+    WHERE products.has_variants = 1 AND products.track_inventory = 1 AND products.deleted_at IS NULL
+      AND product_variants.active = 1${variantAlertFilter}
+  `;
+}
+
+function toAlertItem(row: TrackedSkuRow): StockAlertItem {
+  return {
+    productId: row.product_id,
+    variantId: row.variant_id,
+    productName: row.product_name,
+    variantLabel: row.variations
+      ? Object.values(JSON.parse(row.variations) as Record<string, string>).join(" / ")
+      : null,
+    inventory: row.inventory,
+    lowStockThreshold: row.low_stock_threshold,
+    isOutOfStock: Boolean(row.is_out_of_stock),
+  };
+}
+
+const SKU_ORDER = sql` ORDER BY is_out_of_stock DESC, inventory ASC, product_id ASC, variant_id ASC`;
+
+export async function getStockOverview(db: AppDb): Promise<StockOverview> {
+  const rows = await db.all<TrackedSkuRow>(
+    sql`${trackedSkuSql(false)}${SKU_ORDER}`,
+  );
 
   const outOfStockItems: StockAlertItem[] = [];
   const lowStockItems: StockAlertItem[] = [];
   const allItems: StockAlertItem[] = [];
   let totalInventoryValue = 0;
-  let totalSkus = 0;
 
-  for (const p of simpleProducts) {
-    totalSkus++;
-    totalInventoryValue += p.inventory * p.price;
-
-    const item: StockAlertItem = {
-      productId: p.productId,
-      variantId: null,
-      productName: p.productName,
-      variantLabel: null,
-      inventory: p.inventory,
-      lowStockThreshold: p.lowStockThreshold,
-      isOutOfStock: p.inventory <= 0,
-    };
-
+  for (const row of rows) {
+    const item = toAlertItem(row);
+    totalInventoryValue += row.inventory_value;
     allItems.push(item);
-    if (p.inventory <= 0) outOfStockItems.push(item);
-    else if (p.inventory <= p.lowStockThreshold) lowStockItems.push(item);
+    if (item.isOutOfStock) outOfStockItems.push(item);
+    else if (item.inventory <= item.lowStockThreshold) lowStockItems.push(item);
   }
-
-  for (const v of variantRows) {
-    totalSkus++;
-    totalInventoryValue += v.inventory * v.price;
-
-    const variations = JSON.parse(v.variations) as Record<string, string>;
-    const variantLabel = Object.values(variations).join(" / ");
-
-    const item: StockAlertItem = {
-      productId: v.productId,
-      variantId: v.variantId,
-      productName: v.productName,
-      variantLabel,
-      inventory: v.inventory,
-      lowStockThreshold: v.lowStockThreshold,
-      isOutOfStock: v.inventory <= 0,
-    };
-
-    allItems.push(item);
-    if (v.inventory <= 0) outOfStockItems.push(item);
-    else if (v.inventory <= v.lowStockThreshold) lowStockItems.push(item);
-  }
-
-  allItems.sort((a, b) => {
-    if (a.isOutOfStock !== b.isOutOfStock) return a.isOutOfStock ? -1 : 1;
-    return a.inventory - b.inventory;
-  });
 
   return {
-    totalSkus,
+    totalSkus: allItems.length,
     outOfStockCount: outOfStockItems.length,
     lowStockCount: lowStockItems.length,
     totalInventoryValue,
@@ -224,16 +209,17 @@ export async function getStockAlerts(
   db: AppDb,
   filters: StockAlertsFilters,
 ): Promise<{ items: StockAlertItem[]; total: number }> {
-  const overview = await getStockOverview(db);
-  const all = [...overview.outOfStockItems, ...overview.lowStockItems];
-  all.sort((a, b) => {
-    if (a.isOutOfStock !== b.isOutOfStock) return a.isOutOfStock ? -1 : 1;
-    return a.inventory - b.inventory;
-  });
+  const rows = await db.all<TrackedSkuRow>(
+    sql`${trackedSkuSql(true)}${SKU_ORDER} LIMIT ${filters.limit} OFFSET ${filters.offset}`,
+  );
+  const totalRow = await db.get<{ total: number }>(
+    sql`SELECT COUNT(*) AS total FROM (${trackedSkuSql(true)})`,
+  );
 
-  const total = all.length;
-  const items = all.slice(filters.offset, filters.offset + filters.limit);
-  return { items, total };
+  return {
+    items: rows.map(toAlertItem),
+    total: Number(totalRow?.total ?? 0),
+  };
 }
 
 // ─── Update Threshold ─────────────────────────────────────────────────────────
