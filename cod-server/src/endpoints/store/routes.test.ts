@@ -218,11 +218,18 @@ describe("Store API routes (OpenAPIHono)", () => {
         deliveryFee: 600,
       } as any);
 
-      const res = await app.request("/store/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validOrder),
-      });
+      const pending: Promise<unknown>[] = [];
+      const res = await app.request(
+        "/store/orders",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(validOrder),
+        },
+        undefined,
+        { waitUntil: (p: Promise<unknown>) => pending.push(p), passThroughOnException: () => {}, props: {} as Record<string, unknown> }
+      );
+      await Promise.allSettled(pending);
 
       expect(res.status).toBe(201);
       const body: any = await res.json();

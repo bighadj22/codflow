@@ -66,6 +66,7 @@ vi.mock("./yalidine-status-mapper", () => ({
 
 vi.mock("@/workflows/capi-helpers", () => ({
   shouldTriggerCapiPurchase: vi.fn().mockReturnValue(false),
+  resolveCapiDispatch: vi.fn(() => ({ send: false, reason: "tracking-disabled", message: "mock skip" })),
 }));
 
 import { getDeliveryCompanyByCode } from "@/endpoints/delivery-companies/queries";

@@ -65,36 +65,25 @@ import { MEDIA_DOMAIN } from "astro:env/server";
   <!-- R2 media domain — early connection for product images -->
   {MEDIA_DOMAIN && <link rel="preconnect" href={`https://${MEDIA_DOMAIN}`} />}
 
-  <!-- Meta Pixel — deferred after window.load so fbevents.js (101 KiB) does
-       not compete with the LCP image for bandwidth. A lightweight queue stub
-       captures all fbq() calls made before the library arrives; they are
-       replayed in order once fbevents.js is ready.
-
-       Why delete window.fbq before injecting the script: fbevents.js opens
-       with `if(f.fbq)return;` — it bails if a fbq already exists. Clearing
-       our stub lets it initialise properly, then we replay the saved queue. -->
+  <!-- Meta Pixel — canonical base code, unmodified. fbevents.js ships its own
+       command queue: every fbq() call made before the library arrives (incl.
+       ViewContent/InitiateCheckout from product.ts) is buffered and flushed
+       automatically once it loads. Do not defer or custom-load it — a
+       hand-rolled loader delays or drops events whenever window.load or the
+       script fetch misbehaves. -->
   {config.pixelId && (
     <Fragment>
       <script type="text/javascript" set:html={`
-(function(w,d){
-  function q(){q.queue=q.queue||[];q.queue.push([].slice.call(arguments));}
-  q.queue=[];q.version='2.0';
-  if(!w.fbq){w.fbq=q;w._fbq=q;}
-  function loadPixel(){
-    var saved=w.fbq&&w.fbq.queue?w.fbq.queue.slice():[];
-    delete w.fbq;delete w._fbq;
-    var s=d.createElement('script');s.async=true;
-    s.src='https://connect.facebook.net/en_US/fbevents.js';
-    s.onload=function(){
-      for(var i=0;i<saved.length;i++){try{w.fbq.apply(null,saved[i]);}catch(e){}}
-    };
-    d.head.appendChild(s);
-  }
-  if(d.readyState==='complete'){loadPixel();}
-  else{w.addEventListener('load',loadPixel,{once:true});}
-})(window,document);
-fbq('init','${config.pixelId}');
-fbq('track','PageView');
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '${config.pixelId}');
+fbq('track', 'PageView');
       `} />
       <noscript>
         <img height="1" width="1" style="display:none"

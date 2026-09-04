@@ -47,11 +47,28 @@ _Avoid_: Rating toggle, feedback switch
 ### Tracking
 
 **Pixel Config**:
-The Meta pixel integration: pixel ID, access token, optional test-event code, and an enabled switch. Absent until first saved; upserted thereafter.
+The Meta pixel integration: pixel ID, ad-account label, access token, the conversion-event choice, and an enabled switch. Absent until first saved; upserted thereafter.
 _Avoid_: Analytics account, tracking cookie
 
+**Ad Account Name**:
+The merchant's own label for the Meta ad account this pixel belongs to — reference only, never sent to Meta.
+_Avoid_: Account ID, billing account
+
+**Conversion Event**:
+The merchant's choice of which Conversions API event to optimize for — Lead at order placement or Purchase at confirmed delivery. Saving requires the choice explicitly; the platform never defaults it for the merchant.
+_Avoid_: Default event, optimization goal, primary event
+
+**Test Mode**:
+A switch routing Conversions API events to Meta's test stream instead of production measurement. Browser pixel events are unaffected — Meta's Test Events tool catches those itself.
+_Avoid_: Sandbox, debug mode, staging
+
 **Test Event Code**:
-A routing flag that sends events to Meta's test stream during integration work — must be cleared for production measurement.
+The code Meta's Test Events tool generates — attached to server events only while Test Mode is on, and never counted for real measurement.
+_Avoid_: Debug code, sandbox key
+
+**Access Token**:
+The Meta system-user token used for server-side events. Write-only through the API — reads return a masked hint, and saving with an empty token keeps the stored one.
+_Avoid_: API key, login credential
 
 ### Email
 
@@ -89,6 +106,6 @@ Terms owned by neighboring contexts — use them, don't redefine them here:
 
 **Currency symbol is cosmetic**: Merchants can retitle the symbol shoppers see while every amount in the system remains DZD integer math underneath.
 
-**Pixel defaults fill silently**: Saving without an access token stores an empty string and enables tracking — omission equals permissive.
+**Pixel token keeps on empty**: Saving without an access token keeps the previously stored token — the key is write-only and reads return only a masked hint (same rule as the verification and email keys, ADR-0001). Saving still requires the conversion-event choice.
 
 **The email key never comes back**: Like the verification key, the Sendili API key is write-only through the API — reads return a masked hint, and saving with an empty key keeps the stored one. (Storage decision: ADR-0001.)

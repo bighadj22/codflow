@@ -60,9 +60,22 @@ export const StorePixelConfigSchema = z
     id: z.string(),
     storeId: z.string(),
     pixelId: z.string().openapi({ example: "1234567890123456" }),
-    accessToken: z.string().openapi({ description: "Meta access token used for server-side events" }),
+    adAccountName: z.string().nullable().openapi({
+      description: "Merchant's own label for the Meta ad account — reference only, never sent to Meta.",
+    }),
+    accessTokenMasked: z.string().openapi({
+      description: "Masked hint of the stored Meta access token — the token itself is write-only.",
+      example: "••••a9f2",
+    }),
     testEventCode: z.string().nullable().openapi({
-      description: "Meta test event code — used during integration testing only. Set to null in production.",
+      description: "Meta test event code — used only while Test Mode is on. Set to null in production.",
+    }),
+    conversionEvent: z.enum(["Lead", "Purchase"]).openapi({
+      description:
+        "Merchant-chosen conversion event: 'Lead' fires at order placement (deduplicated with the browser pixel), 'Purchase' fires at confirmed delivery.",
+    }),
+    testMode: z.boolean().openapi({
+      description: "When true, Conversions API events carry test_event_code to Meta's test stream.",
     }),
     enabled: z.boolean().openapi({ example: true }),
     createdAt: z.string().datetime(),

@@ -196,16 +196,18 @@ export async function handleZrWebhook(c: Context<AppContext>) {
       "webhook:zr_express"
     );
 
-    if (updated && shouldTriggerCapiPurchase(newStatus, resolvedOrder.wilayaId)) {
-      if (!c.env.CAPI_WORKFLOW) {
-        console.error("[capi-workflow] CAPI_WORKFLOW binding is undefined — worker needs re-provision");
-      } else {
-        void c.env.CAPI_WORKFLOW.create({
-          id: `capi-${resolvedOrder.id}-Purchase`,
-          params: { orderId: resolvedOrder.id, eventName: "Purchase", triggeredAt: Math.floor(Date.now() / 1000), triggerStatus: newStatus },
-        }).catch((err: unknown) => console.error("[capi-workflow] zr trigger failed:", (err as Error)?.message));
+      if (updated && shouldTriggerCapiPurchase(newStatus, resolvedOrder.wilayaId)) {
+        if (!c.env.CAPI_WORKFLOW) {
+          console.error("[capi-workflow] CAPI_WORKFLOW binding is undefined — worker needs re-provision");
+        } else {
+          c.executionCtx.waitUntil(
+            c.env.CAPI_WORKFLOW.create({
+              id: `capi-${resolvedOrder.id}-Purchase`,
+              params: { orderId: resolvedOrder.id, eventName: "Purchase", triggeredAt: Math.floor(Date.now() / 1000), triggerStatus: newStatus },
+            }).catch((err: unknown) => console.error("[capi-workflow] zr trigger failed:", (err as Error)?.message))
+          );
+        }
       }
-    }
 
     await updateWebhookEvent(db, webhookEventId, {
       result: updated ? "ok" : "ignored",
@@ -407,10 +409,12 @@ export async function handleYalidineWebhook(c: Context<AppContext>) {
         if (!c.env.CAPI_WORKFLOW) {
           console.error("[capi-workflow] CAPI_WORKFLOW binding is undefined — worker needs re-provision");
         } else {
-          void c.env.CAPI_WORKFLOW.create({
-            id: `capi-${order.id}-Purchase`,
-            params: { orderId: order.id, eventName: "Purchase", triggeredAt: Math.floor(Date.now() / 1000), triggerStatus: nextStatus },
-          }).catch((err: unknown) => console.error("[capi-workflow] yalidine trigger failed:", (err as Error)?.message));
+          c.executionCtx.waitUntil(
+            c.env.CAPI_WORKFLOW.create({
+              id: `capi-${order.id}-Purchase`,
+              params: { orderId: order.id, eventName: "Purchase", triggeredAt: Math.floor(Date.now() / 1000), triggerStatus: nextStatus },
+            }).catch((err: unknown) => console.error("[capi-workflow] yalidine trigger failed:", (err as Error)?.message))
+          );
         }
       }
 

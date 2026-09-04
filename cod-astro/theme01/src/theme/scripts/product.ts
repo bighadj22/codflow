@@ -626,6 +626,42 @@ export function initProductPage() {
     if (submitBtn) submitBtn.disabled = true;
   });
 
+  // ── ALGERIAN PHONE VALIDATION ──────────────────────────────────────────────
+  // Normalizes to the canonical local form "05XXXXXXXX" on blur and blocks
+  // submit with a localized message for anything that is not an Algerian
+  // mobile. The server re-validates (storeOrderSchema) — this is UX, not the
+  // enforcement point.
+  const phoneInput = document.getElementById("f-phone") as HTMLInputElement | null;
+  const phoneInvalidMsg = el.dataset.phoneInvalid || "Invalid phone number";
+
+  function toLocalDzMobile(raw: string): string | null {
+    let digits = raw.replace(/\D/g, "");
+    if (digits.startsWith("00213")) digits = digits.slice(5);
+    else if (digits.startsWith("213")) digits = digits.slice(3);
+    const local = digits.startsWith("0") ? digits.slice(1) : digits;
+    return /^[567]\d{8}$/.test(local) ? "0" + local : null;
+  }
+
+  if (phoneInput) {
+    phoneInput.addEventListener("blur", () => {
+      if (!phoneInput.value.trim()) {
+        phoneInput.setCustomValidity("");
+        return;
+      }
+      const normalized = toLocalDzMobile(phoneInput.value);
+      if (normalized) {
+        phoneInput.value = normalized;
+        phoneInput.setCustomValidity("");
+      } else {
+        phoneInput.setCustomValidity(phoneInvalidMsg);
+        phoneInput.reportValidity();
+      }
+    });
+    phoneInput.addEventListener("input", () => {
+      phoneInput.setCustomValidity("");
+    });
+  }
+
   // ── FINAL INITIALIZATION ───────────────────────────────────────────────────
   // Show the default active tier's variant section (base tier is always default)
   if (tierLabels.length > 0) {
@@ -676,25 +712,29 @@ export function initProductPage() {
     });
   }
 
-  // 2. InitiateCheckout — fires once when the order form scrolls into view
+  // 2. InitiateCheckout — fires once when the shopper STARTS the checkout:
+  //    first focus, keystroke, or selection inside the order form. Seeing the
+  //    form is not starting checkout — Meta's event means the process began.
   if (pixelId) {
     const orderSection = document.getElementById("order-section");
-    if (orderSection && "IntersectionObserver" in window) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          if (entries[0]?.isIntersecting) {
-            fbqSafe()?.("track", "InitiateCheckout", {
-              content_ids: [productId],
-              content_type: "product",
-              value: currentPrice,
-              currency: "DZD",
-            });
-            observer.disconnect();
-          }
-        },
-        { threshold: 0.3 }
-      );
-      observer.observe(orderSection);
+    if (orderSection) {
+      let checkoutStarted = false;
+      const fireInitiateCheckout = () => {
+        if (checkoutStarted) return;
+        checkoutStarted = true;
+        fbqSafe()?.("track", "InitiateCheckout", {
+          content_ids: [productId],
+          content_type: "product",
+          value: currentPrice,
+          currency: "DZD",
+        });
+        orderSection.removeEventListener("focusin", fireInitiateCheckout);
+        orderSection.removeEventListener("input", fireInitiateCheckout);
+        orderSection.removeEventListener("change", fireInitiateCheckout);
+      };
+      orderSection.addEventListener("focusin", fireInitiateCheckout);
+      orderSection.addEventListener("input", fireInitiateCheckout);
+      orderSection.addEventListener("change", fireInitiateCheckout);
     }
   }
 

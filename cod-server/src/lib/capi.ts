@@ -1,16 +1,19 @@
 /**
- * Meta Conversions API (CAPI) helper.
+ * Meta Conversions API (CAPI) client.
  *
  * Shared by:
- *  - store/handlers.ts  — inline Lead mirror at order placement
- *  - workflows/capi.ts  — durable Purchase event at delivery
+ *  - endpoints/store/handlers.ts — inline Lead mirror at order placement
+ *  - workflows/capi.ts           — durable Purchase event at delivery
  *
  * All PII is SHA-256 hashed before sending (Meta requirement).
- * Phone is normalised: strip leading 0, prefix country code 213 (Algeria).
+ * Phones are normalised to the Algerian country code 213.
+ * Throws on network errors and Meta 5xx (retryable by the Workflow);
+ * returns { success: false } on 4xx (Meta rejects the whole batch).
  */
 
-const META_API_VERSION = "v18.0";
+const META_API_VERSION = "v26.0";
 const META_API_BASE = "https://graph.facebook.com";
+const DZ_COUNTRY_CODE = "213";
 
 async function sha256hex(value: string): Promise<string> {
   const data = new TextEncoder().encode(value.toLowerCase().replace(/\s+/g, ""));
@@ -22,13 +25,34 @@ async function sha256hex(value: string): Promise<string> {
 
 function normalisePhone(raw: string): string {
   let p = raw.replace(/\D/g, "");
-  if (p.startsWith("0")) p = p.slice(1);
-  if (!p.startsWith("213")) p = "213" + p;
+  p = p.replace(/^0+/, "");
+  if (!p.startsWith(DZ_COUNTRY_CODE)) p = DZ_COUNTRY_CODE + p;
   return p;
+}
+
+/** a-z only, diacritics folded — for ct/zp-style values per Meta docs. */
+function normaliseAsciiText(raw: string): string {
+  return raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+}
+
+/** Unicode letters only, diacritics folded, lowercased — for fn/ln. */
+function normaliseName(raw: string): string {
+  return raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}]/gu, "");
 }
 
 export interface CapiUserData {
   phone: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  externalId?: string | null;
   city?: string | null;
   postalCode?: string | null;
   fbc?: string | null;
@@ -41,6 +65,8 @@ export interface CapiEventPayload {
   eventName: "Lead" | "Purchase";
   eventId: string;
   eventTime: number;
+  /** Verified-domain page URL — required by Meta for website events. */
+  eventSourceUrl?: string | null;
   userData: CapiUserData;
   /** DZD value — required for Purchase */
   value?: number;
@@ -60,16 +86,21 @@ export async function sendCapiEvent(
   accessToken: string,
   payload: CapiEventPayload,
 ): Promise<CapiResult> {
-  const ph = await sha256hex(normalisePhone(payload.userData.phone));
+  const ud = payload.userData;
 
-  const userData: Record<string, string> = { ph };
-  if (payload.userData.city) userData.ct = await sha256hex(payload.userData.city);
-  if (payload.userData.postalCode) userData.zp = await sha256hex(payload.userData.postalCode);
-  if (payload.userData.fbc) userData.fbc = payload.userData.fbc;
-  if (payload.userData.fbp) userData.fbp = payload.userData.fbp;
-  if (payload.userData.clientIpAddress) userData.client_ip_address = payload.userData.clientIpAddress;
-  if (payload.userData.clientUserAgent) userData.client_user_agent = payload.userData.clientUserAgent;
-  userData.country = await sha256hex("dz");
+  const userData: Record<string, string> = {
+    ph: await sha256hex(normalisePhone(ud.phone)),
+    country: await sha256hex("dz"),
+  };
+  if (ud.firstName) userData.fn = await sha256hex(normaliseName(ud.firstName));
+  if (ud.lastName) userData.ln = await sha256hex(normaliseName(ud.lastName));
+  if (ud.externalId) userData.external_id = await sha256hex(ud.externalId);
+  if (ud.city) userData.ct = await sha256hex(normaliseAsciiText(ud.city));
+  if (ud.postalCode) userData.zp = await sha256hex(ud.postalCode);
+  if (ud.fbc) userData.fbc = ud.fbc;
+  if (ud.fbp) userData.fbp = ud.fbp;
+  if (ud.clientIpAddress) userData.client_ip_address = ud.clientIpAddress;
+  if (ud.clientUserAgent) userData.client_user_agent = ud.clientUserAgent;
 
   const eventData: Record<string, unknown> = {
     event_name: payload.eventName,
@@ -78,6 +109,7 @@ export async function sendCapiEvent(
     action_source: "website",
     user_data: userData,
   };
+  if (payload.eventSourceUrl) eventData.event_source_url = payload.eventSourceUrl;
 
   if (payload.value !== undefined) {
     eventData.custom_data = {
@@ -93,13 +125,22 @@ export async function sendCapiEvent(
   if (payload.testEventCode) body.test_event_code = payload.testEventCode;
 
   const url = `${META_API_BASE}/${META_API_VERSION}/${pixelId}/events?access_token=${accessToken}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
 
-  const json = (await res.json()) as any;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    throw new Error(`Meta CAPI network error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  const json = (await res.json().catch(() => null)) as any;
+  if (res.status >= 500) {
+    throw new Error(`Meta CAPI server error ${res.status}: ${json?.error?.message ?? "no message"}`);
+  }
   if (!res.ok) {
     return { success: false, error: json?.error?.message ?? `HTTP ${res.status}` };
   }

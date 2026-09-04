@@ -58,8 +58,11 @@ function pixelConfigRow(overrides: Record<string, any> = {}) {
     id: "pix_1",
     storeId: "store_1",
     pixelId: "1234567890123456",
+    adAccountName: "Main Ad Account",
     accessToken: "EAAG...",
     testEventCode: null,
+    conversionEvent: "Purchase" as const,
+    testMode: false,
     enabled: true,
     createdAt: NOW,
     updatedAt: NOW,
@@ -166,7 +169,7 @@ describe("Stores routes (OpenAPIHono)", () => {
   });
 
   describe("GET /api/stores/pixel-config", () => {
-    it("returns 200 with pixel configuration", async () => {
+    it("returns 200 with the pixel configuration — token masked, never returned", async () => {
       vi.mocked(queries.getStore).mockResolvedValue(storeRow());
       vi.mocked(pixelConfigQueries.getPixelConfig).mockResolvedValue(pixelConfigRow());
 
@@ -176,6 +179,9 @@ describe("Stores routes (OpenAPIHono)", () => {
       const body: any = await res.json();
       expect(body.data.pixelId).toBe("1234567890123456");
       expect(body.data.enabled).toBe(true);
+      expect(body.data.conversionEvent).toBe("Purchase");
+      expect(body.data.accessTokenMasked).toBe("••••G...");
+      expect(JSON.stringify(body)).not.toContain("EAAG");
     });
 
     it("returns 200 with null data when not configured", async () => {
@@ -206,12 +212,75 @@ describe("Stores routes (OpenAPIHono)", () => {
       const res = await app.request("/api/stores/pixel-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pixelId: "1234567890123456" }),
+        body: JSON.stringify({ pixelId: "1234567890123456", conversionEvent: "Purchase" }),
       });
 
       expect(res.status).toBe(200);
       const body: any = await res.json();
       expect(body.data.pixelId).toBe("1234567890123456");
+      expect(body.data.accessTokenMasked).toBe("••••G...");
+      expect(JSON.stringify(body)).not.toContain("EAAG");
+    });
+
+    it("accepts Lead as the conversion event and passes the new fields through", async () => {
+      vi.mocked(queries.getStore).mockResolvedValue(storeRow());
+      vi.mocked(pixelConfigQueries.upsertPixelConfig).mockResolvedValue(
+        pixelConfigRow({ conversionEvent: "Lead", testMode: true, adAccountName: "Somer Ads" })
+      );
+
+      const res = await app.request("/api/stores/pixel-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pixelId: "1234567890123456",
+          adAccountName: "Somer Ads",
+          conversionEvent: "Lead",
+          testMode: true,
+          testEventCode: "TEST123",
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const body: any = await res.json();
+      expect(body.data.conversionEvent).toBe("Lead");
+      expect(body.data.testMode).toBe(true);
+      expect(pixelConfigQueries.upsertPixelConfig).toHaveBeenCalledWith(
+        mockDb,
+        "store_1",
+        expect.objectContaining({
+          pixelId: "1234567890123456",
+          adAccountName: "Somer Ads",
+          conversionEvent: "Lead",
+          testMode: true,
+          testEventCode: "TEST123",
+        })
+      );
+    });
+
+    it("returns 400 when conversionEvent is missing — the merchant must choose explicitly", async () => {
+      vi.mocked(queries.getStore).mockResolvedValue(storeRow());
+
+      const res = await app.request("/api/stores/pixel-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pixelId: "1234567890123456" }),
+      });
+
+      expect(res.status).toBe(400);
+      const body: any = await res.json();
+      expect(body).toMatchObject({ category: ERROR_CATEGORIES.VALIDATION });
+    });
+
+    it("returns 400 when conversionEvent is not Lead or Purchase", async () => {
+      vi.mocked(queries.getStore).mockResolvedValue(storeRow());
+
+      const res = await app.request("/api/stores/pixel-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pixelId: "1234567890123456", conversionEvent: "AddToCart" }),
+      });
+
+      expect(res.status).toBe(400);
     });
 
     it("returns 400 when pixelId is missing", async () => {
@@ -236,7 +305,7 @@ describe("Stores routes (OpenAPIHono)", () => {
       const res = await app.request("/api/stores/pixel-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pixelId: "123" }),
+        body: JSON.stringify({ pixelId: "123", conversionEvent: "Purchase" }),
       });
 
       expect(res.status).toBe(404);

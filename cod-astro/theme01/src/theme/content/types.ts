@@ -87,6 +87,7 @@ export interface StoreFrontContent {
   formNamePlaceholder: string;
   formPhoneLabel: string;
   formPhonePlaceholder: string;
+  formPhoneInvalid: string;
   formWilayaLabel: string;
   formWilayaPlaceholder: string;
   formCommuneLabel: string;
