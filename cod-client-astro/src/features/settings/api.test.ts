@@ -29,10 +29,10 @@ describe("settings API adapters", () => {
     await expect(getPixelConfig()).resolves.toBeNull();
     expect(seam.apiFetch).toHaveBeenCalledWith("/api/stores/pixel-config");
 
-    const config = { id: "px1", pixelId: "123", accessToken: "EAAG", testEventCode: null, enabled: true };
+    const config = { id: "px1", pixelId: "123", accessTokenMasked: "••••EAAG", testEventCode: null, conversionEvent: "Purchase" as const, testMode: false, enabled: true };
     seam.apiFetch.mockResolvedValue({ success: true, data: config });
-    await expect(savePixelConfig({ pixelId: "123", accessToken: "EAAG", enabled: true })).resolves.toEqual(config);
-    expect(seam.apiFetch).toHaveBeenCalledWith("/api/stores/pixel-config", expect.objectContaining({ method: "POST", body: JSON.stringify({ pixelId: "123", accessToken: "EAAG", enabled: true }) }));
+    await expect(savePixelConfig({ pixelId: "123", accessToken: "EAAG", conversionEvent: "Purchase", enabled: true })).resolves.toEqual(config);
+    expect(seam.apiFetch).toHaveBeenCalledWith("/api/stores/pixel-config", expect.objectContaining({ method: "POST", body: JSON.stringify({ pixelId: "123", accessToken: "EAAG", conversionEvent: "Purchase", enabled: true }) }));
   });
 
   it("reads the email config (null when absent) and upserts it", async () => {

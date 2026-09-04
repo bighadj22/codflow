@@ -89,6 +89,7 @@ export const en: StoreFrontContent = {
   formNamePlaceholder: "e.g. Ahmed Ben Ali",
   formPhoneLabel: "Phone number",
   formPhonePlaceholder: "0XX XX XX XX XX",
+  formPhoneInvalid: "Invalid Algerian phone number — must start with 05, 06, or 07",
   formWilayaLabel: "Wilaya",
   formWilayaPlaceholder: "Select your wilaya",
   formCommuneLabel: "Commune",

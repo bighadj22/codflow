@@ -5,30 +5,7 @@ import * as queries from "./queries";
 import { storeOrderSchema, storeReviewSchema } from "./validation";
 import { NotFoundError, ValidationError, ConflictError, BusinessLogicError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
-import { getPixelConfig } from "../../../../cod-shared/queries/pixel-config";
-import { sendCapiEvent } from "@/lib/capi";
 import { assertOtpVerification } from "./otp-gate";
-
-async function sendCapiLeadMirror(
-  db: ReturnType<typeof getDb>,
-  storeId: string,
-  order: { id: string },
-  phone: string,
-  fbc?: string,
-  fbp?: string,
-  ipAddress?: string,
-  userAgent?: string,
-) {
-  const pixelConfig = await getPixelConfig(db, storeId);
-  if (!pixelConfig?.enabled) return;
-  await sendCapiEvent(pixelConfig.pixelId, pixelConfig.accessToken, {
-    eventName: "Lead",
-    eventId: order.id,
-    eventTime: Math.floor(Date.now() / 1000),
-    userData: { phone, fbc, fbp, clientIpAddress: ipAddress, clientUserAgent: userAgent },
-    testEventCode: pixelConfig.testEventCode,
-  });
-}
 
 export async function getStoreConfig(c: Context<AppContext>) {
   const storeId = c.get("storeId")!;
@@ -132,9 +109,11 @@ export async function createStoreOrder(c: Context<AppContext>) {
     data.deliveryType
   );
 
+  // X-Forwarded-For first: the storefront worker forwards the shopper's IP
+  // there — CF-Connecting-IP on this hop is the worker itself.
   const ipAddress =
-    c.req.header("CF-Connecting-IP") ??
     c.req.header("X-Forwarded-For")?.split(",")[0]?.trim() ??
+    c.req.header("CF-Connecting-IP") ??
     undefined;
   const userAgent = c.req.header("User-Agent") ?? undefined;
 
@@ -147,13 +126,29 @@ export async function createStoreOrder(c: Context<AppContext>) {
     userAgent,
   });
 
-  // Inline CAPI Lead mirror — server-side counterpart to the browser Pixel Lead.
-  // Uses the same event_id (order.id) so Meta deduplicates within 48h.
-  // Fire-and-forget: a CAPI failure must never block order confirmation.
-  const storeId = c.get("storeId")!;
-  void sendCapiLeadMirror(db, storeId, order, data.phone, data.fbc, data.fbp, ipAddress, userAgent).catch(
-    (err) => console.warn("[capi-lead-mirror] failed:", err?.message)
-  );
+  // CAPI Lead event — durable Workflow (same path as Purchase). waitUntil:
+  // the Workers runtime cancels un-awaited promises once the response is
+  // sent, which would silently drop the workflow creation. The workflow
+  // gates on the merchant's conversion-event choice, retries Meta 5xx, and
+  // audit-logs every outcome. A failure can never block order confirmation.
+  if (c.env.CAPI_WORKFLOW) {
+    c.executionCtx.waitUntil(
+      c.env.CAPI_WORKFLOW.create({
+        id: `capi-${order.id}-Lead`,
+        params: {
+          orderId: order.id,
+          eventName: "Lead",
+          triggeredAt: Math.floor(Date.now() / 1000),
+          triggerStatus: "order_created",
+          eventSourceUrl: c.req.header("Referer") ?? undefined,
+        },
+      }).catch((err: unknown) =>
+        console.error("[capi-workflow] lead trigger failed:", (err as Error)?.message)
+      )
+    );
+  } else {
+    console.error("[capi-workflow] CAPI_WORKFLOW binding is undefined — worker needs re-provision");
+  }
 
   return c.json(
     {

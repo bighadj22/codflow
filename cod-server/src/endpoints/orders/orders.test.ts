@@ -52,6 +52,7 @@ vi.mock("@/lib/activity", () => ({
 }));
 vi.mock("@/workflows/capi-helpers", () => ({
   shouldTriggerCapiPurchase: vi.fn(() => false),
+  resolveCapiDispatch: vi.fn(() => ({ send: false, reason: "tracking-disabled", message: "mock skip" })),
 }));
 vi.mock("@/endpoints/delivery-companies/queries");
 vi.mock("@/endpoints/delivery-companies/providers/shipments");

@@ -55,7 +55,7 @@ An order is refused unless the product — or every selected variant — carries
 _Avoid_: Catalog requirement, setup warning
 
 **Lead Mirror**:
-A server-side Meta "Lead" event fired alongside each order using the same event ID as the browser pixel, so Meta deduplicates instead of double-counting. Failure is logged and ignored — it can never block an order.
+A server-side Meta "Lead" event fired alongside each order — only when the merchant chose Lead as the Conversion Event — using the same event ID as the browser pixel, so Meta deduplicates instead of double-counting. Failure is logged and ignored — it can never block an order.
 _Avoid_: Tracking pixel, analytics event
 
 ### Reviews

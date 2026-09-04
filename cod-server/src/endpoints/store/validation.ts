@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { toLocalAlgerianMobile } from "@/endpoints/store-otp/phone";
 
 export const variantSelectionSchema = z.object({
   variantId: z.string().min(1),
@@ -7,7 +8,17 @@ export const variantSelectionSchema = z.object({
 
 export const storeOrderSchema = z.object({
   customerName: z.string().min(2).max(100),
-  phone: z.string().min(9).max(20),
+  // Algerian mobile only, normalized to the canonical local form "05XXXXXXXX".
+  // Accepts 05…, +2135…, 2135…, 002135… with separators; rejects landlines,
+  // foreign numbers, and short/long garbage. Canonical form keeps customer
+  // deduplication stable regardless of how the shopper typed the number.
+  phone: z.preprocess(
+    (v) => (typeof v === "string" ? toLocalAlgerianMobile(v) ?? v : v),
+    z.string().regex(
+      /^0[567]\d{8}$/,
+      "رقم الهاتف غير صحيح — أدخل رقماً جزائرياً يبدأ بـ 05 أو 06 أو 07"
+    )
+  ),
   wilayaId: z.number().int().min(1).max(58),
   communeId: z.string().min(1),
   address: z.string().max(300).optional(),

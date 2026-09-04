@@ -75,23 +75,27 @@ export async function updateStatus(c: Context<AppContext>) {
 
   await queries.updateOrderStatus(db, orderId, validated.status, user?.id, user?.name ?? undefined);
 
-  // Fire CAPI Purchase Workflow fire-and-forget — never block the status response.
+  // Fire CAPI Purchase Workflow — never blocks the status response.
+  // waitUntil: the runtime cancels un-awaited promises after the response,
+  // which would silently drop the workflow creation.
   if (shouldTriggerCapiPurchase(validated.status, order.wilayaId)) {
     if (!c.env.CAPI_WORKFLOW) {
       // Binding absent — worker was provisioned before CAPI_WORKFLOW was added.
       // Re-provision the client to activate the binding.
       console.error("[capi-workflow] CAPI_WORKFLOW binding is undefined — worker needs re-provision");
     } else {
-      void c.env.CAPI_WORKFLOW.create({
-        id: `capi-${orderId}-Purchase`,
-        params: {
-          orderId,
-          eventName: "Purchase",
-          triggeredAt: Math.floor(Date.now() / 1000),
-          triggerStatus: validated.status,
-        },
-      }).catch((err: Error) =>
-        console.error("[capi-workflow] trigger failed:", err?.message)
+      c.executionCtx.waitUntil(
+        c.env.CAPI_WORKFLOW.create({
+          id: `capi-${orderId}-Purchase`,
+          params: {
+            orderId,
+            eventName: "Purchase",
+            triggeredAt: Math.floor(Date.now() / 1000),
+            triggerStatus: validated.status,
+          },
+        }).catch((err: Error) =>
+          console.error("[capi-workflow] trigger failed:", err?.message)
+        )
       );
     }
   }

@@ -89,6 +89,7 @@ export const ar: StoreFrontContent = {
   formNamePlaceholder: "مثال: أحمد بن علي",
   formPhoneLabel: "رقم الهاتف",
   formPhonePlaceholder: "0XX XX XX XX XX",
+  formPhoneInvalid: "رقم هاتف جزائري غير صحيح — يجب أن يبدأ بـ 05 أو 06 أو 07",
   formWilayaLabel: "الولاية",
   formWilayaPlaceholder: "اختر ولايتك",
   formCommuneLabel: "البلدية",

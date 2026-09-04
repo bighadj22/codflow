@@ -932,7 +932,14 @@ export async function createStoreOrder(
 
   await db.batch(statements as [BatchStatement, ...BatchStatement[]]);
 
-  return { id, orderNumber, price, deliveryFee: finalDeliveryFee };
+  return {
+    id,
+    orderNumber,
+    customerId: data.customerId,
+    customerName: data.customerName,
+    price,
+    deliveryFee: finalDeliveryFee,
+  };
 }
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────

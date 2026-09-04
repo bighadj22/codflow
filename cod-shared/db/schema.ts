@@ -1103,9 +1103,15 @@ export const storePixelConfig = sqliteTable("store_pixel_config", {
     .unique()
     .references(() => stores.id, { onDelete: "cascade" }),
   pixelId: text("pixel_id").notNull(),
+  /** Merchant's label for the Meta ad account this pixel belongs to — reference only, never sent to Meta. */
+  adAccountName: text("ad_account_name"),
   accessToken: text("access_token").notNull(),
   /** Meta test event code — used during integration testing only. Set to null in production. */
   testEventCode: text("test_event_code"),
+  /** Which CAPI event the merchant optimizes for — chosen explicitly in the dashboard, never defaulted by the UI. */
+  conversionEvent: text("conversion_event", { enum: ["Lead", "Purchase"] }).notNull().default("Purchase"),
+  /** When true, CAPI events carry test_event_code to Meta's test stream instead of production measurement. */
+  testMode: integer("test_mode", { mode: "boolean" }).notNull().default(false),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

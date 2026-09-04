@@ -141,12 +141,13 @@ export async function submitReview(
 }
 
 export async function placeOrder(
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  forwardedHeaders?: Record<string, string>
 ): Promise<{ success: true; data: { orderNumber: string; orderId: string; total: number } } | { success: false; error: string }> {
   try {
     const res = await fetch(`${COD_SERVER_URL}/store/orders`, {
       method: "POST",
-      headers: storeHeaders(),
+      headers: { ...storeHeaders(), ...forwardedHeaders },
       body: JSON.stringify(body),
     });
     const json = (await res.json()) as any;

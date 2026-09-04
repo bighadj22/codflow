@@ -66,7 +66,19 @@ export const server = {
         z.string().min(10).max(1024).optional()
       ),
     }),
-    handler: async (input) => {
+    handler: async (input, context) => {
+      // Forward the shopper's attribution headers so cod-server records the
+      // visitor, not this worker — same mechanism as core/endpoints/abandoned.ts.
+      const forwardedHeaders: Record<string, string> = {};
+      const userAgent = context.request.headers.get("User-Agent");
+      if (userAgent) forwardedHeaders["User-Agent"] = userAgent;
+      const clientIp =
+        context.request.headers.get("CF-Connecting-IP") ??
+        context.request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim();
+      if (clientIp) forwardedHeaders["X-Forwarded-For"] = clientIp;
+      const referer = context.request.headers.get("Referer");
+      if (referer) forwardedHeaders["Referer"] = referer;
+
       const result = await placeOrder({
         customerName: input.customerName,
         phone: input.phone,
@@ -86,7 +98,7 @@ export const server = {
         fbc: input.fbc,
         fbp: input.fbp,
         otpToken: input.otpToken,
-      });
+      }, forwardedHeaders);
 
       if (!result.success) {
         throw new Error(result.error);

@@ -49,8 +49,14 @@ const updateStoreBodySchema = z.object({
 
 const savePixelBodySchema = z.object({
   pixelId: z.string().min(1),
-  accessToken: z.string().default(""),
+  adAccountName: z.string().max(200).nullable().optional(),
+  accessToken: z.string().default("").openapi({
+    description:
+      "Meta access token. Empty string keeps the previously stored token (the token is never sent back to the client).",
+  }),
   testEventCode: z.string().nullable().optional(),
+  conversionEvent: z.enum(["Lead", "Purchase"]),
+  testMode: z.boolean().optional(),
   enabled: z.boolean().optional(),
 });
 
@@ -123,7 +129,7 @@ const savePixelConfigRoute = defineRoute({
   tags: ["Store Settings"],
   summary: "Save pixel configuration",
   description:
-    "Upserts the store's Meta pixel tracking configuration. Omitted optional fields fall back to defaults (`accessToken` empty, `enabled` true).",
+    "Upserts the store's Meta pixel tracking configuration. `conversionEvent` is required — the merchant explicitly chooses whether the Conversions API optimizes for `Lead` (fires at order placement, deduplicated with the browser pixel) or `Purchase` (fires at confirmed delivery). An empty `accessToken` keeps the previously stored token.",
   operationId: "savePixelConfig",
   body: savePixelBodySchema,
   responses: {

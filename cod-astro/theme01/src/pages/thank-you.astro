@@ -112,7 +112,10 @@ const steps = [
   <script type="text/javascript" set:html={`
 (function() {
   if (typeof fbq !== 'function') return;
-  var eventId = ${JSON.stringify(orderId || orderNumber)};
+  var eventId = ${JSON.stringify(orderId)};
+  // No orderId means no server Lead mirror to deduplicate against — firing
+  // with a different id would double-count the conversion. Skip instead.
+  if (!eventId) return;
   var total   = ${JSON.stringify(totalNum)};
   fbq('track', 'Lead', total ? { value: total, currency: 'DZD' } : {}, { eventID: eventId });
 })();

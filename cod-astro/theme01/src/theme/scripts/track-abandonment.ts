@@ -37,7 +37,13 @@ function initAbandonmentTracking() {
   }
 
   function isValidPhone(v: string) {
-    return /^[0-9+\s-]+$/.test(v) && v.replace(/\D/g, "").length >= 9;
+    // Algerian mobile, matching the order form + server schema: 05/06/07
+    // followed by 8 digits, in local or international form.
+    let digits = v.replace(/\D/g, "");
+    if (digits.startsWith("00213")) digits = digits.slice(5);
+    else if (digits.startsWith("213")) digits = digits.slice(3);
+    const local = digits.startsWith("0") ? digits.slice(1) : digits;
+    return /^[567]\d{8}$/.test(local);
   }
 
   function getWilayaName(wilayaId: number | undefined): string | undefined {

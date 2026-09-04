@@ -109,11 +109,14 @@ CodFlow v1.1.0 — here's what works today:
 - ✅ Partial returns with automatic inventory restock
 
 ### Growth Engine
-- ✅ Meta Conversions API (CAPI) fires `Purchase` only at confirmed delivery
-- ✅ 7-day attribution window compliance
-- ✅ Advanced data hashing (phone, city, IP, User-Agent)
+- ✅ Meta Pixel (browser) + Conversions API (server) dual setup with event deduplication
+- ✅ Merchant-chosen conversion event: `Lead` at order placement or `Purchase` at confirmed delivery
+- ✅ Test Mode toggle routes CAPI events to Meta's test stream (`test_event_code`)
+- ✅ Graph API v26.0 with 7-day attribution window compliance
+- ✅ PII hashed per Meta spec (phone, names, city, zip, country, external_id); IP, User-Agent, `fbp`, `fbc` sent unhashed as required
 - ✅ `fbp` and `fbc` attribution preservation
-- ✅ Durable retry with Cloudflare Workflows
+- ✅ Durable retry with Cloudflare Workflows (network + Meta 5xx, exponential backoff)
+- ✅ CAPI event audit log (`capi_event_log`) for every send attempt
 
 ### AI & Agentic (MCP)
 - ✅ RFC 9728 OAuth Protected Resource Discovery with dynamic client registration

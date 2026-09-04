@@ -24,8 +24,13 @@ function clean(raw: string): string {
 
 export function normalizeAlgerianPhone(raw: string): string | null {
   if (typeof raw !== "string") return null;
-  const phone = clean(raw.trim());
+  let phone = clean(raw.trim());
   if (phone.length < 6 || phone.length > 20) return null;
+
+  // International dialing prefix "00" (e.g. "00213551234567") — treat as "+".
+  if (phone.startsWith("00")) {
+    phone = `+${phone.slice(2)}`;
+  }
 
   // Already international: keep the + form. E.164 allows 7–15 digits after +.
   if (phone.startsWith("+")) {
@@ -45,4 +50,17 @@ export function normalizeAlgerianPhone(raw: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * Canonical local form of an Algerian mobile: "0551234567".
+ * Returns null for anything that is not an Algerian mobile (foreign +CC,
+ * landlines, too-short/long inputs). This is the format orders store and
+ * customers are deduplicated on.
+ */
+export function toLocalAlgerianMobile(raw: string): string | null {
+  const e164 = normalizeAlgerianPhone(raw);
+  if (!e164 || !e164.startsWith("+213")) return null;
+  const local = e164.slice(4); // strip "+213"
+  return /^[567]\d{8}$/.test(local) ? `0${local}` : null;
 }

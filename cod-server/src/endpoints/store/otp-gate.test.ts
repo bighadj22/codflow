@@ -25,6 +25,7 @@ vi.mock("@/db", () => ({ getDb: vi.fn(() => ({})) }));
 vi.mock("./queries");
 vi.mock("@/workflows/capi-helpers", () => ({
   shouldTriggerCapiPurchase: vi.fn(() => false),
+  resolveCapiDispatch: vi.fn(() => ({ send: false, reason: "tracking-disabled", message: "mock skip" })),
 }));
 vi.mock("../../../../cod-shared/queries/otp-config");
 vi.mock("@/lib/capi", () => ({ sendCapiEvent: vi.fn(async () => undefined) }));
@@ -74,11 +75,20 @@ function stubSuccessfulOrderFlow() {
 }
 
 async function place(app: ReturnType<typeof makeApp>, body: Record<string, unknown>) {
-  return app.request("/store/orders", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const pending: Promise<unknown>[] = [];
+  const executionCtx = { waitUntil: (p: Promise<unknown>) => pending.push(p), passThroughOnException: () => {}, props: {} as Record<string, unknown> };
+  const res = await app.request(
+    "/store/orders",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    undefined,
+    executionCtx
+  );
+  await Promise.allSettled(pending);
+  return res;
 }
 
 describe("createStoreOrder OTP gate", () => {

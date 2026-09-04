@@ -42,17 +42,37 @@ export async function updateMyStore(c: Context<AppContext>) {
 
 const pixelConfigSchema = z.object({
   pixelId: z.string().min(1),
+  adAccountName: z.string().max(200).nullable().optional(),
   accessToken: z.string().default(""),
-  testEventCode: z.string().optional().nullable(),
+  testEventCode: z.string().nullable().optional(),
+  conversionEvent: z.enum(["Lead", "Purchase"]),
+  testMode: z.boolean().optional(),
   enabled: z.boolean().optional(),
 });
+
+/** Safe projection — the access token never leaves the API, only a masked hint. */
+function pixelConfigResponse(row: NonNullable<Awaited<ReturnType<typeof queryPixelConfig>>>) {
+  return {
+    id: row.id,
+    storeId: row.storeId,
+    pixelId: row.pixelId,
+    adAccountName: row.adAccountName,
+    accessTokenMasked: maskApiKey(row.accessToken),
+    testEventCode: row.testEventCode,
+    conversionEvent: row.conversionEvent,
+    testMode: row.testMode,
+    enabled: row.enabled,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
 
 export async function getPixelConfig(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const store = await queries.getStore(db);
   if (!store) throw new NotFoundError("Store");
   const config = await queryPixelConfig(db, store.id);
-  return c.json({ success: true, data: config ?? null }, 200);
+  return c.json({ success: true, data: config ? pixelConfigResponse(config) : null }, 200);
 }
 
 export async function savePixelConfig(c: Context<AppContext>) {
@@ -65,7 +85,7 @@ export async function savePixelConfig(c: Context<AppContext>) {
   if (!result) {
     throw new SystemError("Failed to save pixel config");
   }
-  return c.json({ success: true, data: result }, 200);
+  return c.json({ success: true, data: pixelConfigResponse(result) }, 200);
 }
 
 // ─── WhatsApp OTP verification config (dzverify) ──────────────────────────────
