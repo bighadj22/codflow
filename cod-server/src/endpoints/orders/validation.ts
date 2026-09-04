@@ -5,6 +5,7 @@
  */
 
 import { z } from "zod";
+import { parseOrderCursor } from "../../../../cod-shared/queries/orders";
 
 export const createOrderSchema = z.object({
   customerId: z.string().min(1),
@@ -78,6 +79,17 @@ export const orderFiltersSchema = z.object({
   search: z.string().optional(),
   limit: z.coerce.number().int().positive().max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
+  cursor: z
+    .string()
+    .min(1)
+    .max(300)
+    .refine((v) => parseOrderCursor(v) !== null, "Invalid cursor")
+    .optional()
+    .describe(
+      "Keyset pagination cursor (takes precedence over offset). " +
+        "Pass the (createdAt, id) cursor of the last row of the current page " +
+        "to fetch the next page; deep pages stay index-served unlike offset."
+    ),
 });
 
 /**

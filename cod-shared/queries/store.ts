@@ -16,6 +16,7 @@ import {
   gte,
   or,
   asc,
+  inArray,
 } from "drizzle-orm";
 import {
   products,
@@ -83,6 +84,17 @@ export async function getStoreConfig(db: AppDb, storeId: string) {
   };
 }
 
+const MAX_IN_ARRAY_IDS = 90;
+
+function chunkIds(ids: string[]): string[][] {
+  if (ids.length === 0) return [];
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += MAX_IN_ARRAY_IDS) {
+    chunks.push(ids.slice(i, i + MAX_IN_ARRAY_IDS));
+  }
+  return chunks;
+}
+
 export async function getStoreProducts(
   db: AppDb,
   params: { featured?: boolean; categoryId?: string; limit?: number },
@@ -109,43 +121,64 @@ export async function getStoreProducts(
     .limit(params.limit ?? 24)
     .all();
 
-  return Promise.all(
-    rows.map(async (p) => {
-      const { avgRating, reviewCount, ...productData } = p;
-      const [image, variantInventoryRow] = await Promise.all([
-        db
-          .select()
-          .from(productImages)
-          .where(eq(productImages.productId, p.id))
-          .orderBy(productImages.position)
-          .get(),
-        productData.hasVariants
-          ? db
-              .select({
-                total: sql<number>`COALESCE(SUM(${productVariants.inventory}), 0)`,
-              })
-              .from(productVariants)
-              .where(
-                and(
-                  eq(productVariants.productId, p.id),
-                  eq(productVariants.active, true),
-                ),
-              )
-              .get()
-          : null,
-      ]);
-      const inventory = productData.hasVariants
-        ? variantInventoryRow?.total ?? 0
-        : productData.inventory;
-      return {
-        ...productData,
-        inventory,
-        coverImage: image ?? null,
-        reviewStats:
-          reviewCount > 0 ? { avgRating: avgRating ?? 0, reviewCount } : null,
-      };
-    }),
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((p) => p.id);
+
+  const imageStatements = chunkIds(ids).map((chunk) =>
+    db
+      .select()
+      .from(productImages)
+      .where(inArray(productImages.productId, chunk))
+      .orderBy(productImages.productId, productImages.position),
   );
+  const inventoryStatements = chunkIds(ids).map((chunk) =>
+    db
+      .select({
+        productId: productVariants.productId,
+        total: sql<number>`COALESCE(SUM(${productVariants.inventory}), 0)`,
+      })
+      .from(productVariants)
+      .where(and(inArray(productVariants.productId, chunk), eq(productVariants.active, true)))
+      .groupBy(productVariants.productId),
+  );
+
+  type ImageRow = typeof productImages.$inferSelect;
+  type InventoryRow = { productId: string; total: number };
+  type BatchStatement = Parameters<AppDb["batch"]>[0][number];
+
+  const statements: BatchStatement[] = [...imageStatements, ...inventoryStatements];
+  const batchResults = (await db.batch(
+    statements as [BatchStatement, ...BatchStatement[]],
+  )) as unknown as Array<Array<ImageRow | InventoryRow>>;
+
+  const imageRows = batchResults.slice(0, imageStatements.length).flat() as ImageRow[];
+  const inventoryRows = batchResults.slice(imageStatements.length).flat() as InventoryRow[];
+
+  const coverImageByProduct = new Map<string, typeof productImages.$inferSelect>();
+  for (const image of imageRows) {
+    if (!coverImageByProduct.has(image.productId)) {
+      coverImageByProduct.set(image.productId, image);
+    }
+  }
+  const variantInventoryByProduct = new Map<string, number>();
+  for (const row of inventoryRows) {
+    variantInventoryByProduct.set(row.productId, Number(row.total));
+  }
+
+  return rows.map((p) => {
+    const { avgRating, reviewCount, ...productData } = p;
+    const inventory = productData.hasVariants
+      ? variantInventoryByProduct.get(p.id) ?? 0
+      : productData.inventory;
+    return {
+      ...productData,
+      inventory,
+      coverImage: coverImageByProduct.get(p.id) ?? null,
+      reviewStats:
+        reviewCount > 0 ? { avgRating: avgRating ?? 0, reviewCount } : null,
+    };
+  });
 }
 
 export async function getStoreProductByHandle(db: AppDb, handle: string) {
@@ -291,14 +324,6 @@ export async function findOrCreateCustomer(
   db: AppDb,
   data: { phone: string; name: string; wilayaId: number; communeId?: string },
 ) {
-  const existing = await db
-    .select()
-    .from(customers)
-    .where(eq(customers.phone, data.phone))
-    .get();
-
-  if (existing) return existing;
-
   const [wilayaRecord, communeRecord] = await Promise.all([
     db
       .select({ nameAr: wilayas.nameAr })
@@ -316,19 +341,34 @@ export async function findOrCreateCustomer(
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
+  const wilayaName = wilayaRecord?.nameAr ?? `ولاية ${data.wilayaId}`;
+  const communeName = communeRecord?.nameAr ?? null;
 
-  await db.insert(customers).values({
-    id,
-    name: data.name,
-    phone: data.phone,
-    wilayaId: data.wilayaId,
-    communeId: data.communeId ?? null,
-    wilaya: wilayaRecord?.nameAr ?? `ولاية ${data.wilayaId}`,
-    commune: communeRecord?.nameAr ?? null,
-    createdAt: now,
-  });
+  const [row] = await db
+    .insert(customers)
+    .values({
+      id,
+      name: data.name,
+      phone: data.phone,
+      wilayaId: data.wilayaId,
+      communeId: data.communeId ?? null,
+      wilaya: wilayaName,
+      commune: communeName,
+      createdAt: now,
+    })
+    .onConflictDoUpdate({
+      target: customers.phone,
+      set: {
+        name: data.name,
+        wilayaId: data.wilayaId,
+        communeId: data.communeId ?? null,
+        wilaya: wilayaName,
+        commune: communeName,
+      },
+    })
+    .returning();
 
-  return (await db.select().from(customers).where(eq(customers.id, id)).get())!;
+  return row;
 }
 
 export async function getDeliveryFee(
@@ -507,66 +547,80 @@ export async function checkStoreOrderStock(
 
 // ─── Stock deduction + movement log ──────────────────────────────────────────
 
-async function deductStockWithLog(
+interface DeductStockInput {
+  productId: string;
+  variantId: string | null;
+  quantity: number;
+  orderId: string;
+  customerId: string;
+  customerName: string;
+  now: string;
+}
+
+type BatchStatement = Parameters<AppDb["batch"]>[0][number];
+
+/**
+ * Build the write pair (movement log + atomic deduction) for a batch.
+ *
+ * The guard lives in the movement INSERT, not just the UPDATE: qtyBefore and
+ * qtyAfter are subselects with the availability predicate
+ * `inventory >= quantity` baked in. When stock cannot cover the deduction,
+ * the subselects return NULL, the NOT NULL constraint on stock_movements
+ * fails, and D1 rolls back the ENTIRE batch — order, lines, stats, and all.
+ * One round trip, race-free, and the movement log values come from the
+ * database itself rather than a racy pre-read.
+ */
+function buildDeductStatements(
   db: AppDb,
-  {
-    productId,
-    variantId,
-    quantity,
-    orderId,
-    customerId,
-    customerName,
-    now,
-  }: {
-    productId: string;
-    variantId: string | null;
-    quantity: number;
-    orderId: string;
-    customerId: string;
-    customerName: string;
-    now: string;
-  },
-) {
-  let qtyBefore: number;
+  input: DeductStockInput,
+): BatchStatement[] {
+  const { productId, variantId, quantity, orderId, customerId, customerName, now } = input;
 
-  if (variantId) {
-    const row = await db
-      .select({ inventory: productVariants.inventory })
-      .from(productVariants)
-      .where(eq(productVariants.id, variantId))
-      .get();
-    qtyBefore = row?.inventory ?? 0;
-    await db
-      .update(productVariants)
-      .set({ inventory: sql`${productVariants.inventory} - ${quantity}` })
-      .where(eq(productVariants.id, variantId));
-  } else {
-    const row = await db
-      .select({ inventory: products.inventory })
-      .from(products)
-      .where(eq(products.id, productId))
-      .get();
-    qtyBefore = row?.inventory ?? 0;
-    await db
-      .update(products)
-      .set({ inventory: sql`${products.inventory} - ${quantity}` })
-      .where(eq(products.id, productId));
-  }
+  const guard =
+    variantId !== null
+      ? sql`FROM ${productVariants} WHERE ${productVariants.id} = ${variantId} AND ${productVariants.inventory} >= ${quantity}`
+      : sql`FROM ${products} WHERE ${products.id} = ${productId} AND ${products.inventory} >= ${quantity}`;
+  const inventoryColumn =
+    variantId !== null ? productVariants.inventory : products.inventory;
 
-  await db.insert(stockMovements).values({
-    id: crypto.randomUUID(),
-    productId,
-    variantId,
-    type: "ORDER_DEDUCTED",
-    delta: -quantity,
-    qtyBefore,
-    qtyAfter: qtyBefore - quantity,
-    reason: null,
-    reference: orderId,
-    createdBy: customerId,
-    createdByName: customerName,
-    createdAt: now,
-  });
+  const guardedUpdate =
+    variantId !== null
+      ? db
+          .update(productVariants)
+          .set({ inventory: sql`${productVariants.inventory} - ${quantity}`, updatedAt: now })
+          .where(
+            and(
+              eq(productVariants.id, variantId),
+              sql`${productVariants.inventory} >= ${quantity}`,
+            ),
+          )
+      : db
+          .update(products)
+          .set({ inventory: sql`${products.inventory} - ${quantity}`, updatedAt: now })
+          .where(
+            and(
+              eq(products.id, productId),
+              sql`${products.inventory} >= ${quantity}`,
+            ),
+          );
+
+  return [
+    db.insert(stockMovements).values({
+      id: crypto.randomUUID(),
+      productId,
+      variantId,
+      type: "ORDER_DEDUCTED",
+      delta: -quantity,
+      qtyBefore: sql`(SELECT ${inventoryColumn} ${guard})`,
+      qtyAfter: sql`(SELECT ${inventoryColumn} - ${quantity} ${guard})`,
+      reason: null,
+      reference: orderId,
+      createdBy: customerId,
+      createdByName: customerName,
+      createdAt: now,
+    }),
+    guardedUpdate,
+  ];
 }
 
 export async function createStoreOrder(
@@ -594,6 +648,8 @@ export async function createStoreOrder(
       ? data.variantSelections[0].variantLabel ?? null
       : data.variantLabel ?? null;
 
+  // ── Resolve phase (reads — no writes yet) ────────────────────────────────
+
   const activeOffer = await selectApplicableOffer(
     db,
     data.productId,
@@ -607,42 +663,16 @@ export async function createStoreOrder(
 
   const price = data.quantity * data.pricePerUnit;
 
-  await db.insert(orders).values({
-    id,
-    orderNumber,
-    customerId: data.customerId,
-    customerName: data.customerName,
-    phone: data.phone,
-    wilayaId: data.wilayaId,
-    communeId: data.communeId,
-    address: data.address ?? null,
-    price,
-    notes: data.notes ?? null,
-    status: "new",
-    orderType: "online",
-    deliveryMethod: "driver",
-    deliveryType: data.deliveryType,
-    deliveryFee: finalDeliveryFee,
-    driverFee: 0,
-    codAmount: price + finalDeliveryFee,
-    fbc: data.fbc ?? null,
-    fbp: data.fbp ?? null,
-    ipAddress: data.ipAddress ?? null,
-    userAgent: data.userAgent ?? null,
-    createdAt: now,
-    updatedAt: now,
-  });
+  const lineRows: Array<typeof orderProducts.$inferInsert> = [];
 
   if (data.variantSelections && data.variantSelections.length > 0) {
-    const groups = groupVariantSelections(data.variantSelections);
-    for (const group of groups) {
+    for (const group of groupVariantSelections(data.variantSelections)) {
       const varSkuRow = await db
         .select({ sku: productVariants.sku })
         .from(productVariants)
         .where(eq(productVariants.id, group.variantId))
         .get();
-      const groupLineTotal = group.count * data.pricePerUnit;
-      await db.insert(orderProducts).values({
+      lineRows.push({
         id: crypto.randomUUID(),
         orderId: id,
         productId: data.productId,
@@ -652,7 +682,7 @@ export async function createStoreOrder(
         sku: varSkuRow?.sku ?? null,
         quantity: group.count,
         pricePerUnit: data.pricePerUnit,
-        lineTotal: groupLineTotal,
+        lineTotal: group.count * data.pricePerUnit,
         createdAt: now,
       });
     }
@@ -673,7 +703,7 @@ export async function createStoreOrder(
         .get();
       itemSku = prodSkuRow?.sku ?? null;
     }
-    await db.insert(orderProducts).values({
+    lineRows.push({
       id: crypto.randomUUID(),
       orderId: id,
       productId: data.productId,
@@ -688,142 +718,124 @@ export async function createStoreOrder(
     });
   }
 
-  if (activeOffer) {
-    if (activeOffer.discountType === "free_shipping") {
-      // Delivery fee already set to 0 above — nothing more to insert.
-    } else {
-      let resolvedRewardVariantId: string | null = activeOffer.rewardVariantId ?? null;
-      let resolvedRewardVariantLabel: string | null = null;
+  let rewardLine: typeof orderProducts.$inferInsert | null = null;
+  let rewardDeduct: DeductStockInput | null = null;
 
-      if (!resolvedRewardVariantId && activeOffer.rewardProductId === data.productId) {
-        resolvedRewardVariantId = primaryVariantId;
-        resolvedRewardVariantLabel = primaryVariantLabel;
-      } else if (
-        !resolvedRewardVariantId &&
-        activeOffer.rewardProductId &&
-        activeOffer.rewardProductId !== data.productId
-      ) {
-        const defaultVariant = await db
-          .select({ id: productVariants.id, variations: productVariants.variations })
-          .from(productVariants)
-          .where(
-            and(
-              eq(productVariants.productId, activeOffer.rewardProductId),
-              eq(productVariants.active, true),
-            ),
-          )
-          .orderBy(asc(productVariants.position))
-          .get();
-        if (defaultVariant) {
-          resolvedRewardVariantId = defaultVariant.id;
-          resolvedRewardVariantLabel = Object.values(
-            JSON.parse(defaultVariant.variations) as Record<string, string>,
-          ).join(" / ");
-        }
-      } else if (resolvedRewardVariantId) {
-        const rewardVariantRow = await db
-          .select({ variations: productVariants.variations })
-          .from(productVariants)
-          .where(eq(productVariants.id, resolvedRewardVariantId))
-          .get();
-        if (rewardVariantRow) {
-          resolvedRewardVariantLabel = Object.values(
-            JSON.parse(rewardVariantRow.variations) as Record<string, string>,
-          ).join(" / ");
+  if (activeOffer && activeOffer.discountType !== "free_shipping") {
+    let resolvedRewardVariantId: string | null = activeOffer.rewardVariantId ?? null;
+    let resolvedRewardVariantLabel: string | null = null;
+
+    if (!resolvedRewardVariantId && activeOffer.rewardProductId === data.productId) {
+      resolvedRewardVariantId = primaryVariantId;
+      resolvedRewardVariantLabel = primaryVariantLabel;
+    } else if (
+      !resolvedRewardVariantId &&
+      activeOffer.rewardProductId &&
+      activeOffer.rewardProductId !== data.productId
+    ) {
+      const defaultVariant = await db
+        .select({ id: productVariants.id, variations: productVariants.variations })
+        .from(productVariants)
+        .where(
+          and(
+            eq(productVariants.productId, activeOffer.rewardProductId),
+            eq(productVariants.active, true),
+          ),
+        )
+        .orderBy(asc(productVariants.position))
+        .get();
+      if (defaultVariant) {
+        resolvedRewardVariantId = defaultVariant.id;
+        resolvedRewardVariantLabel = Object.values(
+          JSON.parse(defaultVariant.variations) as Record<string, string>,
+        ).join(" / ");
+      }
+    } else if (resolvedRewardVariantId) {
+      const rewardVariantRow = await db
+        .select({ variations: productVariants.variations })
+        .from(productVariants)
+        .where(eq(productVariants.id, resolvedRewardVariantId))
+        .get();
+      if (rewardVariantRow) {
+        resolvedRewardVariantLabel = Object.values(
+          JSON.parse(rewardVariantRow.variations) as Record<string, string>,
+        ).join(" / ");
+      }
+    }
+
+    if (activeOffer.rewardProductId) {
+      const rewardProductRow = await db
+        .select({ name: products.name, trackInventory: products.trackInventory })
+        .from(products)
+        .where(eq(products.id, activeOffer.rewardProductId))
+        .get();
+
+      let rewardInStock = true;
+      if (rewardProductRow?.trackInventory) {
+        if (resolvedRewardVariantId) {
+          const rv = await db
+            .select({ inventory: productVariants.inventory })
+            .from(productVariants)
+            .where(eq(productVariants.id, resolvedRewardVariantId))
+            .get();
+          rewardInStock = (rv?.inventory ?? 0) >= activeOffer.rewardQuantity;
+        } else {
+          const rp = await db
+            .select({ inventory: products.inventory })
+            .from(products)
+            .where(eq(products.id, activeOffer.rewardProductId))
+            .get();
+          rewardInStock = (rp?.inventory ?? 0) >= activeOffer.rewardQuantity;
         }
       }
 
-      if (activeOffer.rewardProductId) {
-        const rewardProductRow = await db
-          .select({ name: products.name, trackInventory: products.trackInventory })
-          .from(products)
-          .where(eq(products.id, activeOffer.rewardProductId))
-          .get();
-
-        let rewardInStock = true;
-        if (rewardProductRow?.trackInventory) {
-          if (resolvedRewardVariantId) {
-            const rv = await db
-              .select({ inventory: productVariants.inventory })
-              .from(productVariants)
-              .where(eq(productVariants.id, resolvedRewardVariantId))
-              .get();
-            rewardInStock = (rv?.inventory ?? 0) >= activeOffer.rewardQuantity;
-          } else {
-            const rp = await db
-              .select({ inventory: products.inventory })
-              .from(products)
-              .where(eq(products.id, activeOffer.rewardProductId))
-              .get();
-            rewardInStock = (rp?.inventory ?? 0) >= activeOffer.rewardQuantity;
-          }
+      if (rewardInStock && rewardProductRow) {
+        let rewardSku: string | null = null;
+        if (resolvedRewardVariantId) {
+          const rv = await db
+            .select({ sku: productVariants.sku })
+            .from(productVariants)
+            .where(eq(productVariants.id, resolvedRewardVariantId))
+            .get();
+          rewardSku = rv?.sku ?? null;
+        } else if (activeOffer.rewardProductId) {
+          const rp = await db
+            .select({ sku: products.sku })
+            .from(products)
+            .where(eq(products.id, activeOffer.rewardProductId))
+            .get();
+          rewardSku = rp?.sku ?? null;
         }
+        rewardLine = {
+          id: crypto.randomUUID(),
+          orderId: id,
+          productId: activeOffer.rewardProductId,
+          productName: rewardProductRow.name,
+          variantId: resolvedRewardVariantId,
+          variantLabel: resolvedRewardVariantLabel
+            ? `${resolvedRewardVariantLabel} — 🎁 مجاني`
+            : "🎁 مجاني",
+          sku: rewardSku,
+          quantity: activeOffer.rewardQuantity,
+          pricePerUnit: 0,
+          lineTotal: 0,
+          createdAt: now,
+        };
 
-        if (rewardInStock && rewardProductRow) {
-          let rewardSku: string | null = null;
-          if (resolvedRewardVariantId) {
-            const rv = await db
-              .select({ sku: productVariants.sku })
-              .from(productVariants)
-              .where(eq(productVariants.id, resolvedRewardVariantId))
-              .get();
-            rewardSku = rv?.sku ?? null;
-          } else if (activeOffer.rewardProductId) {
-            const rp = await db
-              .select({ sku: products.sku })
-              .from(products)
-              .where(eq(products.id, activeOffer.rewardProductId))
-              .get();
-            rewardSku = rp?.sku ?? null;
-          }
-          await db.insert(orderProducts).values({
-            id: crypto.randomUUID(),
-            orderId: id,
+        if (rewardProductRow.trackInventory) {
+          rewardDeduct = {
             productId: activeOffer.rewardProductId,
-            productName: rewardProductRow.name,
             variantId: resolvedRewardVariantId,
-            variantLabel: resolvedRewardVariantLabel
-              ? `${resolvedRewardVariantLabel} — 🎁 مجاني`
-              : "🎁 مجاني",
-            sku: rewardSku,
             quantity: activeOffer.rewardQuantity,
-            pricePerUnit: 0,
-            lineTotal: 0,
-            createdAt: now,
-          });
-
-          if (rewardProductRow.trackInventory) {
-            await deductStockWithLog(db, {
-              productId: activeOffer.rewardProductId,
-              variantId: resolvedRewardVariantId,
-              quantity: activeOffer.rewardQuantity,
-              orderId: id,
-              customerId: data.customerId,
-              customerName: data.customerName,
-              now,
-            });
-          }
+            orderId: id,
+            customerId: data.customerId,
+            customerName: data.customerName,
+            now,
+          };
         }
       }
     }
   }
-
-  await db.insert(orderStatusHistory).values({
-    id: crypto.randomUUID(),
-    orderId: id,
-    status: "new",
-    timestamp: now,
-    by: null,
-  });
-
-  await db
-    .update(customers)
-    .set({
-      totalOrders: sql`${customers.totalOrders} + 1`,
-      totalSpent: sql`${customers.totalSpent} + ${price}`,
-      lastOrderAt: now,
-    })
-    .where(eq(customers.id, data.customerId));
 
   const productRow = await db
     .select({ trackInventory: products.trackInventory })
@@ -831,11 +843,11 @@ export async function createStoreOrder(
     .where(eq(products.id, data.productId))
     .get();
 
+  const deductions: DeductStockInput[] = [];
   if (productRow?.trackInventory) {
     if (data.variantSelections && data.variantSelections.length > 0) {
-      const groups = groupVariantSelections(data.variantSelections);
-      for (const group of groups) {
-        await deductStockWithLog(db, {
+      for (const group of groupVariantSelections(data.variantSelections)) {
+        deductions.push({
           productId: data.productId,
           variantId: group.variantId,
           quantity: group.count,
@@ -845,20 +857,10 @@ export async function createStoreOrder(
           now,
         });
       }
-    } else if (data.variantId) {
-      await deductStockWithLog(db, {
-        productId: data.productId,
-        variantId: data.variantId,
-        quantity: data.quantity,
-        orderId: id,
-        customerId: data.customerId,
-        customerName: data.customerName,
-        now,
-      });
     } else {
-      await deductStockWithLog(db, {
+      deductions.push({
         productId: data.productId,
-        variantId: null,
+        variantId: data.variantId ?? null,
         quantity: data.quantity,
         orderId: id,
         customerId: data.customerId,
@@ -867,6 +869,68 @@ export async function createStoreOrder(
       });
     }
   }
+  if (rewardDeduct) deductions.push(rewardDeduct);
+
+  // ── Commit phase (one atomic batch) ──────────────────────────────────────
+
+  const statements: BatchStatement[] = [
+    db.insert(orders).values({
+      id,
+      orderNumber,
+      customerId: data.customerId,
+      customerName: data.customerName,
+      phone: data.phone,
+      wilayaId: data.wilayaId,
+      communeId: data.communeId,
+      address: data.address ?? null,
+      price,
+      notes: data.notes ?? null,
+      status: "new",
+      orderType: "online",
+      deliveryMethod: "driver",
+      deliveryType: data.deliveryType,
+      deliveryFee: finalDeliveryFee,
+      driverFee: 0,
+      codAmount: price + finalDeliveryFee,
+      fbc: data.fbc ?? null,
+      fbp: data.fbp ?? null,
+      ipAddress: data.ipAddress ?? null,
+      userAgent: data.userAgent ?? null,
+      createdAt: now,
+      updatedAt: now,
+    }),
+  ];
+
+  for (const line of lineRows) {
+    statements.push(db.insert(orderProducts).values(line));
+  }
+  if (rewardLine) {
+    statements.push(db.insert(orderProducts).values(rewardLine));
+  }
+
+  statements.push(
+    db.insert(orderStatusHistory).values({
+      id: crypto.randomUUID(),
+      orderId: id,
+      status: "new",
+      timestamp: now,
+      by: null,
+    }),
+    db
+      .update(customers)
+      .set({
+        totalOrders: sql`${customers.totalOrders} + 1`,
+        totalSpent: sql`${customers.totalSpent} + ${price}`,
+        lastOrderAt: now,
+      })
+      .where(eq(customers.id, data.customerId)),
+  );
+
+  for (const input of deductions) {
+    statements.push(...buildDeductStatements(db, input));
+  }
+
+  await db.batch(statements as [BatchStatement, ...BatchStatement[]]);
 
   return { id, orderNumber, price, deliveryFee: finalDeliveryFee };
 }
@@ -880,34 +944,24 @@ export async function getApprovedProductReviews(
   limit = 20,
   offset = 0,
 ) {
-  const rows = await db
-    .select()
-    .from(reviews)
-    .where(
-      and(
-        eq(reviews.storeId, storeId),
-        eq(reviews.productId, productId),
-        eq(reviews.status, "approved"),
-      ),
-    )
-    .orderBy(desc(reviews.createdAt))
-    .limit(limit)
-    .offset(offset)
-    .all();
+  const approvedWhere = and(
+    eq(reviews.storeId, storeId),
+    eq(reviews.productId, productId),
+    eq(reviews.status, "approved"),
+  );
 
-  const totalResult = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(reviews)
-    .where(
-      and(
-        eq(reviews.storeId, storeId),
-        eq(reviews.productId, productId),
-        eq(reviews.status, "approved"),
-      ),
-    )
-    .get();
+  const [rows, countRows] = await db.batch([
+    db
+      .select()
+      .from(reviews)
+      .where(approvedWhere)
+      .orderBy(desc(reviews.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db.select({ count: sql<number>`count(*)` }).from(reviews).where(approvedWhere),
+  ]);
 
-  return { rows, total: totalResult?.count ?? 0 };
+  return { rows, total: countRows[0]?.count ?? 0 };
 }
 
 /**

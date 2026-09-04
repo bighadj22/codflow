@@ -9,6 +9,10 @@
  *   f(value)  — next SELECT…get() call returns this row (or null if not found)
  *   a(values) — next SELECT…all() call returns this array
  *
+ * Batch support: statements inside db.batch([...]) that are SELECTs consume
+ * the queue exactly like sequential reads (in statement order); write
+ * statements never consume.
+ *
  * How it works:
  *   Drizzle ORM always routes reads through D1's raw() method (never first()
  *   or all()). raw() must return T[][] — an array of value-arrays, where each
@@ -46,18 +50,33 @@ export const a = (v: Record<string, unknown>[]): Q => ({ _: "a", v });
 export function makeMockDb(queue: Q[] = []): AppDb {
   let idx = 0;
 
-  function makeStmt(): D1PreparedStatement {
-    const stmt: D1PreparedStatement = {
-      bind: (..._args: unknown[]) => makeStmt(),
+  function consume(): Record<string, unknown>[] {
+    const entry = queue[idx++];
+    if (!entry) return [];
+    if (entry._ === "f") return entry.v ? [entry.v] : [];
+    return entry.v;
+  }
 
-      // Drizzle D1 never calls first() or all() for standard queries —
-      // it always goes through values() → raw(). These are kept for
-      // type-compatibility only and do NOT consume from the queue.
+  function makeStmt(sqlText: string): D1PreparedStatement {
+    const stmt: D1PreparedStatement = {
+      bind: (..._args: unknown[]) => makeStmt(sqlText),
+
+      // Drizzle D1 never calls first() for standard or raw queries — kept
+      // for type-compatibility only; does NOT consume from the queue.
       first: <T = unknown>(_colName?: string) => Promise.resolve(null as T | null),
 
-      all: <T = unknown>() =>
-        Promise.resolve({
-          results: [] as T[],
+      // Drizzle D1 never calls all() for standard queries — it goes through
+      // values() → raw(). Raw sql`` templates, however, route through all()
+      // (objects, not value-arrays) and db.get(sql) lands here too via
+      // results[0]. Consume the queue for those.
+      all: <T = unknown>() => {
+        const entry = queue[idx++];
+        let rows: unknown[] = [];
+        if (entry) {
+          rows = entry._ === "f" ? (entry.v ? [entry.v] : []) : entry.v;
+        }
+        return Promise.resolve({
+          results: rows as T[],
           success: true,
           meta: {
             changed_db: false,
@@ -66,10 +85,11 @@ export function makeMockDb(queue: Q[] = []): AppDb {
             served_by: "mock",
             duration: 0,
             size_after: 0,
-            rows_read: 0,
+            rows_read: rows.length,
             rows_written: 0,
           },
-        } as D1Result<T>),
+        } as D1Result<T>);
+      },
 
       run: <T = Record<string, unknown>>() =>
         Promise.resolve({
@@ -93,23 +113,43 @@ export function makeMockDb(queue: Q[] = []): AppDb {
       // must match the Drizzle fieldsList order (schema definition order for
       // full selects, or select-clause order for partial selects).
       raw: ((..._args: unknown[]) => {
-        const entry = queue[idx++];
-        if (!entry) return Promise.resolve([]);
-        if (entry._ === "f") {
-          if (!entry.v) return Promise.resolve([]);
-          return Promise.resolve([Object.values(entry.v)]);
-        }
-        // a() entry — map each row to a value array
-        return Promise.resolve(entry.v.map((r) => Object.values(r)));
+        const rows = consume();
+        return Promise.resolve(rows.map((r) => Object.values(r)));
       }) as D1PreparedStatement["raw"],
     };
+    (stmt as D1PreparedStatement & { __sql: string }).__sql = sqlText;
     return stmt;
   }
 
   const d1 = {
-    prepare: (_sql: string) => makeStmt(),
+    prepare: (sqlText: string) => makeStmt(sqlText),
     dump: () => Promise.resolve(new ArrayBuffer(0)),
-    batch: () => Promise.resolve([] as any),
+    // Drizzle's session.batch() hands us the built statements. SELECT
+    // statements consume one queue entry each (f → single row, a → rows);
+    // writes return an empty result and never touch the queue — same
+    // consumption model as sequential reads, in statement order.
+    batch: (stmts: D1PreparedStatement[]) => {
+      const results = stmts.map((stmt) => {
+        const sqlText = (stmt as D1PreparedStatement & { __sql?: string }).__sql ?? "";
+        const isSelect = /^\s*(select|with)\b/i.test(sqlText.trim());
+        const rows = isSelect ? consume() : [];
+        return {
+          success: true,
+          results: rows,
+          meta: {
+            changed_db: !isSelect,
+            changes: isSelect ? 0 : 1,
+            last_row_id: 0,
+            served_by: "mock",
+            duration: 0,
+            size_after: 0,
+            rows_read: rows.length,
+            rows_written: isSelect ? 0 : 1,
+          },
+        };
+      });
+      return Promise.resolve(results);
+    },
     exec: () => Promise.resolve({ count: 0, duration: 0 } as D1ExecResult),
   } as unknown as D1Database;
 
@@ -177,6 +217,10 @@ export function orderRow(overrides: Record<string, unknown> = {}): Record<string
     photos: null,
     cod_payment_id: null,
     fee_payment_id: null,
+    fbc: null,
+    fbp: null,
+    ip_address: null,
+    user_agent: null,
     created_at: NOW,
     updated_at: NOW,
     ...overrides,

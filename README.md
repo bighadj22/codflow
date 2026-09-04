@@ -73,7 +73,7 @@ E-commerce in Algeria is **95%+ Cash on Delivery (الدفع عند الاستل
 
 ## ✅ What's Included
 
-CodFlow v1.0.0 — here's what works today:
+CodFlow v1.1.0 — here's what works today:
 
 ### Storefront (`cod-astro/theme01`)
 - ✅ Single-page COD checkout with live shipping calculation
@@ -125,6 +125,7 @@ CodFlow v1.0.0 — here's what works today:
 ### Backend (`cod-server`)
 - ✅ Hono 4 on Cloudflare Workers (sub-5ms cold starts)
 - ✅ Drizzle ORM + D1 (SQLite)
+- ✅ D1 scale layer: indexed hot paths, atomic batched order writes, keyset pagination
 - ✅ Auto-generated OpenAPI 3.1 spec at `/api/docs`
 - ✅ Standardized error envelopes with semantic codes
 - ✅ R2 image storage with edge caching

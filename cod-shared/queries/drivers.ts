@@ -9,9 +9,10 @@
  * deleteDriver stays in cod-server because it raises ConflictError.
  */
 
-import { eq, and, like, or, count, sql, inArray, desc } from "drizzle-orm";
+import { eq, and, like, or, count, sql, desc, exists, inArray } from "drizzle-orm";
 import { drivers, driverCompensations, wilayas, orders } from "../db/schema";
 import type { AppDb } from "../db/client";
+import { safeLikeTerm } from "./search";
 
 export interface DriverFilters {
   wilayaId?: number;
@@ -53,26 +54,30 @@ export async function getAllDrivers(db: AppDb, filters?: DriverFilters) {
   }
 
   if (filters?.search) {
+    const term = `%${safeLikeTerm(filters.search)}%`;
     conditions.push(
       or(
-        like(drivers.firstName, `%${filters.search}%`),
-        like(drivers.lastName, `%${filters.search}%`),
-        like(drivers.phone, `%${filters.search}%`),
+        like(drivers.firstName, term),
+        like(drivers.lastName, term),
+        like(drivers.phone, term),
       ),
     );
   }
 
   if (filters?.wilayaId) {
-    const coveringDriverIds = await db
-      .select({ driverId: driverCompensations.driverId })
-      .from(driverCompensations)
-      .where(eq(driverCompensations.wilayaId, filters.wilayaId))
-      .all();
-
-    const ids = [...new Set(coveringDriverIds.map((r) => r.driverId))];
-    if (ids.length === 0) return [];
-
-    conditions.push(inArray(drivers.id, ids));
+    conditions.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(driverCompensations)
+          .where(
+            and(
+              eq(driverCompensations.driverId, drivers.id),
+              eq(driverCompensations.wilayaId, filters.wilayaId),
+            ),
+          ),
+      ),
+    );
   }
 
   const limit = filters?.limit ?? 50;
