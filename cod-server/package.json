@@ -46,7 +46,7 @@
     "@hono/zod-openapi": "^1.6.1",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.2.0",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.0",
     "@vitest/ui": "^4.1.11",
     "better-sqlite3": "^13.0.3",
     "drizzle-kit": "^0.31.10",
