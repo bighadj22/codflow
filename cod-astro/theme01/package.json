@@ -26,7 +26,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@tailwindcss/vite": "^4.3.3",
-    "@vitest/ui": "^4.1.11",
+    "@vitest/ui": "^5.0.0",
     "fast-check": "^4.6.0",
     "happy-dom": "^20.9.0",
     "tailwindcss": "^4.0.0",
