@@ -10,8 +10,9 @@
  * admin@example.com / Admin). Set them when you run the script:
  *   ADMIN_EMAIL=you@example.com ADMIN_NAME=You node scripts/seed-admin.mjs
  *
- * The database name must match the D1 binding in cod-server/wrangler.toml
- * (and this package's wrangler.toml) — default `codflow-os-db`.
+ * The D1 database name comes from the unified root .env (COD_DB_NAME, via
+ * ../../cod-server/scripts/cloud-env.mjs) and must match the binding in
+ * cod-server/wrangler.toml.
  *
  * Local state is the repo-shared ../.wrangler-shared (same file cod-server
  * migrates to — persist-to is resolved relative to this package's cwd — and
@@ -27,6 +28,9 @@ import { writeFileSync, unlinkSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { getCloudEnv } from "../../cod-server/scripts/cloud-env.mjs";
+
+const { dbName } = getCloudEnv();
 
 const scryptAsync = promisify(scrypt);
 
@@ -104,11 +108,11 @@ WHERE user_id = (SELECT id FROM users WHERE email = '${email}') AND provider_id 
 
   try {
     console.log("\n=== Seeding admin (local) ===");
-    run(`npx wrangler d1 execute codflow-os-db --local --persist-to ../.wrangler-shared --file "${tmpFile}"`);
+    run(`npx wrangler d1 execute ${dbName} --local --persist-to ../.wrangler-shared --file "${tmpFile}"`);
 
     if (remote) {
       console.log("\n=== Seeding admin (remote) ===");
-      run(`npx wrangler d1 execute codflow-os-db --remote --file "${tmpFile}"`);
+      run(`npx wrangler d1 execute ${dbName} --remote --file "${tmpFile}"`);
     }
   } finally {
     unlinkSync(tmpFile);

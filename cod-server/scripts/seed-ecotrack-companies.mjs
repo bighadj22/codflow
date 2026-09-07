@@ -22,9 +22,11 @@ import { join } from "path";
 import { pathToFileURL } from "url";
 import { buildAllEcotrackCompanyUpserts } from "../src/endpoints/delivery-companies/providers/ecotrack/seed-sql.ts";
 import { ECOTRACK_COURIERS } from "../../cod-shared/lib/ecotrack-couriers.ts";
+import { getCloudEnv } from "./cloud-env.mjs";
 
 const remote = process.argv.includes("--remote");
 const dryRun = process.argv.includes("--dry-run");
+const { dbName } = getCloudEnv();
 
 const statements = buildAllEcotrackCompanyUpserts(ECOTRACK_COURIERS);
 const sql = statements.join("\n");
@@ -44,7 +46,7 @@ const target = remote
 
 try {
   execSync(
-    `npx wrangler d1 execute codflow-os-db ${target} --file ${sqlFile}`,
+    `npx wrangler d1 execute ${dbName} ${target} --file ${sqlFile}`,
     { cwd: process.cwd(), stdio: "inherit" }
   );
   console.log(`\n[seed-ecotrack] ✓ ${statements.length} companies upserted (${remote ? "remote" : "local"} D1)`);

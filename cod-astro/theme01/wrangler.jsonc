@@ -10,14 +10,10 @@
   },
   "observability": {
     "enabled": true
-  },
-  // Replace with your own values before deploying:
-  //   COD_SERVER_URL → your cod-server Worker's public URL. The committed
-  //                    default targets local dev; for production deploy pass
-  //                    `wrangler deploy --var COD_SERVER_URL:https://api.yourdomain.com`
-  //   STORE_API_KEY  → a secret — set it via `wrangler secret put STORE_API_KEY`
-  //                     (do NOT put the real key here). Local dev reads both from .dev.vars.
-  "vars": {
-    "COD_SERVER_URL": "http://localhost:8787"
   }
+  // COD_SERVER_URL is injected at deploy time from the unified root .env
+  // (COD_SERVER_URL) by `npm run deploy` → scripts/deploy.mjs — never hardcode
+  // it here. Local dev reads it from .dev.vars (see cod-server/scripts/cloud-env.mjs).
+  // STORE_API_KEY is a secret — set it via `wrangler secret put STORE_API_KEY`
+  // (do NOT put the real key here).
 }

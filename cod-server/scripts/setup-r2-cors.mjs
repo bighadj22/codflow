@@ -14,13 +14,17 @@
  */
 
 import { S3Client, PutBucketCorsCommand, GetBucketCorsCommand } from "@aws-sdk/client-s3";
+import { getCloudEnv } from "./cloud-env.mjs";
+
+const CLOUD = getCloudEnv();
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-// Values are read from env vars first. Edit the fallbacks if you prefer.
-const ACCOUNT_ID       = process.env.CF_ACCOUNT_ID        ?? "";
+// Resource values (bucket name, account id) come from the unified root .env
+// (see ./cloud-env.mjs); credentials always come from the environment.
+const ACCOUNT_ID       = process.env.CF_ACCOUNT_ID        ?? CLOUD.accountId;
 const ACCESS_KEY_ID    = process.env.R2_ACCESS_KEY_ID     ?? "";
 const SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY ?? "";
-const BUCKET_NAME      = process.env.R2_BUCKET_NAME       ?? "codflow-images";
+const BUCKET_NAME      = process.env.R2_BUCKET_NAME       ?? CLOUD.bucketName;
 
 // CORS: allow PUT + GET from any origin (browsers need PUT for presigned upload)
 // Restrict AllowedOrigins to your specific domain in production if preferred.
@@ -39,11 +43,12 @@ if (!ACCOUNT_ID || !ACCESS_KEY_ID || !SECRET_ACCESS_KEY) {
   console.error(`
 Error: Missing required credentials.
 
-Set these environment variables before running:
-  CF_ACCOUNT_ID        — your Cloudflare account ID
+Set these variables before running (credentials from env, resource values from
+the unified root .env):
+  CF_ACCOUNT_ID        — your Cloudflare account ID (env or .env COD_ACCOUNT_ID)
   R2_ACCESS_KEY_ID     — R2 API token key ID
   R2_SECRET_ACCESS_KEY — R2 API token secret
-  R2_BUCKET_NAME       — bucket name (default: codflow-images)
+  R2_BUCKET_NAME       — bucket name (default: .env COD_R2_BUCKET_NAME)
 
 Get R2 API tokens from:
   Cloudflare Dashboard → R2 → Manage R2 API Tokens → Create API Token
