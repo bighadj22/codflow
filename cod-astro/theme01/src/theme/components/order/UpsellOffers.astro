@@ -1,0 +1,95 @@
+---
+import type { UpsellOffer } from "@/core/api/types";
+import type { StoreFrontContent } from "@/theme/config/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  upsells: UpsellOffer[];
+  cur: string;
+  content: StoreFrontContent;
+}
+
+const { upsells, cur, content } = Astro.props;
+
+function fmt(n: number) {
+  return n.toLocaleString("ar-DZ");
+}
+---
+
+{upsells.length > 0 && (
+  <div class="space-y-3" id="upsell-block">
+    <div class="flex items-center gap-2">
+      <Icon name="heroicons:gift" class="w-4 h-4" style="color: var(--clr-primary)" />
+      <div>
+        <p class="font-black text-[0.9375rem] leading-tight" style="color: var(--clr-text)">
+          {content.upsellTitle}
+        </p>
+        <p class="text-[0.75rem] font-bold mt-0.5" style="color: var(--clr-text-2)">
+          {content.upsellSubtitle}
+        </p>
+      </div>
+    </div>
+
+    <ul class="space-y-2">
+      {upsells.map((offer) => (
+        <li>
+          <label
+            class="upsell-card flex items-center gap-3 p-3 rounded-[1.25rem] border-2 cursor-pointer transition-colors"
+            style="background: var(--clr-surface); border-color: var(--clr-border)"
+            data-upsell-card={offer.upsellProductId}
+          >
+            <input
+              type="checkbox"
+              class="upsell-toggle w-5 h-5 shrink-0 accent-[var(--clr-primary)] cursor-pointer"
+              data-product-id={offer.upsellProductId}
+              data-price={offer.price}
+              data-name={offer.name}
+              aria-label={content.ariaUpsellOffer.replace("{name}", offer.name)}
+            />
+
+            {offer.primaryImageSrc ? (
+              <img
+                src={offer.primaryImageSrc}
+                alt=""
+                loading="lazy"
+                width="48"
+                height="48"
+                class="w-12 h-12 rounded-xl object-cover shrink-0"
+              />
+            ) : (
+              <span class="w-12 h-12 rounded-xl shrink-0" style="background: var(--clr-surface-alt)"></span>
+            )}
+
+            <div class="min-w-0 flex-1">
+              <p class="font-bold text-[0.875rem] leading-tight line-clamp-2" style="color: var(--clr-text)">
+                {offer.name}
+                {offer.variantLabel && (
+                  <span class="font-bold" style="color: var(--clr-text-2)"> ({offer.variantLabel})</span>
+                )}
+              </p>
+              <p class="mt-1 flex items-center gap-2 whitespace-nowrap">
+                <span class="font-black text-[0.9375rem]" style="color: var(--clr-primary)">
+                  {fmt(offer.price)} {cur}
+                </span>
+                {offer.compareAtPrice !== null && offer.compareAtPrice > offer.price && (
+                  <span class="font-bold text-[0.8125rem] line-through" style="color: var(--clr-text-2)">
+                    {fmt(offer.compareAtPrice)} {cur}
+                  </span>
+                )}
+              </p>
+            </div>
+
+            <span
+              class="upsell-state shrink-0 text-[0.75rem] font-black uppercase tracking-widest"
+              style="color: var(--clr-text-2)"
+              data-add={content.upsellAdd}
+              data-added={content.upsellAdded}
+            >
+              {content.upsellAdd}
+            </span>
+          </label>
+        </li>
+      ))}
+    </ul>
+  </div>
+)}

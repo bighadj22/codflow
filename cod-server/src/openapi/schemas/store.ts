@@ -97,6 +97,11 @@ export const StoreUpsellConfigSchema = z
         "When true, eligible upsell offers are shown in a confirmation modal when the shopper confirms the order.",
       example: false,
     }),
+    showInCatalogue: z.boolean().openapi({
+      description:
+        "When false, products flagged isUpsell are hidden from the storefront catalogue listings. They stay reachable by handle so an attached offer can still link to them.",
+      example: true,
+    }),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   })

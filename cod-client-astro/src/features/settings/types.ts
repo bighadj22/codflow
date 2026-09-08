@@ -122,3 +122,21 @@ export interface EmailConnectionCheck {
   domains?: string[];
   outOfCredits?: boolean;
 }
+
+/**
+ * Where upsell offers appear at storefront checkout. Absent until first saved
+ * — null means upsells stay hidden everywhere.
+ */
+export interface UpsellConfig {
+  showInInlineCheckout: boolean;
+  showInConfirmModal: boolean;
+  showInCatalogue: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SaveUpsellConfigData {
+  showInInlineCheckout?: boolean;
+  showInConfirmModal?: boolean;
+  showInCatalogue?: boolean;
+}

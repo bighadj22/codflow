@@ -34,6 +34,8 @@ export const DEFAULT_CONFIG: StoreConfig = {
   announcementBar: null,
   reviewsEnabled: true,
   otpEnabled: false,
+  upsellInlineEnabled: false,
+  upsellModalEnabled: false,
   status: "active",
   pixelId: null,
 };

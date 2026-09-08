@@ -281,6 +281,119 @@ export function initProductPage() {
     });
   });
 
+  // ── CHECKOUT UPSELLS ───────────────────────────────────────────────────────
+  // Offers can appear on two surfaces (inline block and pre-submit modal), so
+  // selection is keyed by product id and mirrored across every checkbox.
+
+  const upsellToggles = Array.from(
+    document.querySelectorAll<HTMLInputElement>(".upsell-toggle")
+  );
+  const upsellsInput = document.getElementById("upsells-input") as HTMLInputElement | null;
+  const upsellModal = document.getElementById("upsell-modal") as HTMLDialogElement | null;
+
+  /** Unique selected offers — a product counted once however many surfaces show it. */
+  function selectedUpsells(): Array<{ productId: string; price: number }> {
+    const seen = new Map<string, number>();
+    for (const box of upsellToggles) {
+      const id = box.dataset.productId;
+      if (!id || !box.checked || seen.has(id)) continue;
+      seen.set(id, Number(box.dataset.price) || 0);
+    }
+    return Array.from(seen, ([productId, price]) => ({ productId, price }));
+  }
+
+  /** Sum of the selected offers, added to the order total once each. */
+  function upsellTotal(): number {
+    return selectedUpsells().reduce((sum, offer) => sum + offer.price, 0);
+  }
+
+  /** Mirror the selection into the hidden input the placeOrder action reads. */
+  function updateUpsellsInput() {
+    if (!upsellsInput) return;
+    upsellsInput.value = JSON.stringify(
+      selectedUpsells().map((offer) => ({ productId: offer.productId, quantity: 1 }))
+    );
+  }
+
+  function paintUpsellCard(box: HTMLInputElement) {
+    const card = box.closest<HTMLElement>("[data-upsell-card]");
+    if (!card) return;
+    card.style.borderColor = box.checked ? "var(--clr-primary)" : "var(--clr-border)";
+    const state = card.querySelector<HTMLElement>(".upsell-state");
+    if (!state) return;
+    state.textContent = box.checked ? state.dataset.added ?? "" : state.dataset.add ?? "";
+    state.style.color = box.checked ? "var(--clr-primary)" : "var(--clr-text-2)";
+  }
+
+  /** Apply a selection to every surface showing that product, plus its summary row. */
+  function setUpsellSelected(productId: string, checked: boolean) {
+    for (const box of upsellToggles) {
+      if (box.dataset.productId !== productId) continue;
+      box.checked = checked;
+      paintUpsellCard(box);
+    }
+    const row = document.getElementById(`upsell-row-${productId}`);
+    if (row) row.classList.toggle("hidden", !checked);
+  }
+
+  for (const box of upsellToggles) {
+    box.addEventListener("change", () => {
+      setUpsellSelected(box.dataset.productId!, box.checked);
+      updateUpsellsInput();
+      updatePriceUI();
+    });
+  }
+
+  updateUpsellsInput();
+
+  // The modal is a last-chance step that must run BEFORE the OTP gate and the
+  // native POST. Both this and the OTP gate listen in the capture phase, and
+  // script init order is not guaranteed — but a capture listener on `document`
+  // always fires before one bound to the form itself, so this wins by position.
+  if (upsellModal && typeof upsellModal.showModal === "function") {
+    const orderForm = document.querySelector<HTMLFormElement>("form[method='POST']");
+    let acknowledged = false;
+    let snapshot: string[] = [];
+
+    document.addEventListener(
+      "submit",
+      (event) => {
+        if (acknowledged || !orderForm || event.target !== orderForm) return;
+        event.preventDefault();
+        event.stopPropagation();
+        snapshot = selectedUpsells().map((offer) => offer.productId);
+        upsellModal.showModal();
+      },
+      { capture: true }
+    );
+
+    function resumeSubmit() {
+      upsellModal!.close();
+      acknowledged = true;
+      orderForm?.requestSubmit();
+    }
+
+    document
+      .getElementById("upsell-modal-continue")
+      ?.addEventListener("click", () => resumeSubmit());
+
+    // Skip undoes only what was picked while the modal was open, so an offer
+    // already chosen in the inline block survives.
+    document.getElementById("upsell-modal-skip")?.addEventListener("click", () => {
+      for (const offer of selectedUpsells()) {
+        if (!snapshot.includes(offer.productId)) setUpsellSelected(offer.productId, false);
+      }
+      updateUpsellsInput();
+      updatePriceUI();
+      resumeSubmit();
+    });
+
+    // Esc dismisses the modal without ordering — the shopper stays on the form.
+    upsellModal.addEventListener("cancel", () => {
+      upsellModal.close();
+    });
+  }
+
   // ── PRICE & SUMMARY UI ─────────────────────────────────────────────────────
 
   /**
@@ -305,17 +418,18 @@ export function initProductPage() {
     const shippingEl = document.getElementById("summary-shipping");
     const totalEl    = document.getElementById("summary-total");
 
-    // 3. Handle shipping logic in summary
+    // 3. Handle shipping logic in summary — selected upsells ride on the total
+    const goodsTotal = itemTotal + upsellTotal();
     if (shippingEl && totalEl) {
       if (isNaN(currentShipping)) {
         shippingEl.textContent = shippingCalc;
-        totalEl.textContent = `${fmt(itemTotal)} ${cur}`;
+        totalEl.textContent = `${fmt(goodsTotal)} ${cur}`;
       } else if (currentShipping === 0) {
         shippingEl.textContent = shippingFree;
-        totalEl.textContent = `${fmt(itemTotal)} ${cur}`;
+        totalEl.textContent = `${fmt(goodsTotal)} ${cur}`;
       } else {
         shippingEl.textContent = `${fmt(currentShipping)} ${cur}`;
-        totalEl.textContent = `${fmt(itemTotal + currentShipping)} ${cur}`;
+        totalEl.textContent = `${fmt(goodsTotal + currentShipping)} ${cur}`;
       }
     }
 

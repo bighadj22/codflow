@@ -5,6 +5,7 @@ import * as queries from "./queries";
 import { storeOrderSchema, storeReviewSchema } from "./validation";
 import { NotFoundError, ValidationError, ConflictError, BusinessLogicError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
+import { getUpsellConfig } from "../../../../cod-shared/queries/upsell-config";
 import { assertOtpVerification } from "./otp-gate";
 
 export async function getStoreConfig(c: Context<AppContext>) {
@@ -24,7 +25,14 @@ export async function listStoreProducts(c: Context<AppContext>) {
   const featured = rawFeatured === "true";
   const categoryId = queryData?.categoryId ?? c.req.query("categoryId") ?? undefined;
   const limit = Math.min(parseInt(String(queryData?.limit ?? c.req.query("limit") ?? "24")), 100);
-  const data = await queries.getStoreProducts(db, { featured, categoryId, limit });
+  // No config row means upsells were never enabled, so nothing is hidden.
+  const upsellConfig = await getUpsellConfig(db, c.get("storeId")!);
+  const data = await queries.getStoreProducts(db, {
+    featured,
+    categoryId,
+    limit,
+    excludeUpsellProducts: upsellConfig?.showInCatalogue === false,
+  });
   return c.json({ success: true, data, count: data.length }, 200);
 }
 

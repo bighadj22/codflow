@@ -4,7 +4,8 @@ import {
   CategorySchema, 
   ProductImageSchema, 
   ProductVariantSchema,
-  OfferSchema
+  OfferSchema,
+  UpsellOfferSchema
 } from "./validation";
 
 export type Product = z.infer<typeof ProductSchema>;
@@ -12,6 +13,7 @@ export type Category = z.infer<typeof CategorySchema>;
 export type ProductImage = z.infer<typeof ProductImageSchema>;
 export type ProductVariant = z.infer<typeof ProductVariantSchema>;
 export type Offer = z.infer<typeof OfferSchema>;
+export type UpsellOffer = z.infer<typeof UpsellOfferSchema>;
 
 export interface StoreConfig {
   id: string;
@@ -34,6 +36,8 @@ export interface StoreConfig {
   announcementBar: string | null;
   reviewsEnabled: boolean;
   otpEnabled: boolean;
+  upsellInlineEnabled: boolean;
+  upsellModalEnabled: boolean;
   status: "active" | "inactive";
   pixelId?: string | null;
 }

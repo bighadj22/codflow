@@ -8,6 +8,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import type { AppContext } from "@/types";
 import { errorHandler } from "@/middleware/error";
 import { openApiValidationHook } from "@/openapi/validation-hook";
+import { getUpsellConfig } from "../../../../cod-shared/queries/upsell-config";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 import storeRouter from "./routes";
 import * as queries from "./queries";
@@ -18,6 +19,8 @@ vi.mock("@/lib/capi", () => ({ sendCapiEvent: vi.fn(async () => ({ success: true
 // OTP verification defaults to disabled in these fixtures — the gate must be
 // inert (no config row), exactly like a store that never enabled the feature.
 vi.mock("../../../../cod-shared/queries/otp-config");
+// Upsell catalogue visibility: no config row by default, so nothing is hidden.
+vi.mock("../../../../cod-shared/queries/upsell-config");
 
 const NOW = new Date().toISOString();
 
@@ -139,10 +142,49 @@ describe("Store API routes (OpenAPIHono)", () => {
       expect(body.data[0].reviewStats.avgRating).toBe(4.5);
       expect(queries.getStoreProducts).toHaveBeenCalledWith(
         mockDb,
-        expect.objectContaining({ featured: true, limit: 12 })
+        expect.objectContaining({ featured: true, limit: 12, excludeUpsellProducts: false })
       );
     });
   });
+
+    it("hides upsell-flagged products from the catalogue when the store disabled it", async () => {
+      vi.mocked(queries.getStoreProducts).mockResolvedValue([listProductRow()] as any);
+      vi.mocked(getUpsellConfig).mockResolvedValue({
+        storeId: "store_1",
+        showInInlineCheckout: true,
+        showInConfirmModal: true,
+        showInCatalogue: false,
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+
+      const res = await app.request("/store/products");
+
+      expect(res.status).toBe(200);
+      expect(queries.getStoreProducts).toHaveBeenCalledWith(
+        mockDb,
+        expect.objectContaining({ excludeUpsellProducts: true }),
+      );
+    });
+
+    it("keeps upsell-flagged products listed while catalogue visibility is on", async () => {
+      vi.mocked(queries.getStoreProducts).mockResolvedValue([listProductRow()] as any);
+      vi.mocked(getUpsellConfig).mockResolvedValue({
+        storeId: "store_1",
+        showInInlineCheckout: true,
+        showInConfirmModal: true,
+        showInCatalogue: true,
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+
+      await app.request("/store/products");
+
+      expect(queries.getStoreProducts).toHaveBeenCalledWith(
+        mockDb,
+        expect.objectContaining({ excludeUpsellProducts: false }),
+      );
+    });
 
   describe("GET /store/products/{handle}", () => {
     it("returns 200 with parsed detail incl. offers", async () => {

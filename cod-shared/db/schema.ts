@@ -1197,6 +1197,8 @@ export const storeUpsellConfig = sqliteTable("store_upsell_config", {
   showInInlineCheckout: integer("show_in_inline_checkout", { mode: "boolean" }).notNull().default(true),
   /** Show the upsell offer in the order-confirmation modal. */
   showInConfirmModal: integer("show_in_confirm_modal", { mode: "boolean" }).notNull().default(true),
+  /** Show products flagged is_upsell in the storefront catalogue listings. */
+  showInCatalogue: integer("show_in_catalogue", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

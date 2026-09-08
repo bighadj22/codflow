@@ -111,7 +111,13 @@ function chunkIds(ids: string[]): string[][] {
 
 export async function getStoreProducts(
   db: AppDb,
-  params: { featured?: boolean; categoryId?: string; limit?: number },
+  params: {
+    featured?: boolean;
+    categoryId?: string;
+    limit?: number;
+    /** Hide products flagged is_upsell — they stay reachable by handle. */
+    excludeUpsellProducts?: boolean;
+  },
 ) {
   const conditions: any[] = [
     eq(products.showInStore, true),
@@ -119,6 +125,8 @@ export async function getStoreProducts(
     eq(products.visibility, true),
     isNull(products.deletedAt),
   ];
+
+  if (params.excludeUpsellProducts) conditions.push(eq(products.isUpsell, false));
 
   if (params.featured) conditions.push(eq(products.storeFeatured, true));
   if (params.categoryId) conditions.push(eq(products.categoryId, params.categoryId));

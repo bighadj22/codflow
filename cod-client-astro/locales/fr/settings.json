@@ -114,7 +114,16 @@
     "api_key_reveal": "Afficher",
     "api_key_hide": "Masquer",
     "api_key_missing": "Clé API non disponible. Elle apparaîtra ici après votre prochain redéploiement.",
-    "error_load": "Impossible de charger les paramètres de la boutique"
+    "error_load": "Impossible de charger les paramètres de la boutique",
+    "upsell_title": "Offres complémentaires",
+    "upsell_subtitle": "Où les offres complémentaires apparaissent lors de la commande",
+    "upsell_unconfigured_hint": "Les offres complémentaires n'ont jamais été configurées, elles restent donc masquées partout. Enregistrez pour les activer.",
+    "upsell_inline_label": "Afficher dans le formulaire de commande",
+    "upsell_inline_hint": "Les offres apparaissent dans le formulaire, avant l'envoi par le client",
+    "upsell_modal_label": "Afficher à l'étape de confirmation",
+    "upsell_modal_hint": "Les offres apparaissent comme étape supplémentaire dans la fenêtre de confirmation",
+    "upsell_catalogue_label": "Afficher les produits complémentaires dans le catalogue",
+    "upsell_catalogue_hint": "Désactivé, les produits marqués comme complémentaires sont masqués des listes de la boutique. Ils restent accessibles par lien direct, les offres attachées continuent donc de fonctionner."
   },
   "shipping": {
     "title": "Tarifs de livraison",

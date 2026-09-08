@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api";
-import type { Product, ProductCategory, ProductImage, ProductStatus, ProductVariant, ShippingProfile, StockAdjustStockResult, StockHistoryResponse, StockMovement, StockOverview, StockAlertItem } from "./types";
+import type { CreateUpsellData, Product, ProductCategory, ProductImage, ProductStatus, ProductUpsell, ProductVariant, ShippingProfile, StockAdjustStockResult, StockHistoryResponse, StockMovement, StockOverview, StockAlertItem, UpdateUpsellData } from "./types";
 
 interface ListEnvelope<T> {
   success: boolean;
@@ -102,6 +102,24 @@ export function reorderProductImages(productId: string, imageIds: string[]) {
 
 export function deleteProductImage(productId: string, imageId: string) {
   return apiFetch<DataEnvelope<null>>(`/api/products/${encodeURIComponent(productId)}/images/${encodeURIComponent(imageId)}`, { method: "DELETE" });
+}
+
+export async function listProductUpsells(productId: string) {
+  return (await apiFetch<ListEnvelope<ProductUpsell>>(`/api/products/${encodeURIComponent(productId)}/upsells`)).data;
+}
+
+// Every upsell mutation answers with the product's refreshed offer list, not
+// the single touched row — callers replace their state wholesale.
+export async function createProductUpsell(productId: string, body: CreateUpsellData) {
+  return (await apiFetch<ListEnvelope<ProductUpsell>>(`/api/products/${encodeURIComponent(productId)}/upsells`, json({ method: "POST", body: JSON.stringify(body) }))).data;
+}
+
+export async function updateProductUpsell(productId: string, upsellId: string, body: UpdateUpsellData) {
+  return (await apiFetch<ListEnvelope<ProductUpsell>>(`/api/products/${encodeURIComponent(productId)}/upsells/${encodeURIComponent(upsellId)}`, json({ method: "PATCH", body: JSON.stringify(body) }))).data;
+}
+
+export async function deleteProductUpsell(productId: string, upsellId: string) {
+  return (await apiFetch<ListEnvelope<ProductUpsell>>(`/api/products/${encodeURIComponent(productId)}/upsells/${encodeURIComponent(upsellId)}`, { method: "DELETE" })).data;
 }
 
 export interface PresignedUpload {

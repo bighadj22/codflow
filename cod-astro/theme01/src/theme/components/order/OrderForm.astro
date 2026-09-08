@@ -1,6 +1,6 @@
 ---
 import { actions } from "astro:actions";
-import type { Product, ProductVariant, Offer } from "@/core/api/types";
+import type { Product, ProductVariant, Offer, UpsellOffer } from "@/core/api/types";
 import type { StoreFrontContent } from "@/theme/config/content";
 import { Icon } from "astro-icon/components";
 
@@ -9,6 +9,8 @@ import OfferTiers from "./OfferTiers.astro";
 import CustomerFields from "./CustomerFields.astro";
 import OrderSummary from "./OrderSummary.astro";
 import OtpStep from "./OtpStep.astro";
+import UpsellOffers from "./UpsellOffers.astro";
+import UpsellModal from "./UpsellModal.astro";
 
 interface Props {
   product: Product;
@@ -23,9 +25,11 @@ interface Props {
   defaultVariantId: string | null;
   isOutOfStock?: boolean;
   otpEnabled?: boolean;
+  upsells?: UpsellOffer[];
+  modalUpsells?: UpsellOffer[];
 }
 
-const { product, content, fieldErrors, serverError, basePrice, defaultVariant, cur, isRTL, offers, defaultVariantId, isOutOfStock = false, otpEnabled = false } = Astro.props;
+const { product, content, fieldErrors, serverError, basePrice, defaultVariant, cur, isRTL, offers, defaultVariantId, isOutOfStock = false, otpEnabled = false, upsells = [], modalUpsells = [] } = Astro.props;
 
 const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ?? null;
 ---
@@ -69,6 +73,7 @@ const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ??
     <input type="hidden" name="variantLabel"       value="" id="variant-label-input" />
     <input type="hidden" name="offerId"            value="" id="offer-id-input" />
     <input type="hidden" name="variantSelections"  value="[]" id="variant-selections-input" />
+    <input type="hidden" name="upsells"            value="[]" id="upsells-input" />
     {/* WhatsApp OTP proof — set by the OTP step script after verification */}
     <input type="hidden" name="otpToken" id="otp-token-input" value="" />
 
@@ -86,6 +91,8 @@ const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ??
       defaultVariantId={defaultVariantId}
     />
 
+    <UpsellOffers upsells={upsells} cur={cur} content={content} />
+
     <CustomerFields
       content={content}
       fieldErrors={fieldErrors}
@@ -99,6 +106,7 @@ const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ??
       basePrice={basePrice}
       cur={cur}
       offers={offers}
+      upsells={[...upsells, ...modalUpsells.filter((offer) => !upsells.some((shown) => shown.upsellProductId === offer.upsellProductId))]}
       content={content}
     />
 
@@ -119,4 +127,6 @@ const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ??
       {content.formConfirmNote}
     </p>
   </form>
+
+  <UpsellModal upsells={modalUpsells} cur={cur} content={content} />
 </div>

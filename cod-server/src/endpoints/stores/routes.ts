@@ -149,6 +149,10 @@ const saveUpsellConfigBodySchema = z.object({
   showInConfirmModal: z.boolean().optional().openapi({
     description: "Saving a value enables/disables the confirmation-modal upsell step.",
   }),
+  showInCatalogue: z.boolean().optional().openapi({
+    description:
+      "False hides products flagged isUpsell from the storefront catalogue listings; they stay reachable by handle.",
+  }),
 });
 
 const getUpsellConfigRoute = defineRoute({

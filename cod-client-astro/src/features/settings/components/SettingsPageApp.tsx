@@ -13,6 +13,7 @@ import { GeneralSettings } from "@/features/settings/components/GeneralSettings"
 import { BrandingSettings } from "@/features/settings/components/BrandingSettings";
 import { SeoSettings } from "@/features/settings/components/SeoSettings";
 import { ReviewsSettings } from "@/features/settings/components/ReviewsSettings";
+import { UpsellSettings } from "@/features/settings/components/UpsellSettings";
 import { TrackingSettings } from "@/features/settings/components/TrackingSettings";
 import { VerificationSettings } from "@/features/settings/components/VerificationSettings";
 import { EmailSettings } from "@/features/settings/components/EmailSettings";
@@ -94,6 +95,8 @@ function SettingsContent() {
         return <SeoSettings storeConfig={storeConfig} onSave={handleSave} />;
       case "reviews":
         return <ReviewsSettings storeConfig={storeConfig} onSave={handleSave} />;
+      case "upsells":
+        return <UpsellSettings />;
       case "analytics":
         return <TrackingSettings />;
       case "verification":

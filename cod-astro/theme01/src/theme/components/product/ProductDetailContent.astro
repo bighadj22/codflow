@@ -35,6 +35,11 @@ const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice;
 const hasDiscount  = comparePrice != null && comparePrice > basePrice;
 const discountPct  = hasDiscount ? Math.round((1 - basePrice / comparePrice!) * 100) : 0;
 
+// Each upsell surface is gated on its own store-level placement flag.
+const productUpsells = product.upsells ?? [];
+const upsells = config.upsellInlineEnabled === true ? productUpsells : [];
+const modalUpsells = config.upsellModalEnabled === true ? productUpsells : [];
+
 const isOutOfStock = product.trackInventory && product.inventory === 0;
 const isLowStock   = product.trackInventory && product.inventory > 0 && product.inventory <= 5;
 const lowStockText = content.lowStock.replace("{n}", String(product.inventory));
@@ -130,6 +135,8 @@ const jsonLd = getProductJsonLd(product, basePrice);
         defaultVariantId={defaultVariantId}
         isOutOfStock={isOutOfStock}
         otpEnabled={config.otpEnabled === true}
+        upsells={upsells}
+        modalUpsells={modalUpsells}
       />
     </div>
   </div>

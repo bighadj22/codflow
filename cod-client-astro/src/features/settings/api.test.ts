@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const seam = vi.hoisted(() => ({ apiFetch: vi.fn() }));
 vi.mock("@/lib/api", () => ({ apiFetch: seam.apiFetch }));
 
-import { getMyStore, getPixelConfig, getEmailConfig, saveEmailConfig, savePixelConfig, testEmailConnection, updateMyStore } from "./api";
+import { getMyStore, getPixelConfig, getEmailConfig, getUpsellConfig, saveEmailConfig, savePixelConfig, saveUpsellConfig, testEmailConnection, updateMyStore } from "./api";
 
 describe("settings API adapters", () => {
   beforeEach(() => {
@@ -64,6 +64,27 @@ describe("settings API adapters", () => {
     expect(seam.apiFetch).toHaveBeenCalledWith("/api/stores/email-config/test", expect.objectContaining({
       method: "POST",
       body: JSON.stringify({ apiKey: "sk_live_maybe" }),
+    }));
+  });
+  it("reads the upsell checkout config, tolerating the unconfigured null", async () => {
+    seam.apiFetch.mockResolvedValue({ success: true, data: null });
+    await expect(getUpsellConfig()).resolves.toBeNull();
+    expect(seam.apiFetch).toHaveBeenCalledWith("/api/stores/upsell-config");
+
+    const config = { showInInlineCheckout: true, showInConfirmModal: false, showInCatalogue: true, createdAt: "t", updatedAt: "t" };
+    seam.apiFetch.mockResolvedValue({ success: true, data: config });
+    await expect(getUpsellConfig()).resolves.toEqual(config);
+  });
+
+  it("upserts the upsell checkout placement flags", async () => {
+    const config = { showInInlineCheckout: true, showInConfirmModal: true, showInCatalogue: false, createdAt: "t", updatedAt: "t" };
+    seam.apiFetch.mockResolvedValue({ success: true, data: config });
+    await expect(
+      saveUpsellConfig({ showInInlineCheckout: true, showInConfirmModal: true, showInCatalogue: false }),
+    ).resolves.toEqual(config);
+    expect(seam.apiFetch).toHaveBeenCalledWith("/api/stores/upsell-config", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ showInInlineCheckout: true, showInConfirmModal: true, showInCatalogue: false }),
     }));
   });
 });

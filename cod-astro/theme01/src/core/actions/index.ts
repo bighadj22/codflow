@@ -29,6 +29,18 @@ export const server = {
         (v) => (v === "" || v == null ? undefined : v),
         z.string().optional()
       ),
+      // Upsell offers accepted at checkout — JSON string from hidden form
+      // input. cod-server re-validates each offer is active and in stock.
+      upsells: z.preprocess(
+        (v) => {
+          if (!v || typeof v !== "string" || v === "[]") return undefined;
+          try { return JSON.parse(v as string); } catch { return undefined; }
+        },
+        z.array(z.object({
+          productId: z.string().min(1),
+          quantity: z.coerce.number().int().min(1).max(100),
+        })).optional()
+      ),
       // Per-unit variant selections — JSON string from hidden form input
       variantSelections: z.preprocess(
         (v) => {
@@ -94,6 +106,7 @@ export const server = {
         pricePerUnit: input.pricePerUnit,
         notes: input.notes,
         offerId: input.offerId,
+        upsells: input.upsells,
         variantSelections: input.variantSelections,
         fbc: input.fbc,
         fbp: input.fbp,

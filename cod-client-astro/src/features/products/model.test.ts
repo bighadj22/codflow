@@ -41,6 +41,7 @@ const product = (overrides: Partial<Product> = {}): Product => ({
   status: "ACTIVE",
   showInStore: true,
   storeFeatured: false,
+  isUpsell: false,
   deletedAt: null,
   publishedAt: null,
   category: null,

@@ -35,6 +35,8 @@ describe("Property 2: Preservation - Initial Page Load Behavior", () => {
     basePrice?: number;
     hasOffers?: boolean;
     initialQuantity?: number;
+    upsells?: Array<{ productId: string; price: number; name: string }>;
+    modalUpsells?: Array<{ productId: string; price: number; name: string }>;
   }) {
     const variants = config?.variants || [
       { id: "v1", price: 1000, compareAtPrice: null, variations: { Color: "Red" }, isDefault: true },
@@ -90,6 +92,40 @@ describe("Property 2: Preservation - Initial Page Load Behavior", () => {
       <input type="hidden" id="price-input" />
       <input type="hidden" id="variant-id-input" />
       <input type="hidden" id="variant-label-input" />
+      <input type="hidden" id="upsells-input" value="[]" />
+      ${(config?.upsells ?? [])
+        .map(
+          (u) => `
+        <label data-upsell-card="${u.productId}">
+          <input type="checkbox" class="upsell-toggle"
+            data-product-id="${u.productId}" data-price="${u.price}" data-name="${u.name}" />
+          <span class="upsell-state" data-add="Add" data-added="Added">Add</span>
+        </label>
+        <div id="upsell-row-${u.productId}" class="hidden"></div>`
+        )
+        .join("")}
+
+      <form method="POST">
+        <button type="submit" id="submit-btn">Confirm order</button>
+      </form>
+      ${
+        (config?.modalUpsells ?? []).length > 0
+          ? `<dialog id="upsell-modal">
+              ${(config?.modalUpsells ?? [])
+                .map(
+                  (u) => `
+              <label data-upsell-card="${u.productId}">
+                <input type="checkbox" class="upsell-toggle"
+                  data-product-id="${u.productId}" data-price="${u.price}" data-name="${u.name}" />
+                <span class="upsell-state" data-add="Add" data-added="Added">Add</span>
+              </label>`
+                )
+                .join("")}
+              <button type="button" id="upsell-modal-continue">Continue</button>
+              <button type="button" id="upsell-modal-skip">Skip</button>
+            </dialog>`
+          : ""
+      }
     `;
     
     container.innerHTML = html;
@@ -371,5 +407,168 @@ describe("Property 2: Preservation - Initial Page Load Behavior", () => {
         expect(summaryItemPrice.textContent).toContain("2");
       }
     }
+  });
+
+  describe("checkout upsells", () => {
+    const upsells = [
+      { productId: "up-1", price: 500, name: "Care kit" },
+      { productId: "up-2", price: 250, name: "Gift wrap" },
+    ];
+
+    /** The script formats with ar-DZ, whose group separator varies by ICU build. */
+    const money = (n: number) => n.toLocaleString("ar-DZ");
+
+    it("starts with no upsells selected and an empty hidden input", () => {
+      createProductPageDOM({ upsells });
+      const { initProductPage } = require("./product.ts");
+      initProductPage();
+
+      const input = document.getElementById("upsells-input") as HTMLInputElement;
+      expect(JSON.parse(input.value)).toEqual([]);
+      expect(document.getElementById("summary-total")!.textContent).toContain(money(1000));
+    });
+
+    it("adds the selected upsell to the hidden input and the order total", () => {
+      createProductPageDOM({ upsells });
+      const { initProductPage } = require("./product.ts");
+      initProductPage();
+
+      const boxes = document.querySelectorAll<HTMLInputElement>(".upsell-toggle");
+      boxes[0].checked = true;
+      boxes[0].dispatchEvent(new Event("change"));
+
+      const input = document.getElementById("upsells-input") as HTMLInputElement;
+      expect(JSON.parse(input.value)).toEqual([{ productId: "up-1", quantity: 1 }]);
+      // 1000 base + 500 upsell
+      expect(document.getElementById("summary-total")!.textContent).toContain(money(1500));
+      expect(document.getElementById("upsell-row-up-1")!.classList.contains("hidden")).toBe(false);
+    });
+
+    it("drops an unselected upsell back out of the input and the total", () => {
+      createProductPageDOM({ upsells });
+      const { initProductPage } = require("./product.ts");
+      initProductPage();
+
+      const boxes = document.querySelectorAll<HTMLInputElement>(".upsell-toggle");
+      for (const box of boxes) {
+        box.checked = true;
+        box.dispatchEvent(new Event("change"));
+      }
+      const input = document.getElementById("upsells-input") as HTMLInputElement;
+      expect(JSON.parse(input.value)).toHaveLength(2);
+      expect(document.getElementById("summary-total")!.textContent).toContain(money(1750));
+
+      boxes[1].checked = false;
+      boxes[1].dispatchEvent(new Event("change"));
+      expect(JSON.parse(input.value)).toEqual([{ productId: "up-1", quantity: 1 }]);
+      expect(document.getElementById("summary-total")!.textContent).toContain(money(1500));
+      expect(document.getElementById("upsell-row-up-2")!.classList.contains("hidden")).toBe(true);
+    });
+
+    it("keeps the upsell amount in the total when the quantity changes", () => {
+      createProductPageDOM({ upsells });
+      const { initProductPage } = require("./product.ts");
+      initProductPage();
+
+      const box = document.querySelector<HTMLInputElement>(".upsell-toggle")!;
+      box.checked = true;
+      box.dispatchEvent(new Event("change"));
+
+      const qty = document.getElementById("qty-input") as HTMLInputElement;
+      qty.value = "2";
+      qty.dispatchEvent(new Event("input"));
+
+      // 1000 x 2 + 500 upsell — the upsell is charged once, not per unit
+      expect(document.getElementById("summary-total")!.textContent).toContain(money(2500));
+    });
+
+    it("opens the modal instead of submitting, ahead of the OTP gate", () => {
+      createProductPageDOM({ modalUpsells: upsells });
+      const { initProductPage } = require("./product.ts");
+      initProductPage();
+
+      const form = document.querySelector<HTMLFormElement>("form[method='POST']")!;
+      const dialog = document.getElementById("upsell-modal") as HTMLDialogElement;
+      // Stands in for the OTP gate, which binds to the form in capture phase.
+      const otpGate = vi.fn();
+      form.addEventListener("submit", otpGate, { capture: true });
+
+      const event = new Event("submit", { bubbles: true, cancelable: true });
+      form.dispatchEvent(event);
+
+      expect(dialog.open).toBe(true);
+      expect(event.defaultPrevented).toBe(true);
+      expect(otpGate).not.toHaveBeenCalled();
+    });
+
+    it("lets the submit through to the OTP gate after Continue", () => {
+      createProductPageDOM({ modalUpsells: upsells });
+      const { initProductPage } = require("./product.ts");
+      initProductPage();
+
+      const form = document.querySelector<HTMLFormElement>("form[method='POST']")!;
+      const dialog = document.getElementById("upsell-modal") as HTMLDialogElement;
+      const otpGate = vi.fn((e: Event) => e.preventDefault());
+      form.addEventListener("submit", otpGate, { capture: true });
+
+      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      expect(dialog.open).toBe(true);
+
+      const box = dialog.querySelector<HTMLInputElement>(".upsell-toggle")!;
+      box.checked = true;
+      box.dispatchEvent(new Event("change"));
+
+      (document.getElementById("upsell-modal-continue") as HTMLButtonElement).click();
+
+      expect(dialog.open).toBe(false);
+      expect(otpGate).toHaveBeenCalledTimes(1);
+      const input = document.getElementById("upsells-input") as HTMLInputElement;
+      expect(JSON.parse(input.value)).toEqual([{ productId: "up-1", quantity: 1 }]);
+    });
+
+    it("Skip drops picks made in the modal but keeps an inline pick", () => {
+      createProductPageDOM({ upsells: [upsells[0]], modalUpsells: [upsells[1]] });
+      const { initProductPage } = require("./product.ts");
+      initProductPage();
+
+      const form = document.querySelector<HTMLFormElement>("form[method='POST']")!;
+      form.addEventListener("submit", (e) => e.preventDefault(), { capture: true });
+
+      // Chosen in the inline block before submitting.
+      const inline = document.querySelector<HTMLInputElement>('[data-upsell-card="up-1"] .upsell-toggle')!;
+      inline.checked = true;
+      inline.dispatchEvent(new Event("change"));
+
+      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+
+      // Then a second offer picked inside the modal, and dismissed with Skip.
+      const modalBox = document.querySelector<HTMLInputElement>('#upsell-modal [data-upsell-card="up-2"] .upsell-toggle')!;
+      modalBox.checked = true;
+      modalBox.dispatchEvent(new Event("change"));
+      (document.getElementById("upsell-modal-skip") as HTMLButtonElement).click();
+
+      const input = document.getElementById("upsells-input") as HTMLInputElement;
+      expect(JSON.parse(input.value)).toEqual([{ productId: "up-1", quantity: 1 }]);
+      expect(document.getElementById("summary-total")!.textContent).toContain(money(1500));
+    });
+
+    it("counts an offer once when it appears in both the inline block and the modal", () => {
+      createProductPageDOM({ upsells: [upsells[0]], modalUpsells: [upsells[0]] });
+      const { initProductPage } = require("./product.ts");
+      initProductPage();
+
+      const inline = document.querySelector<HTMLInputElement>('[data-upsell-card="up-1"] .upsell-toggle')!;
+      inline.checked = true;
+      inline.dispatchEvent(new Event("change"));
+
+      const boxes = document.querySelectorAll<HTMLInputElement>('.upsell-toggle[data-product-id="up-1"]');
+      expect(boxes).toHaveLength(2);
+      // Selection mirrors onto the modal copy rather than counting twice.
+      expect(Array.from(boxes).every((b) => b.checked)).toBe(true);
+
+      const input = document.getElementById("upsells-input") as HTMLInputElement;
+      expect(JSON.parse(input.value)).toEqual([{ productId: "up-1", quantity: 1 }]);
+      expect(document.getElementById("summary-total")!.textContent).toContain(money(1500));
+    });
   });
 });

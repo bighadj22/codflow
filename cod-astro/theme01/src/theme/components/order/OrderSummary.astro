@@ -1,5 +1,5 @@
 ---
-import type { Product, Offer } from "@/core/api/types";
+import type { Product, Offer, UpsellOffer } from "@/core/api/types";
 import type { StoreFrontContent } from "@/theme/config/content";
 
 interface Props {
@@ -7,10 +7,11 @@ interface Props {
   basePrice: number;
   cur: string;
   offers: Offer[];
+  upsells?: UpsellOffer[];
   content: StoreFrontContent;
 }
 
-const { product, basePrice, cur, offers, content } = Astro.props;
+const { product, basePrice, cur, offers, upsells = [], content } = Astro.props;
 
 function fmt(n: number) {
   return n.toLocaleString("ar-DZ");
@@ -60,6 +61,18 @@ function fmt(n: number) {
       );
     })}
     
+    <!-- Selected upsell rows (revealed by the upsell checkboxes) -->
+    {upsells.map((offer) => (
+      <div
+        id={`upsell-row-${offer.upsellProductId}`}
+        class="hidden items-center justify-between gap-2 text-[0.8125rem] sm:text-[0.875rem] font-bold"
+        style="color: var(--clr-text)"
+      >
+        <span class="truncate flex-1">{offer.name}</span>
+        <span class="shrink-0 whitespace-nowrap">{fmt(offer.price)} {cur}</span>
+      </div>
+    ))}
+
     <!-- Total line: Better mobile sizing -->
     <div class="pt-3 sm:pt-4 mt-2 border-t-2 border-dashed flex items-center justify-between gap-2" style="border-color: var(--clr-border)">
       <span class="font-black text-[0.9375rem] sm:text-[1rem]" style="color: var(--clr-text)">{content.totalLabel}</span>

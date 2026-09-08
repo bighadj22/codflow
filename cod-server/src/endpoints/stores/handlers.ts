@@ -94,6 +94,7 @@ export async function savePixelConfig(c: Context<AppContext>) {
 const upsellConfigSchema = z.object({
   showInInlineCheckout: z.boolean().optional(),
   showInConfirmModal: z.boolean().optional(),
+  showInCatalogue: z.boolean().optional(),
 });
 
 export async function getUpsellConfig(c: Context<AppContext>) {

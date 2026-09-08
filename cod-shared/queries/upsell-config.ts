@@ -13,6 +13,7 @@ export interface UpsellConfig {
   storeId: string;
   showInInlineCheckout: boolean;
   showInConfirmModal: boolean;
+  showInCatalogue: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -24,6 +25,7 @@ export async function getUpsellConfig(db: AppDb, storeId: string): Promise<Upsel
       storeId: storeUpsellConfig.storeId,
       showInInlineCheckout: storeUpsellConfig.showInInlineCheckout,
       showInConfirmModal: storeUpsellConfig.showInConfirmModal,
+      showInCatalogue: storeUpsellConfig.showInCatalogue,
       createdAt: storeUpsellConfig.createdAt,
       updatedAt: storeUpsellConfig.updatedAt,
     })
@@ -35,6 +37,7 @@ export async function getUpsellConfig(db: AppDb, storeId: string): Promise<Upsel
 export interface UpsertUpsellConfigData {
   showInInlineCheckout?: boolean;
   showInConfirmModal?: boolean;
+  showInCatalogue?: boolean;
 }
 
 export async function upsertUpsellConfig(
@@ -45,6 +48,7 @@ export async function upsertUpsellConfig(
   const now = new Date().toISOString();
   const showInInlineCheckout = data.showInInlineCheckout ?? true;
   const showInConfirmModal = data.showInConfirmModal ?? true;
+  const showInCatalogue = data.showInCatalogue ?? true;
 
   const existing = await db
     .select({ id: storeUpsellConfig.id })
@@ -55,12 +59,13 @@ export async function upsertUpsellConfig(
   if (existing) {
     const row = await db
       .update(storeUpsellConfig)
-      .set({ showInInlineCheckout, showInConfirmModal, updatedAt: now })
+      .set({ showInInlineCheckout, showInConfirmModal, showInCatalogue, updatedAt: now })
       .where(eq(storeUpsellConfig.storeId, storeId))
       .returning({
         storeId: storeUpsellConfig.storeId,
         showInInlineCheckout: storeUpsellConfig.showInInlineCheckout,
         showInConfirmModal: storeUpsellConfig.showInConfirmModal,
+        showInCatalogue: storeUpsellConfig.showInCatalogue,
         createdAt: storeUpsellConfig.createdAt,
         updatedAt: storeUpsellConfig.updatedAt,
       })
@@ -73,6 +78,7 @@ export async function upsertUpsellConfig(
     storeId,
     showInInlineCheckout,
     showInConfirmModal,
+    showInCatalogue,
     createdAt: now,
     updatedAt: now,
   };
@@ -81,6 +87,7 @@ export async function upsertUpsellConfig(
     storeId: row.storeId,
     showInInlineCheckout: row.showInInlineCheckout,
     showInConfirmModal: row.showInConfirmModal,
+    showInCatalogue: row.showInCatalogue,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

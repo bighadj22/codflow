@@ -73,6 +73,7 @@ export interface Product {
   status: ProductStatus;
   showInStore: boolean;
   storeFeatured: boolean;
+  isUpsell: boolean;
   deletedAt?: string | null;
   publishedAt?: string | null;
   category?: ProductCategory | null;
@@ -193,3 +194,36 @@ export interface ProductFormValues {
   lowStockThreshold: string;
   hasVariants: boolean;
 }
+
+/** An upsell offer attached to a product, as returned by the upsells API. */
+export interface ProductUpsell {
+  id: string;
+  productId: string;
+  upsellProductId: string;
+  name: string;
+  description: string | null;
+  sku: string | null;
+  hasVariants: boolean;
+  /** Effective unit price: override, else the upsell product's own price. */
+  price: number;
+  /** Raw override (null = inherit the upsell product's price). */
+  overridePrice: number | null;
+  compareAtPrice: number | null;
+  variantId: string | null;
+  variantLabel: string | null;
+  primaryImageSrc: string | null;
+  isActive: boolean;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateUpsellData {
+  upsellProductId: string;
+  price?: number | null;
+  compareAtPrice?: number | null;
+  isActive?: boolean;
+  position?: number;
+}
+
+export type UpdateUpsellData = Omit<Partial<CreateUpsellData>, "upsellProductId">;

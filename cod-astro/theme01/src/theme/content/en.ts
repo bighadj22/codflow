@@ -215,4 +215,13 @@ export const en: StoreFrontContent = {
   navContact: "Contact",
   thankYouPageTitle: "Order Received",
   defaultMetaDescription: "Shop from {storeName} - Best products at great prices with delivery nationwide",
+  upsellTitle: "Add to your order",
+  upsellSubtitle: "Special prices available with this order only",
+  upsellAdd: "Add",
+  upsellAdded: "Added",
+  ariaUpsellOffer: "Add {name} to the order",
+  upsellModalTitle: "Before you confirm",
+  upsellModalSubtitle: "Add these offers to your order at a special price",
+  upsellModalContinue: "Continue with the order",
+  upsellModalSkip: "No thanks, continue without adding",
 };

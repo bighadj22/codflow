@@ -225,4 +225,15 @@ export interface StoreFrontContent {
   navContact: string;
   thankYouPageTitle: string;
   defaultMetaDescription: string;
+
+  // ── Checkout upsell offers ────────────────────────────────────────────────
+  upsellTitle: string;
+  upsellSubtitle: string;
+  upsellAdd: string;
+  upsellAdded: string;
+  ariaUpsellOffer: string;
+  upsellModalTitle: string;
+  upsellModalSubtitle: string;
+  upsellModalContinue: string;
+  upsellModalSkip: string;
 }

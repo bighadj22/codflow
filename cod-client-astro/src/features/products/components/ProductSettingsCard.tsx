@@ -13,6 +13,8 @@ interface ProductSettingsCardProps {
   setLowStockThreshold: (val: string) => void;
   trackInventory: boolean;
   setTrackInventory: (val: boolean) => void;
+  isUpsell: boolean;
+  setIsUpsell: (val: boolean) => void;
   hasVariantsSwitch: boolean;
   editing: boolean;
   busy: boolean;
@@ -27,6 +29,8 @@ export function ProductSettingsCard({
   setLowStockThreshold,
   trackInventory,
   setTrackInventory,
+  isUpsell,
+  setIsUpsell,
   hasVariantsSwitch,
   editing,
   busy,
@@ -92,6 +96,25 @@ export function ProductSettingsCard({
             onChange={(event) =>
               setTrackInventory(event.currentTarget.checked)
             }
+            disabled={busy}
+            className="size-5 accent-primary"
+          />
+        </label>
+      </div>
+      <div className="mt-5 border-t border-border pt-5">
+        <label className="flex cursor-pointer items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              {t("form.is_upsell_label")}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {t("form.is_upsell_hint")}
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={isUpsell}
+            onChange={(event) => setIsUpsell(event.currentTarget.checked)}
             disabled={busy}
             className="size-5 accent-primary"
           />

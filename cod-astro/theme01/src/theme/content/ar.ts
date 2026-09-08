@@ -215,4 +215,13 @@ export const ar: StoreFrontContent = {
   navContact: "اتصل بنا",
   thankYouPageTitle: "تم استلام طلبك",
   defaultMetaDescription: "تسوق من {storeName} - أفضل المنتجات بأسعار مناسبة مع توصيل لجميع الولايات",
+  upsellTitle: "أضف إلى طلبك",
+  upsellSubtitle: "عروض خاصة متاحة مع هذا الطلب فقط",
+  upsellAdd: "أضف",
+  upsellAdded: "تمت الإضافة",
+  ariaUpsellOffer: "أضف {name} إلى الطلب",
+  upsellModalTitle: "قبل أن تؤكد طلبك",
+  upsellModalSubtitle: "أضف هذه العروض إلى طلبك بسعر خاص",
+  upsellModalContinue: "متابعة الطلب",
+  upsellModalSkip: "لا شكرًا، تابع بدون إضافة",
 };

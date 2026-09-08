@@ -6,15 +6,19 @@ vi.mock("@/lib/api", () => seam);
 import {
   adjustProductStock,
   createProduct,
+  createProductUpsell,
   createVariant,
   deleteProduct,
+  deleteProductUpsell,
   deleteVariant,
   getProduct,
   getStockHistory,
   getStockOverview,
+  listProductUpsells,
   listProducts,
   listVariants,
   updateProduct,
+  updateProductUpsell,
   updateVariant,
 } from "./api";
 
@@ -37,6 +41,53 @@ describe("product API adapters", () => {
     expect(seam.apiFetch).toHaveBeenLastCalledWith("/api/products/prod%2F1", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ price: 1800 }) }));
     await deleteProduct("prod/1");
     expect(seam.apiFetch).toHaveBeenLastCalledWith("/api/products/prod%2F1", { method: "DELETE" });
+  });
+
+  it("manages upsell offers under the product path and encodes both IDs", async () => {
+    seam.apiFetch.mockResolvedValue({ success: true, data: [{ id: "up/1" }] });
+    await expect(listProductUpsells("prod/1")).resolves.toEqual([{ id: "up/1" }]);
+    expect(seam.apiFetch).toHaveBeenCalledWith("/api/products/prod%2F1/upsells");
+
+    seam.apiFetch.mockResolvedValue({ success: true, data: [{ id: "up/1" }] });
+    await expect(
+      createProductUpsell("prod/1", { upsellProductId: "prod/2", price: 900, position: 1 }),
+    ).resolves.toEqual([{ id: "up/1" }]);
+    expect(seam.apiFetch).toHaveBeenLastCalledWith(
+      "/api/products/prod%2F1/upsells",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ upsellProductId: "prod/2", price: 900, position: 1 }),
+      }),
+    );
+
+    await expect(updateProductUpsell("prod/1", "up/1", { isActive: false })).resolves.toEqual([{ id: "up/1" }]);
+    expect(seam.apiFetch).toHaveBeenLastCalledWith(
+      "/api/products/prod%2F1/upsells/up%2F1",
+      expect.objectContaining({ method: "PATCH", body: JSON.stringify({ isActive: false }) }),
+    );
+
+    await expect(deleteProductUpsell("prod/1", "up/1")).resolves.toEqual([{ id: "up/1" }]);
+    expect(seam.apiFetch).toHaveBeenLastCalledWith("/api/products/prod%2F1/upsells/up%2F1", { method: "DELETE" });
+  });
+
+  it("returns the refreshed offer list from every upsell mutation", async () => {
+    const refreshed = [
+      { id: "up-1", name: "Care kit", price: 500, overridePrice: null },
+      { id: "up-2", name: "Gift wrap", price: 250, overridePrice: 250 },
+    ];
+    seam.apiFetch.mockResolvedValue({ success: true, data: refreshed });
+    await expect(createProductUpsell("p1", { upsellProductId: "p2" })).resolves.toEqual(refreshed);
+    await expect(updateProductUpsell("p1", "up-1", { isActive: false })).resolves.toEqual(refreshed);
+    await expect(deleteProductUpsell("p1", "up-2")).resolves.toEqual(refreshed);
+  });
+
+  it("sends a null price override so the upsell inherits the product price", async () => {
+    seam.apiFetch.mockResolvedValue({ success: true, data: { id: "up/1" } });
+    await createProductUpsell("prod-1", { upsellProductId: "prod-2", price: null, position: 2 });
+    expect(seam.apiFetch).toHaveBeenLastCalledWith(
+      "/api/products/prod-1/upsells",
+      expect.objectContaining({ body: JSON.stringify({ upsellProductId: "prod-2", price: null, position: 2 }) }),
+    );
   });
 
   it("manages variants and stock under the product path", async () => {

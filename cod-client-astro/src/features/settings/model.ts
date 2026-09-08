@@ -1,6 +1,6 @@
-import { BarChart2, Key, Mail, Palette, Search, ShieldCheck, Star, Store, type LucideIcon } from "lucide-react";
+import { BarChart2, Key, Mail, Palette, Search, ShieldCheck, Star, Store, TrendingUp, type LucideIcon } from "lucide-react";
 
-export type CategoryId = "general" | "branding" | "seo" | "reviews" | "analytics" | "verification" | "email" | "api";
+export type CategoryId = "general" | "branding" | "seo" | "reviews" | "upsells" | "analytics" | "verification" | "email" | "api";
 
 export interface SettingsCategory {
   id: CategoryId;
@@ -15,6 +15,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   { id: "branding", icon: Palette, labelKey: "branding_title" },
   { id: "seo", icon: Search, labelKey: "seo_title" },
   { id: "reviews", icon: Star, labelKey: "reviews_title" },
+  { id: "upsells", icon: TrendingUp, labelKey: "upsell_title" },
   { id: "analytics", icon: BarChart2, labelKey: "tracking_title" },
   { id: "verification", icon: ShieldCheck, labelKey: "otp_title" },
   { id: "email", icon: Mail, labelKey: "email_title" },

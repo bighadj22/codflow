@@ -44,6 +44,25 @@ export const OfferSchema = z.object({
 });
 
 /**
+ * Upsell Offer Schema — an extra product offered at checkout alongside the
+ * product being bought. `price` is already the effective unit price.
+ */
+export const UpsellOfferSchema = z.object({
+  id: z.string(),
+  productId: z.string(),
+  upsellProductId: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  price: z.number(),
+  compareAtPrice: z.number().nullable(),
+  hasVariants: z.boolean(),
+  variantId: z.string().nullable(),
+  variantLabel: z.string().nullable(),
+  primaryImageSrc: z.string().nullable(),
+  position: z.number(),
+});
+
+/**
  * Product Schema for Content Collections
  */
 export const ProductSchema = z.object({
@@ -80,6 +99,7 @@ export const ProductSchema = z.object({
     reviewCount: z.number(),
   }).nullable().optional(),
   offers: z.array(OfferSchema),
+  upsells: z.array(UpsellOfferSchema).optional().default([]),
 });
 
 /**

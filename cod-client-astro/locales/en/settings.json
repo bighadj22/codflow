@@ -114,7 +114,16 @@
     "api_key_reveal": "Reveal",
     "api_key_hide": "Hide",
     "api_key_missing": "API key not available. It will appear here after your next re-deployment.",
-    "error_load": "Could not load store settings"
+    "error_load": "Could not load store settings",
+    "upsell_title": "Upsells",
+    "upsell_subtitle": "Where upsell offers appear at storefront checkout",
+    "upsell_unconfigured_hint": "Upsells have never been configured, so they stay hidden everywhere. Save to enable them.",
+    "upsell_inline_label": "Show in the checkout form",
+    "upsell_inline_hint": "Offers appear inline in the order form, before the customer submits",
+    "upsell_modal_label": "Show in the confirmation step",
+    "upsell_modal_hint": "Offers appear as an extra step in the confirmation dialog",
+    "upsell_catalogue_label": "Show upsell products in the catalogue",
+    "upsell_catalogue_hint": "When off, products marked as upsell products are hidden from the storefront listings. They stay reachable by direct link, so attached offers still work."
   },
   "shipping": {
     "title": "Shipping Rates",

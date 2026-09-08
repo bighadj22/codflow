@@ -8,8 +8,10 @@ import type {
   SaveEmailConfigData,
   SaveOtpConfigData,
   SavePixelConfigData,
+  SaveUpsellConfigData,
   StoreConfig,
   UpdateStoreData,
+  UpsellConfig,
 } from "./types";
 
 interface DataEnvelope<T> {
@@ -63,4 +65,12 @@ export async function saveEmailConfig(data: SaveEmailConfigData) {
 
 export async function testEmailConnection(apiKey?: string) {
   return (await apiFetch<DataEnvelope<EmailConnectionCheck>>("/api/stores/email-config/test", json({ method: "POST", body: JSON.stringify(apiKey ? { apiKey } : {}) }))).data;
+}
+
+export async function getUpsellConfig() {
+  return (await apiFetch<DataEnvelope<UpsellConfig | null>>("/api/stores/upsell-config")).data;
+}
+
+export async function saveUpsellConfig(data: SaveUpsellConfigData) {
+  return (await apiFetch<DataEnvelope<UpsellConfig>>("/api/stores/upsell-config", json({ method: "POST", body: JSON.stringify(data) }))).data;
 }

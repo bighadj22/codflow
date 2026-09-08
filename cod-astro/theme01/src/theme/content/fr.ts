@@ -215,4 +215,13 @@ export const fr: StoreFrontContent = {
   navContact: "Contactez-nous",
   thankYouPageTitle: "Commande reçue",
   defaultMetaDescription: "Achetez chez {storeName} - Les meilleurs produits à des prix abordables avec livraison dans toutes les wilayas",
+  upsellTitle: "Ajoutez à votre commande",
+  upsellSubtitle: "Prix spéciaux disponibles avec cette commande uniquement",
+  upsellAdd: "Ajouter",
+  upsellAdded: "Ajouté",
+  ariaUpsellOffer: "Ajouter {name} à la commande",
+  upsellModalTitle: "Avant de confirmer",
+  upsellModalSubtitle: "Ajoutez ces offres à votre commande à prix spécial",
+  upsellModalContinue: "Continuer la commande",
+  upsellModalSkip: "Non merci, continuer sans ajouter",
 };
