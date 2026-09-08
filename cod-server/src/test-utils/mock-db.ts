@@ -250,6 +250,7 @@ export function productRow(overrides: Record<string, unknown> = {}): Record<stri
     status: "ACTIVE",
     show_in_store: 1,
     store_featured: 0,
+    is_upsell: 0,
     deleted_at: null,
     published_at: NOW,
     shipping_profile_id: null,

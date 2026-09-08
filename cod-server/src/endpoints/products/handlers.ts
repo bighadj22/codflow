@@ -14,6 +14,7 @@ export async function listProducts(c: Context<AppContext>) {
     categoryId: c.req.query("categoryId"),
     status: c.req.query("status"),
     visibility: c.req.query("visibility"),
+    isUpsell: c.req.query("isUpsell"),
     search: c.req.query("search"),
     limit: c.req.query("limit"),
     offset: c.req.query("offset"),

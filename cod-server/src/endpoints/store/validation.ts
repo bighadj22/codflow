@@ -61,6 +61,25 @@ export const storeOrderSchema = z.object({
     },
     z.array(variantSelectionSchema).optional()
   ),
+  // Upsell selections (JSON string parsed from hidden form input, or array via
+  // the JSON API path). Shape after parse: [{productId, quantity}] — the
+  // server resolves variant, pricing and inventory authoritatively per entry.
+  upsells: z.preprocess(
+    (v) => {
+      if (!v) return undefined;
+      // Already a parsed array (JSON API path)
+      if (Array.isArray(v)) return v.length === 0 ? undefined : v;
+      // String form-submission path (direct HTML form POST)
+      if (typeof v !== "string" || v === "[]") return undefined;
+      try { return JSON.parse(v); } catch { return undefined; }
+    },
+    z.array(
+      z.object({
+        productId: z.string().min(1).max(200),
+        quantity: z.number().int().min(1).max(100).default(1),
+      })
+    ).max(10).optional()
+  ),
 });
 
 export type StoreOrderInput = z.infer<typeof storeOrderSchema>;

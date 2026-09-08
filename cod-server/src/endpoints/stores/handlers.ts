@@ -6,6 +6,7 @@ import { updateStoreSchema } from "./validation";
 import { NotFoundError, SystemError, ValidationError, ExternalApiError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 import { getPixelConfig as queryPixelConfig, upsertPixelConfig } from "../../../../cod-shared/queries/pixel-config";
+import { getUpsellConfig as queryUpsellConfig, upsertUpsellConfig } from "../../../../cod-shared/queries/upsell-config";
 import { getOtpConfigRaw, upsertOtpConfig } from "../../../../cod-shared/queries/otp-config";
 import { getEmailConfigRaw, upsertEmailConfig } from "../../../../cod-shared/queries/email-config";
 import { createDzverifyClient, DzverifyError, DZVERIFY_ERRORS } from "@/endpoints/store-otp/dzverify";
@@ -86,6 +87,31 @@ export async function savePixelConfig(c: Context<AppContext>) {
     throw new SystemError("Failed to save pixel config");
   }
   return c.json({ success: true, data: pixelConfigResponse(result) }, 200);
+}
+
+// ─── Upsell checkout config ────────────────────────────────────────────────────
+
+const upsellConfigSchema = z.object({
+  showInInlineCheckout: z.boolean().optional(),
+  showInConfirmModal: z.boolean().optional(),
+});
+
+export async function getUpsellConfig(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const store = await queries.getStore(db);
+  if (!store) throw new NotFoundError("Store");
+  const config = await queryUpsellConfig(db, store.id);
+  return c.json({ success: true, data: config ?? null }, 200);
+}
+
+export async function saveUpsellConfig(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const store = await queries.getStore(db);
+  if (!store) throw new NotFoundError("Store");
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const validated = jsonBody ?? upsellConfigSchema.parse(await c.req.json());
+  const result = await upsertUpsellConfig(db, store.id, validated);
+  return c.json({ success: true, data: result }, 200);
 }
 
 // ─── WhatsApp OTP verification config (dzverify) ──────────────────────────────

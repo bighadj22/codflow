@@ -26,6 +26,7 @@ import {
   stores,
   storePixelConfig,
   storeOtpConfig,
+  storeUpsellConfig,
   customers,
   orders,
   orderProducts,
@@ -39,6 +40,7 @@ import {
   stockMovements,
 } from "../db/schema";
 import type { AppDb } from "../db/client";
+import { listProductUpsells, getActiveProductUpsell } from "./upsells";
 
 export interface StoreOrderData {
   customerName: string;
@@ -56,6 +58,8 @@ export interface StoreOrderData {
   notes?: string;
   offerId?: string;
   variantSelections?: Array<{ variantId: string; variantLabel?: string }>;
+  /** Upsell offers included at checkout. Priced server-authoritatively. */
+  upsells?: Array<{ productId: string; quantity: number }>;
   fbc?: string;
   fbp?: string;
   ipAddress?: string;
@@ -65,7 +69,7 @@ export interface StoreOrderData {
 export async function getStoreConfig(db: AppDb, storeId: string) {
   const store = await db.select().from(stores).where(eq(stores.id, storeId)).get();
   if (!store) return null;
-  const [pixelRow, otpRow] = await Promise.all([
+  const [pixelRow, otpRow, upsellRow] = await Promise.all([
     db
       .select({ pixelId: storePixelConfig.pixelId, enabled: storePixelConfig.enabled })
       .from(storePixelConfig)
@@ -76,11 +80,21 @@ export async function getStoreConfig(db: AppDb, storeId: string) {
       .from(storeOtpConfig)
       .where(eq(storeOtpConfig.storeId, storeId))
       .get(),
+    db
+      .select({
+        showInInlineCheckout: storeUpsellConfig.showInInlineCheckout,
+        showInConfirmModal: storeUpsellConfig.showInConfirmModal,
+      })
+      .from(storeUpsellConfig)
+      .where(eq(storeUpsellConfig.storeId, storeId))
+      .get(),
   ]);
   return {
     ...store,
     pixelId: pixelRow?.enabled ? pixelRow.pixelId : null,
     otpEnabled: otpRow?.enabled === true,
+    upsellInlineEnabled: upsellRow?.showInInlineCheckout === true,
+    upsellModalEnabled: upsellRow?.showInConfirmModal === true,
   };
 }
 
@@ -286,6 +300,8 @@ export async function getStoreProductByHandle(db: AppDb, handle: string) {
     ? variants.reduce((sum, v) => sum + v.inventory, 0)
     : product.inventory;
 
+  const upsells = await listProductUpsells(db, product.id, { storefront: true });
+
   return {
     ...product,
     inventory: totalInventory,
@@ -298,6 +314,7 @@ export async function getStoreProductByHandle(db: AppDb, handle: string) {
     })),
     images,
     offers: resolvedOffers,
+    upsells,
     reviewStats:
       (reviewStatsRow?.reviewCount ?? 0) > 0
         ? {
@@ -519,6 +536,7 @@ export async function checkStoreOrderStock(
     variantId: string | null;
     variantSelections: Array<{ variantId: string }>;
     quantity: number;
+    upsells?: Array<{ productId: string; quantity: number }>;
   },
 ): Promise<string | null> {
   const productRow = await db
@@ -526,6 +544,33 @@ export async function checkStoreOrderStock(
     .from(products)
     .where(eq(products.id, params.productId))
     .get();
+
+  if (params.upsells && params.upsells.length > 0) {
+    for (const upsell of params.upsells) {
+      const resolved = await getActiveProductUpsell(db, params.productId, upsell.productId);
+      if (!resolved) return "بعض العروض المضافة غير متوفرة حالياً.";
+      if (!resolved.trackInventory) continue;
+      if (resolved.variantId) {
+        const row = await db
+          .select({ inventory: productVariants.inventory })
+          .from(productVariants)
+          .where(eq(productVariants.id, resolved.variantId))
+          .get();
+        if ((row?.inventory ?? 0) < upsell.quantity) {
+          return "بعض العروض المضافة غير متوفرة حالياً.";
+        }
+      } else {
+        const row = await db
+          .select({ inventory: products.inventory })
+          .from(products)
+          .where(eq(products.id, upsell.productId))
+          .get();
+        if ((row?.inventory ?? 0) < upsell.quantity) {
+          return "بعض العروض المضافة غير متوفرة حالياً.";
+        }
+      }
+    }
+  }
 
   if (!productRow?.trackInventory) return null;
 
@@ -769,6 +814,39 @@ export async function createStoreOrder(
     (lineRows as any).__priceTotal = unitPrice * data.quantity;
   }
 
+  // Upsell lines ride free of the client for money math: each is re-resolved
+  // server-side (productUpsells assignment + catalog/variant price) and
+  // attached to the parent line via upsell_of_id. Invalid/inactive offers
+  // resolve to null and are silently dropped — same policy as the reward line.
+  const parentLineId = lineRows[0]?.id ?? null;
+  if (data.upsells && data.upsells.length > 0) {
+    let upsellPriceTotal = 0;
+    for (const upsell of data.upsells) {
+      if (upsell.productId === data.productId) continue;
+      const resolved = await getActiveProductUpsell(db, data.productId, upsell.productId);
+      if (!resolved) continue;
+      const quantity = Math.max(1, Math.min(upsell.quantity, 100));
+      const lineTotal = resolved.price * quantity;
+      upsellPriceTotal += lineTotal;
+      lineRows.push({
+        id: crypto.randomUUID(),
+        orderId: id,
+        productId: resolved.upsellProductId,
+        productName: resolved.name,
+        variantId: resolved.variantId,
+        variantLabel: resolved.variantLabel,
+        sku: resolved.sku,
+        quantity,
+        pricePerUnit: resolved.price,
+        lineTotal,
+        isUpsell: true,
+        upsellOfId: parentLineId,
+        createdAt: now,
+      });
+    }
+    (lineRows as any).__priceTotal = ((lineRows as any).__priceTotal ?? 0) + upsellPriceTotal;
+  }
+
   // The order's price is the catalog-derived sum of its lines — never the
   // client-supplied quantity × pricePerUnit.
   const price = (lineRows as any).__priceTotal as number;
@@ -925,6 +1003,22 @@ export async function createStoreOrder(
     }
   }
   if (rewardDeduct) deductions.push(rewardDeduct);
+
+  if (data.upsells && data.upsells.length > 0) {
+    for (const upsell of data.upsells) {
+      const resolved = await getActiveProductUpsell(db, data.productId, upsell.productId);
+      if (!resolved?.trackInventory) continue;
+      deductions.push({
+        productId: resolved.upsellProductId,
+        variantId: resolved.variantId,
+        quantity: Math.max(1, Math.min(upsell.quantity, 100)),
+        orderId: id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        now,
+      });
+    }
+  }
 
   // ── Commit phase (one atomic batch) ──────────────────────────────────────
 
@@ -1107,7 +1201,8 @@ export async function validateOrderSkus(
   productId: string,
   variantId?: string,
   variantSelections?: { variantId: string }[],
-): Promise<{ missing: "variant" | "product"; id: string } | null> {
+  upsells?: { productId: string; quantity?: number }[],
+): Promise<{ missing: "variant" | "product" | "upsell"; id: string } | null> {
   if (variantSelections && variantSelections.length > 0) {
     const uniqueVariantIds = [...new Set(variantSelections.map((v) => v.variantId))];
     for (const vid of uniqueVariantIds) {
@@ -1137,5 +1232,23 @@ export async function validateOrderSkus(
     .where(eq(products.id, productId))
     .get();
   if (!row?.sku) return { missing: "product", id: productId };
+
+  if (upsells && upsells.length > 0) {
+    for (const upsell of upsells) {
+      const resolved = await getActiveProductUpsell(db, productId, upsell.productId);
+      if (!resolved) return { missing: "upsell", id: upsell.productId };
+      if (resolved.variantId) {
+        const variantRow = await db
+          .select({ sku: productVariants.sku })
+          .from(productVariants)
+          .where(eq(productVariants.id, resolved.variantId))
+          .get();
+        if (!variantRow?.sku) return { missing: "variant", id: resolved.variantId };
+      } else if (!resolved.sku) {
+        return { missing: "product", id: resolved.upsellProductId };
+      }
+    }
+  }
+
   return null;
 }

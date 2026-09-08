@@ -83,6 +83,15 @@ export const OrderProductSchema = z
       description:
         "Units the customer refused at the door. Always 0 when status=fulfilled, = quantity when status=returned.",
     }),
+    isUpsell: z.boolean().openapi({
+      description: "True when this line is an upsell offer sold alongside the main product.",
+      example: false,
+    }),
+    upsellOfId: z.string().nullable().openapi({
+      description:
+        "The parent order-product line this upsell was bundled with (the main product line). Null for the main product and for reward lines.",
+      example: null,
+    }),
     createdAt: z.string().datetime(),
   })
   .openapi("OrderProduct");

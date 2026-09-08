@@ -85,6 +85,26 @@ export const StorePixelConfigSchema = z
     description: "Meta pixel tracking configuration for server-side conversion events",
   });
 
+export const StoreUpsellConfigSchema = z
+  .object({
+    showInInlineCheckout: z.boolean().openapi({
+      description:
+        "When true, eligible upsell offers appear inline inside the checkout form (below the product) before confirmation.",
+      example: false,
+    }),
+    showInConfirmModal: z.boolean().openapi({
+      description:
+        "When true, eligible upsell offers are shown in a confirmation modal when the shopper confirms the order.",
+      example: false,
+    }),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .openapi("StoreUpsellConfig", {
+    description:
+      "Where upsell offers appear at the storefront checkout. Absent until first saved; no row = upsells never shown (safe default).",
+  });
+
 // ─── Storefront API (public, X-Store-API-Key) ─────────────────────────────────
 
 export const StoreProductImageSchema = z.object({
@@ -156,6 +176,28 @@ export const StoreProductListSchema = z
     }),
   })
   .openapi("StoreProductList");
+
+export const StorefrontUpsellOfferSchema = z.object({
+  id: z.string().openapi({ description: "Upsell assignment UUID", example: "up_abc123" }),
+  upsellProductId: z.string().openapi({ description: "Upsell product UUID", example: "prod_abc124" }),
+  name: z.string().openapi({ example: "Samsung Galaxy Buds" }),
+  description: z.string().nullable(),
+  sku: z.string().nullable(),
+  hasVariants: z.boolean(),
+  /** Effective unit price: assignment override ?? product price (simple) or first active variant price (variant). */
+  price: z.number().int().min(0).openapi({ example: 8500 }),
+  compareAtPrice: z.number().int().min(0).nullable().openapi({ example: 9500 }),
+  variantId: z.string().nullable().openapi({
+    description: "Resolved default variant for variant products; null for simple products",
+  }),
+  variantLabel: z.string().nullable().openapi({
+    description: "Human-readable label of the resolved variant, e.g. 'أبيض'",
+    example: "أبيض",
+  }),
+  primaryImageSrc: z.string().url().nullable().openapi({ example: null }),
+  isActive: z.boolean().openapi({ example: true }),
+  position: z.number().int().min(1).openapi({ example: 1 }),
+});
 
 export const StoreOfferSummarySchema = z.object({
   id: z.string().openapi({ description: "Offer UUID" }),
@@ -260,6 +302,10 @@ export const StoreProductDetailSchema = z
       description:
         "Active Buy X Get Y offers currently applicable to this product. Only includes offers where `status=active` and the current time is within the optional schedule window. The storefront uses this list to display offer banners and to show the free reward row in the order summary when the customer selects a matching variant and quantity.",
     }),
+    upsells: z.array(StorefrontUpsellOfferSchema).openapi({
+      description:
+        "Active upsell offers attached to this product (assignments in the storefront scope: isActive, product ACTIVE, visible, not deleted). Only the resolved default variant's price is exposed for variant products.",
+    }),
   })
   .openapi("StoreProductDetail");
 
@@ -296,6 +342,16 @@ export const StoreConfigSchema = z
       description:
         "When true, storefront checkout requires WhatsApp phone verification (dzverify). " +
         "True only when a store_otp_config row exists AND is enabled.",
+      example: false,
+    }),
+    upsellInlineEnabled: z.boolean().openapi({
+      description:
+        "When true, upsell offers can appear inline inside the checkout form. True only when a store_upsell_config row enables the inline block.",
+      example: false,
+    }),
+    upsellModalEnabled: z.boolean().openapi({
+      description:
+        "When true, upsell offers can appear in the confirmation modal at checkout. True only when a store_upsell_config row enables the modal.",
       example: false,
     }),
     status: z.enum(["active", "inactive"]),

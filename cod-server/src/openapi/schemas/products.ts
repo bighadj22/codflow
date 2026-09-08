@@ -183,6 +183,11 @@ export const ProductSchema = z
     status: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]).openapi({ example: "ACTIVE" }),
     showInStore: z.boolean().openapi({ example: true }),
     storeFeatured: z.boolean().openapi({ example: false }),
+    isUpsell: z.boolean().openapi({
+      description:
+        "When true, this product is available for insertion as an upsell offer, not a standalone listing.",
+      example: false,
+    }),
     deletedAt: z.string().datetime().nullable().openapi({
       description: "Soft-delete timestamp; products with a value are excluded from all responses",
       example: null,
@@ -401,6 +406,51 @@ export const OfferSchema = z
     updatedAt: z.string().datetime(),
   })
   .openapi("Offer");
+
+export const ProductUpsellSchema = z
+  .object({
+    id: z.string().openapi({ description: "Upsell assignment UUID", example: "up_abc123" }),
+    productId: z.string().openapi({ description: "Parent product (the one being sold)", example: "prod_abc123" }),
+    upsellProductId: z.string().openapi({
+      description: "Product offered as an upsell alongside the parent",
+      example: "prod_abc124",
+    }),
+    name: z.string().openapi({
+      description: "Returned by the API — the upsell product's current name. Not part of the write payload.",
+      example: "Samsung Galaxy Buds",
+    }),
+    description: z.string().nullable(),
+    sku: z.string().nullable().openapi({
+      description: "SKU of the sellable unit (simple product or resolved default variant)",
+      example: "BUDS-WHITE",
+    }),
+    hasVariants: z.boolean(),
+    /** Effective unit price: assignment override ?? product price (simple) or first active variant price (variant). */
+    price: z.number().int().min(0).openapi({ example: 8500 }),
+    /** Raw assignment price override (null = inherit). Variant-product overrides are ignored. */
+    overridePrice: z.number().int().min(0).nullable().openapi({ example: 7999 }),
+    compareAtPrice: z.number().int().min(0).nullable().openapi({
+      description: "Effective compare-at price: variant compare-at or assignment override ?? product",
+      example: 9500,
+    }),
+    variantId: z.string().nullable().openapi({
+      description: "Resolved default variant for variant products; null for simple products",
+      example: null,
+    }),
+    variantLabel: z.string().nullable().openapi({
+      description: "Human-readable label of the resolved variant, e.g. 'أبيض'",
+      example: "أبيض",
+    }),
+    primaryImageSrc: z.string().url().nullable().openapi({ example: null }),
+    isActive: z.boolean().openapi({ example: true }),
+    position: z.number().int().min(1).openapi({ example: 1 }),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .openapi("ProductUpsell", {
+    description:
+      "A product offered as an upsell when the parent product is added to a store order",
+  });
 
 export const UploadedImageSchema = z
   .object({

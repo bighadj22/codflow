@@ -17,6 +17,7 @@ import * as handlers from "./handlers";
 import {
   StoreSchema,
   StorePixelConfigSchema,
+  StoreUpsellConfigSchema,
   SuccessResponseSchema,
 } from "@/openapi/schemas";
 
@@ -139,6 +140,57 @@ const savePixelConfigRoute = defineRoute({
     },
   },
   handler: handlers.savePixelConfig,
+});
+
+const saveUpsellConfigBodySchema = z.object({
+  showInInlineCheckout: z.boolean().optional().openapi({
+    description: "Saving a value enables/disables the inline upsell block.",
+  }),
+  showInConfirmModal: z.boolean().optional().openapi({
+    description: "Saving a value enables/disables the confirmation-modal upsell step.",
+  }),
+});
+
+const getUpsellConfigRoute = defineRoute({
+  method: "get",
+  path: "/upsell-config",
+  auth: "admin",
+  tags: ["Store Settings"],
+  summary: "Get upsell checkout config",
+  description:
+    "Returns where upsell offers appear at storefront checkout (`null` when nothing was configured — upsells are then hidden everywhere).",
+  operationId: "getUpsellConfig",
+  responses: {
+    200: {
+      description: "Upsell config (null when not configured)",
+      content: jsonContent(
+        z.object({
+          success: z.boolean().openapi({ example: true }),
+          data: StoreUpsellConfigSchema.nullable(),
+        })
+      ),
+    },
+  },
+  handler: handlers.getUpsellConfig,
+});
+
+const saveUpsellConfigRoute = defineRoute({
+  method: "post",
+  path: "/upsell-config",
+  auth: "admin",
+  tags: ["Store Settings"],
+  summary: "Save upsell checkout config",
+  description:
+    "Upserts where upsell offers appear at checkout. Absent fields keep their current value; the first save defaults both to `true`.",
+  operationId: "saveUpsellConfig",
+  body: saveUpsellConfigBodySchema,
+  responses: {
+    200: {
+      description: "Saved upsell config",
+      content: jsonContent(SuccessResponseSchema(StoreUpsellConfigSchema)),
+    },
+  },
+  handler: handlers.saveUpsellConfig,
 });
 
 // ─── WhatsApp OTP verification config (dzverify) ──────────────────────────────
@@ -353,6 +405,8 @@ router.openapi(getMyStoreRoute.route, getMyStoreRoute.handler);
 router.openapi(updateMyStoreRoute.route, updateMyStoreRoute.handler);
 router.openapi(getPixelConfigRoute.route, getPixelConfigRoute.handler);
 router.openapi(savePixelConfigRoute.route, savePixelConfigRoute.handler);
+router.openapi(getUpsellConfigRoute.route, getUpsellConfigRoute.handler);
+router.openapi(saveUpsellConfigRoute.route, saveUpsellConfigRoute.handler);
 router.openapi(getOtpConfigRoute.route, getOtpConfigRoute.handler);
 router.openapi(saveOtpConfigRoute.route, saveOtpConfigRoute.handler);
 router.openapi(testOtpConfigRoute.route, testOtpConfigRoute.handler);

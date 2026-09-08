@@ -593,6 +593,12 @@ export const products = sqliteTable("products", {
   status: text("status", { enum: ["DRAFT", "ACTIVE", "ARCHIVED"] }).notNull().default("ACTIVE"),
   showInStore: integer("show_in_store", { mode: "boolean" }).notNull().default(true),
   storeFeatured: integer("store_featured", { mode: "boolean" }).notNull().default(false),
+  /**
+   * Upsell product marker. Upsell products never appear in the standalone
+   * catalog; they surface as offers on another product's page/checkout.
+   * Storefront visibility still requires showInStore = true.
+   */
+  isUpsell: integer("is_upsell", { mode: "boolean" }).notNull().default(false),
   deletedAt: text("deleted_at"),
   publishedAt: text("published_at"),
   /**
@@ -644,6 +650,36 @@ export const productImages = sqliteTable("product_images", {
   updatedAt: text("updated_at").notNull(),
 });
 
+/**
+ * Upsell assignments: product → upsell product offers shown at checkout.
+ * The effective price is `price` (override) when set, else the upsell
+ * product's own `products.price`. Same for `compareAtPrice`.
+ * Assignments must pair distinct products (product_id !== upsell_product_id).
+ */
+export const productUpsells = sqliteTable("product_upsells", {
+  id: text("id").primaryKey(),
+  productId: text("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  upsellProductId: text("upsell_product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  /** Integer DZD override; null = use the upsell product's own price. */
+  price: integer("price"),
+  /** Integer DZD override; null = use the upsell product's own compare_at_price. */
+  compareAtPrice: integer("compare_at_price"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  position: integer("position").notNull().default(1),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export type ProductUpsell = typeof productUpsells.$inferSelect;
+
+/** One assignment per (product, upsell) pair. */
+export const productUpsellsProductIdIndex = uniqueIndex("product_upsells_product_id_upsell_product_id_idx")
+  .on(productUpsells.productId, productUpsells.upsellProductId);
+
 /** Status lifecycle value for orders — derived from the column enum. */
 export type OrderStatus = (typeof orders.$inferSelect)["status"];
 
@@ -673,6 +709,14 @@ export const orderProducts = sqliteTable("order_products", {
     .default("fulfilled"),
   /** Units the customer refused at the door. 0 when status = fulfilled. */
   returnedQuantity: integer("returned_quantity").notNull().default(0),
+  /**
+   * Upsell line flag. Set for order_products rows added at checkout as
+   * upsell offers. Upsell lines coexist alongside the parent line they
+   * belong to.
+   */
+  isUpsell: integer("is_upsell", { mode: "boolean" }).notNull().default(false),
+  /** Self-reference: id of the parent (non-upsell) order_product row. Physical FK lives in migrations. */
+  upsellOfId: text("upsell_of_id"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -1134,6 +1178,25 @@ export const storeOtpConfig = sqliteTable("store_otp_config", {
   /** WhatsApp message language for OTP sends: en | fr | ar. */
   language: text("language", { enum: ["en", "fr", "ar"] }).notNull().default("ar"),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/**
+ * Per-store upsell checkout placement configuration.
+ * One row per store. No row = upsell offers disabled at checkout (safe default).
+ * Defaults-on apply only once a row exists (mirrors store_otp_config).
+ */
+export const storeUpsellConfig = sqliteTable("store_upsell_config", {
+  id: text("id").primaryKey(),
+  storeId: text("store_id")
+    .notNull()
+    .unique()
+    .references(() => stores.id, { onDelete: "cascade" }),
+  /** Show the inline upsell block above the place-order button. */
+  showInInlineCheckout: integer("show_in_inline_checkout", { mode: "boolean" }).notNull().default(true),
+  /** Show the upsell offer in the order-confirmation modal. */
+  showInConfirmModal: integer("show_in_confirm_modal", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

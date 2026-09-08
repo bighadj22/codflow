@@ -107,6 +107,7 @@ export {
   OfferSchema,
   UploadedImageSchema,
   PresignedUploadSchema,
+  ProductUpsellSchema,
 } from "./schemas/products";
 
 // ─── Store & Storefront ───────────────────────────────────────────────────────
@@ -119,7 +120,9 @@ export {
   StoreProductListSchema,
   StoreOfferSummarySchema,
   StoreProductDetailSchema,
+  StorefrontUpsellOfferSchema,
   StoreConfigSchema,
+  StoreUpsellConfigSchema,
 } from "./schemas/store";
 
 // ─── Orders ───────────────────────────────────────────────────────────────────

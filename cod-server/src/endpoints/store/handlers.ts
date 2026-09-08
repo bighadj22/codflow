@@ -74,7 +74,8 @@ export async function createStoreOrder(c: Context<AppContext>) {
     db,
     data.productId,
     data.variantId,
-    data.variantSelections
+    data.variantSelections,
+    data.upsells
   );
   if (skuMissing) {
     throw new BusinessLogicError(
@@ -89,6 +90,7 @@ export async function createStoreOrder(c: Context<AppContext>) {
     variantId: data.variantId ?? null,
     variantSelections: data.variantSelections ?? [],
     quantity: data.quantity,
+    upsells: data.upsells ?? [],
   });
   if (stockError) {
     throw new BusinessLogicError(stockError, ERROR_CODES.INSUFFICIENT_STOCK);

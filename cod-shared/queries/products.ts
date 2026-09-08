@@ -14,6 +14,7 @@ export interface ProductFilters {
   categoryId?: string;
   status?: "DRAFT" | "ACTIVE" | "ARCHIVED";
   visibility?: boolean;
+  isUpsell?: boolean;
   search?: string;
   limit?: number;
   offset?: number;
@@ -39,6 +40,7 @@ export interface CreateProductData {
   status: "DRAFT" | "ACTIVE" | "ARCHIVED";
   showInStore: boolean;
   storeFeatured: boolean;
+  isUpsell?: boolean;
   shippingProfileId?: string | null;
 }
 
@@ -62,6 +64,7 @@ export interface UpdateProductData {
   status?: "DRAFT" | "ACTIVE" | "ARCHIVED";
   showInStore?: boolean;
   storeFeatured?: boolean;
+  isUpsell?: boolean;
   shippingProfileId?: string | null;
 }
 
@@ -124,6 +127,7 @@ export async function getAllProducts(db: AppDb, filters?: ProductFilters) {
   if (filters?.categoryId) conditions.push(eq(products.categoryId, filters.categoryId) as any);
   if (filters?.status) conditions.push(eq(products.status, filters.status) as any);
   if (filters?.visibility !== undefined) conditions.push(eq(products.visibility, filters.visibility) as any);
+  if (filters?.isUpsell !== undefined) conditions.push(eq(products.isUpsell, filters.isUpsell) as any);
   if (filters?.search) {
     const term = `%${safeLikeTerm(filters.search)}%`;
     conditions.push(or(
@@ -221,6 +225,7 @@ export async function createProduct(db: AppDb, data: CreateProductData) {
     status: data.status,
     showInStore: data.showInStore,
     storeFeatured: data.storeFeatured,
+    isUpsell: data.isUpsell ?? false,
     shippingProfileId: data.shippingProfileId ?? null,
     deletedAt: null,
     publishedAt: data.status === "ACTIVE" ? now : null,
@@ -256,6 +261,7 @@ export async function updateProduct(db: AppDb, productId: string, data: UpdatePr
   }
   if (data.showInStore !== undefined) updates.showInStore = data.showInStore;
   if (data.storeFeatured !== undefined) updates.storeFeatured = data.storeFeatured;
+  if (data.isUpsell !== undefined) updates.isUpsell = data.isUpsell;
   if (data.shippingProfileId !== undefined) updates.shippingProfileId = data.shippingProfileId ?? null;
 
   const statements: BatchStatement[] = [
