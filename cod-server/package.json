@@ -15,6 +15,7 @@
     "db:seed:remote": "node scripts/seed-local.mjs --remote",
     "db:setup:remote": "npm run db:migrate:remote && npm run db:seed:remote",
     "db:validate": "npx tsx scripts/validate-migration.ts",
+    "setup:r2": "node scripts/setup-r2.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest --run",
     "test:watch": "vitest",

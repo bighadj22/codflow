@@ -65,3 +65,22 @@ export function getCloudEnv() {
     mediaDomain: merged.COD_MEDIA_DOMAIN,
   };
 }
+/**
+ * R2 API-token credentials for the storage scripts. Kept separate from
+ * getCloudEnv() so secrets never ride along in the resource-value object.
+ * Precedence: process.env > .env. Account id falls back to COD_ACCOUNT_ID.
+ */
+export function getR2Credentials() {
+  let fileEnv = {};
+  try {
+    fileEnv = parseEnv(readFileSync(ROOT + ".env", "utf8"));
+  } catch {
+    // No .env file present — rely on process.env below.
+  }
+  const pick = (key) => process.env[key] || fileEnv[key] || "";
+  return {
+    accountId: pick("CF_ACCOUNT_ID") || pick("COD_ACCOUNT_ID"),
+    accessKeyId: pick("R2_ACCESS_KEY_ID"),
+    secretAccessKey: pick("R2_SECRET_ACCESS_KEY"),
+  };
+}
