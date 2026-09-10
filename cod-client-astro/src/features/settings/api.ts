@@ -8,7 +8,9 @@ import type {
   SaveEmailConfigData,
   SaveOtpConfigData,
   SavePixelConfigData,
+  SaveTurnstileConfigData,
   StoreConfig,
+  TurnstileConfig,
   UpdateStoreData,
 } from "./types";
 
@@ -51,6 +53,14 @@ export async function saveOtpConfig(data: SaveOtpConfigData) {
 
 export async function testOtpConnection(apiKey?: string) {
   return (await apiFetch<DataEnvelope<OtpConnectionCheck>>("/api/stores/otp-config/test", json({ method: "POST", body: JSON.stringify(apiKey ? { apiKey } : {}) }))).data;
+}
+
+export async function getTurnstileConfig() {
+  return (await apiFetch<DataEnvelope<TurnstileConfig | null>>("/api/stores/turnstile-config")).data;
+}
+
+export async function saveTurnstileConfig(data: SaveTurnstileConfigData) {
+  return (await apiFetch<DataEnvelope<TurnstileConfig>>("/api/stores/turnstile-config", json({ method: "POST", body: JSON.stringify(data) }))).data;
 }
 
 export async function getEmailConfig() {

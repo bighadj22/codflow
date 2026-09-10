@@ -121,6 +121,8 @@ export const ar: StoreFrontContent = {
   otpErrorExpired: "انتهت صلاحية الرمز — اطلب رمزاً جديداً",
   otpErrorRate: "طلبت رموزاً كثيرة — انتظر قليلاً ثم أعد المحاولة",
   otpErrorGeneric: "تعذر إرسال الرمز — أعد المحاولة",
+  turnstileErrorFailed: "فشل التحقق الأمني — أعد إرسال الطلب",
+  turnstileVerifying: "جارٍ التحقق الأمني — الرجاء الانتظار…",
 
   // ── Order summary ─────────────────────────────────────────────────────────
   qtyLabel: "الكمية",

@@ -18,6 +18,8 @@ vi.mock("@/lib/capi", () => ({ sendCapiEvent: vi.fn(async () => ({ success: true
 // OTP verification defaults to disabled in these fixtures — the gate must be
 // inert (no config row), exactly like a store that never enabled the feature.
 vi.mock("../../../../cod-shared/queries/otp-config");
+// Same for the Turnstile gate — no config row = feature inert.
+vi.mock("../../../../cod-shared/queries/turnstile-config");
 
 const NOW = new Date().toISOString();
 

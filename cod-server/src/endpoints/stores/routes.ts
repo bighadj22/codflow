@@ -237,6 +237,69 @@ const testOtpConfigRoute = defineRoute({
   handler: handlers.testOtpConnection,
 });
 
+// ─── Cloudflare Turnstile config (checkout bot protection) ───────────────────
+
+const turnstileConfigResponse = z.object({
+  success: z.boolean(),
+  data: z
+    .object({
+      siteKey: z.string().openapi({
+        description: "Public widget site key — rendered into storefront HTML.",
+        example: "0x4AAAAAAAxxxxxxxxxxxx",
+      }),
+      enabled: z.boolean(),
+      secretKeyMasked: z.string().openapi({ example: "••••a9f2" }),
+      createdAt: z.string().datetime(),
+      updatedAt: z.string().datetime(),
+    })
+    .nullable(),
+});
+
+const saveTurnstileConfigBodySchema = z.object({
+  siteKey: z.string().default("").openapi({
+    description:
+      "Public Turnstile site key. Empty string keeps the previously stored value.",
+  }),
+  secretKey: z.string().default("").openapi({
+    description:
+      "Siteverify secret key. Empty string keeps the previously stored secret " +
+      "(the secret is never sent back to the client).",
+  }),
+  enabled: z.boolean().optional(),
+});
+
+const getTurnstileConfigRoute = defineRoute({
+  method: "get",
+  path: "/turnstile-config",
+  auth: { scope: SCOPES.SETTINGS_VERIFICATION },
+  tags: ["Store Settings"],
+  summary: "Get Cloudflare Turnstile configuration",
+  description:
+    "Returns the store's Turnstile configuration, or `null` when never configured (bot protection disabled). The secret key is never returned — only a masked hint.",
+  operationId: "getTurnstileConfig",
+  responses: {
+    200: { description: "Turnstile configuration (null when not configured)", content: jsonContent(turnstileConfigResponse) },
+  },
+  handler: handlers.getTurnstileConfig,
+});
+
+const saveTurnstileConfigRoute = defineRoute({
+  method: "post",
+  path: "/turnstile-config",
+  auth: { scope: SCOPES.SETTINGS_VERIFICATION },
+  tags: ["Store Settings"],
+  summary: "Save Cloudflare Turnstile configuration",
+  description:
+    "Upserts the store's Turnstile configuration. Empty `siteKey`/`secretKey` keep the stored values. Enabling requires both keys. No row = Turnstile disabled (safe default).",
+  operationId: "saveTurnstileConfig",
+  body: saveTurnstileConfigBodySchema,
+  responses: {
+    200: { description: "Saved Turnstile configuration", content: jsonContent(turnstileConfigResponse) },
+    400: { description: "Site/secret key missing (REQUIRED_FIELD_MISSING)" },
+  },
+  handler: handlers.saveTurnstileConfig,
+});
+
 // ─── Sendili transactional email config ──────────────────────────────────────
 
 const emailConfigResponse = z.object({
@@ -356,6 +419,8 @@ router.openapi(savePixelConfigRoute.route, savePixelConfigRoute.handler);
 router.openapi(getOtpConfigRoute.route, getOtpConfigRoute.handler);
 router.openapi(saveOtpConfigRoute.route, saveOtpConfigRoute.handler);
 router.openapi(testOtpConfigRoute.route, testOtpConfigRoute.handler);
+router.openapi(getTurnstileConfigRoute.route, getTurnstileConfigRoute.handler);
+router.openapi(saveTurnstileConfigRoute.route, saveTurnstileConfigRoute.handler);
 router.openapi(getEmailConfigRoute.route, getEmailConfigRoute.handler);
 router.openapi(saveEmailConfigRoute.route, saveEmailConfigRoute.handler);
 router.openapi(testEmailConfigRoute.route, testEmailConfigRoute.handler);

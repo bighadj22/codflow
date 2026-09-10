@@ -34,6 +34,10 @@ export interface StoreConfig {
   announcementBar: string | null;
   reviewsEnabled: boolean;
   otpEnabled: boolean;
+  /** Cloudflare Turnstile — true only when a store_turnstile_config row exists AND is enabled. */
+  turnstileEnabled: boolean;
+  /** Public widget site key; null when Turnstile is disabled. The secret never leaves cod-server. */
+  turnstileSiteKey: string | null;
   status: "active" | "inactive";
   pixelId?: string | null;
   conversionEvent?: "Purchase" | "Purchase_Confirmed" | "Purchase_Delivered" | "Lead" | null;

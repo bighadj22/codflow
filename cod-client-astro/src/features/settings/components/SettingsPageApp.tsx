@@ -15,6 +15,7 @@ import { SeoSettings } from "@/features/settings/components/SeoSettings";
 import { ReviewsSettings } from "@/features/settings/components/ReviewsSettings";
 import { TrackingSettings } from "@/features/settings/components/TrackingSettings";
 import { VerificationSettings } from "@/features/settings/components/VerificationSettings";
+import { TurnstileSettings } from "@/features/settings/components/TurnstileSettings";
 import { EmailSettings } from "@/features/settings/components/EmailSettings";
 import { ApiSettings } from "@/features/settings/components/ApiSettings";
 
@@ -97,7 +98,12 @@ function SettingsContent() {
       case "analytics":
         return <TrackingSettings />;
       case "verification":
-        return <VerificationSettings />;
+        return (
+          <div className="space-y-6">
+            <VerificationSettings />
+            <TurnstileSettings />
+          </div>
+        );
       case "email":
         return <EmailSettings />;
       case "api":

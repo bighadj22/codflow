@@ -97,7 +97,7 @@ export const SCOPES = {
   SETTINGS_INTEGRATIONS: "settings:integrations",
   /** Manage notification templates */
   SETTINGS_NOTIFICATIONS: "settings:notifications",
-  /** Manage WhatsApp OTP verification settings (dzverify key, enable/disable) */
+  /** Manage WhatsApp OTP verification settings (dzverify key, enable/disable) and checkout Turnstile bot protection (site/secret keys, enable/disable) */
   SETTINGS_VERIFICATION: "settings:verification",
   /** Manage transactional email sending settings (Sendili key, sender address, enable/disable) */
   SETTINGS_EMAIL: "settings:email",

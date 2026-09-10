@@ -99,6 +99,21 @@ export interface OtpConnectionCheck {
   outOfCredits?: boolean;
 }
 
+/** Cloudflare Turnstile checkout bot-protection configuration. Absent until first saved — null = disabled. */
+export interface TurnstileConfig {
+  siteKey: string;
+  enabled: boolean;
+  secretKeyMasked: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SaveTurnstileConfigData {
+  siteKey?: string;
+  secretKey?: string;
+  enabled?: boolean;
+}
+
 /** Sendili transactional email configuration. Absent until first saved — null = disabled. */
 export interface EmailConfig {
   fromEmail: string;

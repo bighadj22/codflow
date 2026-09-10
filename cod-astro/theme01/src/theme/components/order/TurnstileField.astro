@@ -1,0 +1,58 @@
+---
+/**
+ * Cloudflare Turnstile field for the checkout form (theme layer).
+ *
+ * Rendered only when the store enables Turnstile — hidden otherwise, and the
+ * widget script never loads. Managed widget with `interaction-only`
+ * appearance: invisible during normal checkout, a checkbox only when
+ * Cloudflare's risk engine demands one. The widget injects its single-use
+ * token into a hidden input named `turnstileToken`, which rides the native
+ * form POST (same path as otpToken/fbc/fbp).
+ *
+ * Callbacks (success / expire / error / timeout) are window functions
+ * installed by src/theme/scripts/turnstile-field.ts — referenced by name so
+ * the bundled module only needs to exist before the widget fires those
+ * events. `retry: auto` lets transient widget failures self-heal.
+ */
+import { Icon } from "astro-icon/components";
+import type { StoreFrontContent } from "@/theme/config/content";
+
+interface Props {
+  siteKey: string;
+  content: StoreFrontContent;
+}
+
+const { siteKey, content } = Astro.props;
+
+const turnstileStrings = JSON.stringify({
+  turnstileErrorFailed: content.turnstileErrorFailed,
+  turnstileVerifying: content.turnstileVerifying,
+});
+---
+
+<div id="turnstile-field" data-strings={turnstileStrings}>
+  <div
+    id="turnstile-error"
+    class="hidden p-4 bg-red-50 border border-red-100 rounded-[1.25rem] text-[0.875rem] font-bold text-red-600 flex items-start gap-3"
+    role="alert"
+  >
+    <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 shrink-0" />
+    <p></p>
+  </div>
+  <div
+    class="cf-turnstile"
+    data-sitekey={siteKey}
+    data-theme="auto"
+    data-appearance="interaction-only"
+    data-action="place-order"
+    data-response-field-name="turnstileToken"
+    data-retry="auto"
+    data-callback="__codflowTurnstileSuccess"
+    data-expired-callback="__codflowTurnstileExpired"
+    data-error-callback="__codflowTurnstileError"
+    data-timeout-callback="__codflowTurnstileTimeout"
+  >
+  </div>
+</div>
+
+<script is:inline async defer src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>

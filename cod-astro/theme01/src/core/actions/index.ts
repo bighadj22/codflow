@@ -65,6 +65,13 @@ export const server = {
         (v) => (v === "" || v == null ? undefined : v),
         z.string().min(10).max(1024).optional()
       ),
+      // Cloudflare Turnstile proof — auto-injected by the widget's hidden input
+      // when the store enables bot protection. Absent when disabled (additive).
+      // Tokens are single-use, max 2048 chars, and expire after 300 seconds.
+      turnstileToken: z.preprocess(
+        (v) => (v === "" || v == null ? undefined : v),
+        z.string().min(1).max(2048).optional()
+      ),
       // Landing page attribution — best-effort: unknown/draft slug leaves
       // the order unattributed, never blocked (platform extension, LP feature).
       landingPageSlug: z.preprocess(
@@ -104,6 +111,7 @@ export const server = {
         fbc: input.fbc,
         fbp: input.fbp,
         otpToken: input.otpToken,
+        turnstileToken: input.turnstileToken,
         landingPageSlug: input.landingPageSlug,
       }, forwardedHeaders);
 

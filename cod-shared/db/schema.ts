@@ -1259,6 +1259,29 @@ export const storeEmailConfig = sqliteTable("store_email_config", {
 });
 
 /**
+ * Per-store Cloudflare Turnstile configuration (checkout bot protection).
+ * One row per store. No row = Turnstile disabled (safe default).
+ * Kept separate from `stores` — checkout bot protection is a distinct concern,
+ * and the secret key is merchant integration config (like the dzverify/Sendili
+ * keys), never a worker secret. The site key is public by design (it is
+ * rendered into storefront HTML); the secret key never leaves the server.
+ */
+export const storeTurnstileConfig = sqliteTable("store_turnstile_config", {
+  id: text("id").primaryKey(),
+  storeId: text("store_id")
+    .notNull()
+    .unique()
+    .references(() => stores.id, { onDelete: "cascade" }),
+  /** Public widget site key — safe to expose to the storefront. */
+  siteKey: text("site_key").notNull(),
+  /** Server-side siteverify secret — never returned to any client. */
+  secretKey: text("secret_key").notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/**
  * Audit log for every CAPI event attempt sent by CodCapiWorkflow.
  * status: 'sent' | 'failed' | 'skipped'
  * metaEventId: fbtrace_id from Meta response (present on success only).

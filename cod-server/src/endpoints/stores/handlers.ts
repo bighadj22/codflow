@@ -7,6 +7,7 @@ import { NotFoundError, SystemError, ValidationError, ExternalApiError } from "@
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 import { getPixelConfig as queryPixelConfig, upsertPixelConfig } from "../../../../cod-shared/queries/pixel-config";
 import { getOtpConfigRaw, upsertOtpConfig } from "../../../../cod-shared/queries/otp-config";
+import { getTurnstileConfigRaw, upsertTurnstileConfig } from "../../../../cod-shared/queries/turnstile-config";
 import { getEmailConfigRaw, upsertEmailConfig } from "../../../../cod-shared/queries/email-config";
 import { createDzverifyClient, DzverifyError, DZVERIFY_ERRORS } from "@/endpoints/store-otp/dzverify";
 import { createSendiliClient, SendiliError, SENDILI_ERRORS } from "../../../../cod-shared/lib/sendili";
@@ -237,6 +238,77 @@ export async function testOtpConnection(c: Context<AppContext>) {
     }
     throw new ExternalApiError("dzverify", err instanceof Error ? err.message : "Connection check failed");
   }
+}
+
+// ─── Cloudflare Turnstile config (checkout bot protection) ────────────────────
+
+const turnstileConfigSchema = z.object({
+  /** Empty string = keep the existing stored value (the secret never round-trips to clients). */
+  siteKey: z.string().default(""),
+  secretKey: z.string().default(""),
+  enabled: z.boolean().optional(),
+});
+
+export async function getTurnstileConfig(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const store = await queries.getStore(db);
+  if (!store) throw new NotFoundError("Store");
+
+  const raw = await getTurnstileConfigRaw(db, store.id);
+  if (!raw) return c.json({ success: true, data: null }, 200);
+
+  return c.json(
+    {
+      success: true,
+      data: {
+        siteKey: raw.siteKey,
+        enabled: raw.enabled,
+        secretKeyMasked: maskApiKey(raw.secretKey),
+        createdAt: raw.createdAt,
+        updatedAt: raw.updatedAt,
+      },
+    },
+    200
+  );
+}
+
+export async function saveTurnstileConfig(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const store = await queries.getStore(db);
+  if (!store) throw new NotFoundError("Store");
+
+  const jsonBody: any = (c.req as any).valid?.("json");
+  const validated = jsonBody ?? turnstileConfigSchema.parse(await c.req.json());
+
+  const existing = await getTurnstileConfigRaw(db, store.id);
+  const siteKey = validated.siteKey.trim() || existing?.siteKey || "";
+  const secretKey = validated.secretKey.trim() || existing?.secretKey || "";
+  if (!siteKey || !secretKey) {
+    throw new ValidationError(
+      "Both the Turnstile site key and secret key are required to enable checkout bot protection",
+      ERROR_CODES.REQUIRED_FIELD_MISSING
+    );
+  }
+
+  const result = await upsertTurnstileConfig(db, store.id, {
+    siteKey,
+    secretKey,
+    enabled: validated.enabled,
+  });
+
+  return c.json(
+    {
+      success: true,
+      data: {
+        siteKey: result.siteKey,
+        enabled: result.enabled,
+        secretKeyMasked: maskApiKey(secretKey),
+        createdAt: result.createdAt,
+        updatedAt: result.updatedAt,
+      },
+    },
+    200
+  );
 }
 
 // ─── Sendili transactional email config ──────────────────────────────────────

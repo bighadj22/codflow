@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- checkout: optional per-store Cloudflare Turnstile bot protection on the
+  order form (migration 0024 + `store_turnstile_config`), enabled from
+  Dashboard → Settings → Verification with the merchant's own site/secret
+  keys; token verified server-side against
+  `challenges.cloudflare.com/turnstile/v0/siteverify` (fail-open on provider
+  outage); see `docs/TURNSTILE.md`
+
 - delivery: per-carrier delivery-zone name sync — `carrier_wilayas` /
   `carrier_communes` tables (migration 0021) + `POST
   /api/delivery-companies/:id/sync-geo` + dashboard "Sync Delivery Zones"

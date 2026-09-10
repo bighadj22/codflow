@@ -130,6 +130,8 @@ const jsonLd = getProductJsonLd(product, basePrice);
         defaultVariantId={defaultVariantId}
         isOutOfStock={isOutOfStock}
         otpEnabled={config.otpEnabled === true}
+        turnstileEnabled={config.turnstileEnabled === true}
+        turnstileSiteKey={config.turnstileSiteKey ?? null}
       />
     </div>
   </div>

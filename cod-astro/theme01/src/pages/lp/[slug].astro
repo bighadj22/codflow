@@ -151,6 +151,8 @@ const metaDescription = lp.metaDescription || config.metaDescription || undefine
             defaultVariantId={defaultVariantId}
             isOutOfStock={isOutOfStock}
             otpEnabled={config.otpEnabled === true}
+            turnstileEnabled={config.turnstileEnabled === true}
+            turnstileSiteKey={config.turnstileSiteKey ?? null}
             landingPageSlug={lp.slug}
           />
         </div>
@@ -179,6 +181,7 @@ const metaDescription = lp.metaDescription || config.metaDescription || undefine
 <script src="../../theme/scripts/product.ts"></script>
 <script src="../../theme/scripts/lp-sticky-cta.ts"></script>
 <script src="../../theme/scripts/otp-step.ts"></script>
+<script src="../../theme/scripts/turnstile-field.ts"></script>
 
 <style>
   /* Sticky CTA — floats above the image stack until the form scrolls into
