@@ -120,6 +120,10 @@ export interface StoreFrontContent {
   otpErrorRate: string;
   otpErrorGeneric: string;
 
+  // ── Cloudflare Turnstile (checkout bot protection) ─────────────────────────
+  turnstileErrorFailed: string;
+  turnstileVerifying: string;
+
   // ── Order summary ──────────────────────────────────────────────────────────
   qtyLabel: string;
   qtyUnit: string;

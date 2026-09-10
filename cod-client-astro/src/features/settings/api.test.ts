@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const seam = vi.hoisted(() => ({ apiFetch: vi.fn() }));
 vi.mock("@/lib/api", () => ({ apiFetch: seam.apiFetch }));
 
-import { getMyStore, getPixelConfig, getEmailConfig, saveEmailConfig, savePixelConfig, testEmailConnection, updateMyStore } from "./api";
+import { getMyStore, getPixelConfig, getEmailConfig, saveEmailConfig, savePixelConfig, testEmailConnection, updateMyStore, getTurnstileConfig, saveTurnstileConfig } from "./api";
 
 describe("settings API adapters", () => {
   beforeEach(() => {
@@ -33,6 +33,25 @@ describe("settings API adapters", () => {
     seam.apiFetch.mockResolvedValue({ success: true, data: config });
     await expect(savePixelConfig({ pixelId: "123", accessToken: "EAAG", conversionEvent: "Purchase", enabled: true })).resolves.toEqual(config);
     expect(seam.apiFetch).toHaveBeenCalledWith("/api/stores/pixel-config", expect.objectContaining({ method: "POST", body: JSON.stringify({ pixelId: "123", accessToken: "EAAG", conversionEvent: "Purchase", enabled: true }) }));
+  });
+
+  it("reads the turnstile config (null when absent) and upserts it", async () => {
+    seam.apiFetch.mockResolvedValue({ success: true, data: null });
+    await expect(getTurnstileConfig()).resolves.toBeNull();
+    expect(seam.apiFetch).toHaveBeenCalledWith("/api/stores/turnstile-config");
+
+    const config = { siteKey: "0x4AAA-site", enabled: true, secretKeyMasked: "••••cret", createdAt: "t", updatedAt: "t2" };
+    seam.apiFetch.mockResolvedValue({ success: true, data: config });
+    await expect(
+      saveTurnstileConfig({ siteKey: "0x4AAA-site", secretKey: "0x4AAA-secret", enabled: true })
+    ).resolves.toEqual(config);
+    expect(seam.apiFetch).toHaveBeenCalledWith(
+      "/api/stores/turnstile-config",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ siteKey: "0x4AAA-site", secretKey: "0x4AAA-secret", enabled: true }),
+      })
+    );
   });
 
   it("reads the email config (null when absent) and upserts it", async () => {

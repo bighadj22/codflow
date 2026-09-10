@@ -84,6 +84,7 @@ CodFlow v1.1.0 — here's what works today:
 - ✅ Trilingual: Arabic (RTL), French, English
 - ✅ Abandoned cart telemetry for recovery campaigns
 - ✅ Optional WhatsApp phone verification at checkout ([DZVerify](https://dzverify.com), off by default)
+- ✅ Optional Cloudflare Turnstile bot protection on the checkout form ([Turnstile](https://www.cloudflare.com/products/turnstile/), off by default)
 
 ### Merchant Dashboard (`cod-client-astro`)
 - ✅ Order management with full COD lifecycle tracking
@@ -342,6 +343,7 @@ astro check + tests for theme01.
 | **[docs/CONFIGURATION.md](./docs/CONFIGURATION.md)** | All environment variables and configs |
 | **[docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md)** | Incomplete features and platform constraints |
 | **[docs/WHATSAPP-OTP-VERIFICATION.md](./docs/WHATSAPP-OTP-VERIFICATION.md)** | WhatsApp OTP verification feature |
+| **[docs/TURNSTILE.md](./docs/TURNSTILE.md)** | Cloudflare Turnstile checkout bot protection |
 | **[docs/EMAIL-SENDING.md](./docs/EMAIL-SENDING.md)** | Transactional email feature (Sendili) |
 | **[CONTRIBUTING.md](./CONTRIBUTING.md)** | Development standards and PR workflow |
 | **[AGENTS.md](./AGENTS.md)** | Repository instructions for AI coding assistants |
@@ -367,6 +369,7 @@ astro check + tests for theme01.
 - ✅ **Landing Pages** — one-product marketing pages (image stack + COD order form) with the Studio builder, per-link stats, A/B comparison, order attribution, and 7 MCP tools
 - ✅ **Astro Dashboard** — the merchant dashboard now runs on Astro (was Next.js)
 - ✅ **WhatsApp OTP Verification** — [DZVerify.com](https://dzverify.com) phone verification at checkout
+- ✅ **Cloudflare Turnstile** — optional per-store bot protection on the checkout form (off by default)
 - ✅ **EcoTrack Integration** — 80+ Algerian couriers behind one API
 - ✅ **Transactional Email (Sendili)** — [Sendili.com](https://sendili.com) powers team-invite emails and password-reset emails; merchants configure their API key and verified sending domain in Settings → Email Sending
 

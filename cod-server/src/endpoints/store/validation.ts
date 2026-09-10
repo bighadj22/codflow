@@ -47,6 +47,13 @@ export const storeOrderSchema = z.object({
     (v) => (v === "" || v == null ? undefined : v),
     z.string().min(10).max(1024).optional()
   ),
+  // Cloudflare Turnstile widget proof. Required only when the store has
+  // Turnstile enabled; verified server-side against the siteverify API
+  // (tokens are single-use, max 2048 chars, expire after 300 seconds).
+  turnstileToken: z.preprocess(
+    (v) => (v === "" || v == null ? undefined : v),
+    z.string().min(1).max(2048).optional()
+  ),
   // Per-unit variant selections (JSON string parsed from hidden form input).
   // When present, overrides variantId/variantLabel for multi-unit orders.
   // Shape after parse: [{variantId, variantLabel?}] — one entry per ordered unit.

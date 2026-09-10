@@ -19,6 +19,7 @@ vi.mock("./queries");
 vi.mock("../../../../cod-shared/queries/otp-config", () => ({
   getOtpConfigRaw: vi.fn(async () => undefined),
 }));
+vi.mock("../../../../cod-shared/queries/turnstile-config");
 
 function orderBody(overrides: Record<string, unknown> = {}) {
   return {

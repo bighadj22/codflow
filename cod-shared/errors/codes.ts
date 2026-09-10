@@ -110,7 +110,15 @@ export const ERROR_CODES = {
   OTP_QUOTA_EXHAUSTED: "OTP_QUOTA_EXHAUSTED",
   /** dzverify rate limit hit — retry after the window in context. */
   OTP_RATE_LIMITED: "OTP_RATE_LIMITED",
-  
+
+  // ============================================================================
+  // BUSINESS LOGIC ERRORS - STOREFRONT TURNSTILE (checkout bot protection)
+  // ============================================================================
+  /** Order submission carried no Turnstile token while Turnstile is enabled. */
+  TURNSTILE_VERIFICATION_REQUIRED: "TURNSTILE_VERIFICATION_REQUIRED",
+  /** Turnstile token failed siteverify (invalid, expired, or already redeemed). */
+  TURNSTILE_TOKEN_INVALID: "TURNSTILE_TOKEN_INVALID",
+
   // ============================================================================
   // BUSINESS LOGIC ERRORS - STOCK
   // ============================================================================

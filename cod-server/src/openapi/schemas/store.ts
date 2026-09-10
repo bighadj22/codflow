@@ -325,6 +325,19 @@ export const StoreConfigSchema = z
         "True only when a store_otp_config row exists AND is enabled.",
       example: false,
     }),
+    turnstileEnabled: z.boolean().openapi({
+      description:
+        "When true, storefront checkout requires a Cloudflare Turnstile token that the " +
+        "server verifies against siteverify. True only when a store_turnstile_config row " +
+        "exists AND is enabled.",
+      example: false,
+    }),
+    turnstileSiteKey: z.string().nullable().openapi({
+      description:
+        "Public Turnstile widget site key for rendering the checkout widget. " +
+        "null when Turnstile is disabled. The siteverify secret key is never exposed.",
+      example: "0x4AAAAAAAxxxxxxxxxxxx",
+    }),
     status: z.enum(["active", "inactive"]),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),

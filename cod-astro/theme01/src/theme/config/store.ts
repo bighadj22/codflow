@@ -34,6 +34,8 @@ export const DEFAULT_CONFIG: StoreConfig = {
   announcementBar: null,
   reviewsEnabled: true,
   otpEnabled: false,
+  turnstileEnabled: false,
+  turnstileSiteKey: null,
   status: "active",
   pixelId: null,
   conversionEvent: null,

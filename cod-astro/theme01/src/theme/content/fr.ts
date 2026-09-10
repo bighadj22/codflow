@@ -121,6 +121,8 @@ export const fr: StoreFrontContent = {
   otpErrorExpired: "Ce code a expiré — demandez-en un nouveau",
   otpErrorRate: "Trop de demandes — patientez un instant puis réessayez",
   otpErrorGeneric: "Impossible d'envoyer le code — réessayez",
+  turnstileErrorFailed: "La vérification de sécurité a échoué — réessayez",
+  turnstileVerifying: "Vérification de sécurité en cours — veuillez patienter…",
 
   // ── Order summary ─────────────────────────────────────────────────────────
   qtyLabel: "Quantité",

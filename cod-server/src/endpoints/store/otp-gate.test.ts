@@ -31,6 +31,7 @@ vi.mock("@/workflows/capi-helpers", () => ({
   resolveCapiDispatch: vi.fn(() => ({ send: false, reason: "tracking-disabled", message: "mock skip" })),
 }));
 vi.mock("../../../../cod-shared/queries/otp-config");
+vi.mock("../../../../cod-shared/queries/turnstile-config");
 vi.mock("@/lib/capi", () => ({ sendCapiEvent: vi.fn(async () => undefined) }));
 
 const API_KEY = "dz-gate-key";

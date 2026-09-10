@@ -6,6 +6,7 @@ import { storeOrderSchema, storeReviewSchema } from "./validation";
 import { NotFoundError, ValidationError, ConflictError, BusinessLogicError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 import { assertOtpVerification } from "./otp-gate";
+import { assertTurnstile } from "./turnstile-gate";
 import { getPixelConfig } from "../../../../cod-shared/queries/pixel-config";
 import { resolveConversionForStage, getCapiWorkflowId } from "@/workflows/capi-helpers";
 import { stores } from "../../../../cod-shared/db/schema";
@@ -124,6 +125,10 @@ export async function createStoreOrder(c: Context<AppContext>) {
   const bodyData: any = (c.req as any).valid?.("json");
   const data: import("./validation").StoreOrderInput =
     bodyData ?? storeOrderSchema.parse(await c.req.json());
+
+  // Turnstile bot gate — runs before the SKU/stock lookups so bot traffic is
+  // rejected before spending D1 reads. No-op when the store has it disabled.
+  await assertTurnstile(c, db, data);
 
   const skuMissing = await queries.validateOrderSkus(
     db,

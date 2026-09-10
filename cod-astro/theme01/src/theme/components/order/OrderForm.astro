@@ -9,6 +9,7 @@ import OfferTiers from "./OfferTiers.astro";
 import CustomerFields from "./CustomerFields.astro";
 import OrderSummary from "./OrderSummary.astro";
 import OtpStep from "./OtpStep.astro";
+import TurnstileField from "./TurnstileField.astro";
 
 interface Props {
   product: Product;
@@ -23,11 +24,13 @@ interface Props {
   defaultVariantId: string | null;
   isOutOfStock?: boolean;
   otpEnabled?: boolean;
+  turnstileEnabled?: boolean;
+  turnstileSiteKey?: string | null;
   /** Landing page attribution — rides the form like fbc/fbp (best-effort). */
   landingPageSlug?: string | null;
 }
 
-const { product, content, fieldErrors, serverError, basePrice, defaultVariant, cur, isRTL, offers, defaultVariantId, isOutOfStock = false, otpEnabled = false, landingPageSlug = null } = Astro.props;
+const { product, content, fieldErrors, serverError, basePrice, defaultVariant, cur, isRTL, offers, defaultVariantId, isOutOfStock = false, otpEnabled = false, turnstileEnabled = false, turnstileSiteKey = null, landingPageSlug = null } = Astro.props;
 
 const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ?? null;
 ---
@@ -97,6 +100,10 @@ const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ??
     />
 
     {otpEnabled && <OtpStep content={content} isRTL={isRTL} />}
+
+    {turnstileEnabled && turnstileSiteKey && (
+      <TurnstileField siteKey={turnstileSiteKey} content={content} />
+    )}
 
     <OrderSummary
       product={product}

@@ -26,6 +26,7 @@ import {
   stores,
   storePixelConfig,
   storeOtpConfig,
+  storeTurnstileConfig,
   customers,
   orders,
   orderProducts,
@@ -67,7 +68,7 @@ export interface StoreOrderData {
 export async function getStoreConfig(db: AppDb, storeId: string) {
   const store = await db.select().from(stores).where(eq(stores.id, storeId)).get();
   if (!store) return null;
-  const [pixelRow, otpRow] = await Promise.all([
+  const [pixelRow, otpRow, turnstileRow] = await Promise.all([
     db
       .select({
         pixelId: storePixelConfig.pixelId,
@@ -82,12 +83,21 @@ export async function getStoreConfig(db: AppDb, storeId: string) {
       .from(storeOtpConfig)
       .where(eq(storeOtpConfig.storeId, storeId))
       .get(),
+    // Safe projection only — the site key is public by design; the siteverify
+    // secret must never reach the storefront payload.
+    db
+      .select({ enabled: storeTurnstileConfig.enabled, siteKey: storeTurnstileConfig.siteKey })
+      .from(storeTurnstileConfig)
+      .where(eq(storeTurnstileConfig.storeId, storeId))
+      .get(),
   ]);
   return {
     ...store,
     pixelId: pixelRow?.enabled ? pixelRow.pixelId : null,
     conversionEvent: pixelRow?.enabled ? (pixelRow.conversionEvent as "Purchase" | "Purchase_Confirmed" | "Purchase_Delivered" | "Lead") : "Purchase",
     otpEnabled: otpRow?.enabled === true,
+    turnstileEnabled: turnstileRow?.enabled === true,
+    turnstileSiteKey: turnstileRow?.enabled === true ? turnstileRow.siteKey : null,
   };
 }
 
