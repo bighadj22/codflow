@@ -219,6 +219,16 @@
     "empty_low_desc": "Bon travail ! Aucun de vos produits n'est actuellement en dessous de son seuil d'alerte.",
     "empty_all": "Pas encore d'inventaire",
     "empty_all_desc": "Votre inventaire est vide. Commencez à ajouter des produits pour suivre et gérer vos niveaux de stock.",
-    "empty_action": "Ajouter un premier produit"
+    "empty_action": "Ajouter un premier produit",
+    "search_placeholder": "Rechercher par produit, variante ou SKU…",
+    "sort_label": "Trier par",
+    "sort_quantity": "Quantité",
+    "sort_name": "Nom du produit",
+    "sort_updated": "Dernière mise à jour",
+    "sort_asc": "Ordre croissant",
+    "sort_desc": "Ordre décroissant",
+    "results_count": "SKU",
+    "updated_label": "Mis à jour le",
+    "empty_search_desc": "Aucun SKU ne correspond à cette recherche. Essayez un autre nom de produit, variante ou code SKU."
   }
 }

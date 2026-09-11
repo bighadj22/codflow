@@ -174,8 +174,72 @@ export function groupStockByProduct(items: StockAlertItem[]) {
   return Array.from(map.values());
 }
 
+export type StockGroup = ReturnType<typeof groupStockByProduct>[number];
+
+export type StockSortKey = "inventory" | "name" | "updatedAt";
+
+export const STOCK_SORT_KEYS: StockSortKey[] = ["inventory", "name", "updatedAt"];
+
+export function parseStockSortKey(value: string | null | undefined): StockSortKey {
+  return STOCK_SORT_KEYS.includes(value as StockSortKey) ? (value as StockSortKey) : "inventory";
+}
+
+export function filterStockItems(items: StockAlertItem[], query: string) {
+  const q = query.trim().toLocaleLowerCase();
+  if (!q) return items;
+  return items.filter((item) =>
+    `${item.productName} ${item.variantLabel ?? ""} ${item.sku ?? ""}`.toLocaleLowerCase().includes(q),
+  );
+}
+
+function compareText(left: string, right: string) {
+  return left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
+}
+
+function compareStockItems(left: StockAlertItem, right: StockAlertItem, key: StockSortKey) {
+  if (key === "inventory") return left.inventory - right.inventory;
+  if (key === "updatedAt") return compareText(left.updatedAt, right.updatedAt);
+  return compareText(
+    `${left.productName} ${left.variantLabel ?? ""}`,
+    `${right.productName} ${right.variantLabel ?? ""}`,
+  );
+}
+
+export function sortStockItems(items: StockAlertItem[], key: StockSortKey, direction: "asc" | "desc") {
+  const sign = direction === "asc" ? 1 : -1;
+  return [...items].sort((left, right) => sign * compareStockItems(left, right, key));
+}
+
+export function stockGroupInventory(group: StockGroup) {
+  return group.items.reduce((total, item) => total + item.inventory, 0);
+}
+
+/** Most recent write across the group's SKUs — what "sort by date" ranks a product on. */
+export function stockGroupUpdatedAt(group: StockGroup) {
+  return group.items.reduce((latest, item) => (item.updatedAt > latest ? item.updatedAt : latest), "");
+}
+
+/** Sorts the products and, inside each one, its variant rows by the same key. */
+export function sortStockGroups(groups: StockGroup[], key: StockSortKey, direction: "asc" | "desc") {
+  const sign = direction === "asc" ? 1 : -1;
+  return groups
+    .map((group) => ({ ...group, items: sortStockItems(group.items, key, direction) }))
+    .sort((left, right) => {
+      if (key === "inventory") return sign * (stockGroupInventory(left) - stockGroupInventory(right));
+      if (key === "updatedAt") return sign * compareText(stockGroupUpdatedAt(left), stockGroupUpdatedAt(right));
+      return sign * compareText(left.productName, right.productName);
+    });
+}
+
 export function movementIsStockIn(type: StockMovement["type"]) {
   return ["PURCHASE", "ADJUSTMENT_ADD", "ORDER_CANCELLED", "ORDER_RETURNED"].includes(type);
+}
+
+/** Compact row-sized date for the stock table — "15 Jan 2025". */
+export function formatStockDate(value: string, locale: "ar" | "en" | "fr") {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(locale === "ar" ? "ar-DZ" : `${locale}-DZ`, { year: "numeric", month: "short", day: "numeric" }).format(date);
 }
 
 export function formatProductDate(value: string, locale: "ar" | "en" | "fr") {

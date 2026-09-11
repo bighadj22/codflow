@@ -20,10 +20,12 @@ function skuRow(overrides: Record<string, unknown> = {}): Record<string, unknown
     variant_id: null,
     product_name: "T-Shirt",
     variations: null,
+    sku: "TSHIRT-01",
     inventory: 2,
     low_stock_threshold: 5,
     inventory_value: 3000,
     is_out_of_stock: 0,
+    updated_at: "2025-01-15T10:30:00.000Z",
     ...overrides,
   };
 }
@@ -85,6 +87,25 @@ describe("getStockOverview", () => {
 
     expect(overview.allItems[0].variantLabel).toBeNull();
     expect(overview.allItems[0].variantId).toBeNull();
+  });
+
+  it("carries sku and updatedAt through for search and date sorting", async () => {
+    const db = makeMockDb([
+      a([skuRow({ sku: "TSHIRT-RED-M", updated_at: "2025-03-02T08:00:00.000Z" })]),
+    ]);
+
+    const overview = await getStockOverview(db);
+
+    expect(overview.allItems[0].sku).toBe("TSHIRT-RED-M");
+    expect(overview.allItems[0].updatedAt).toBe("2025-03-02T08:00:00.000Z");
+  });
+
+  it("maps a missing sku to null", async () => {
+    const db = makeMockDb([a([skuRow({ sku: null })])]);
+
+    const overview = await getStockOverview(db);
+
+    expect(overview.allItems[0].sku).toBeNull();
   });
 
   it("returns zeros and empty lists for an empty catalog", async () => {

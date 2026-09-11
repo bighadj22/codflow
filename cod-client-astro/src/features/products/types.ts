@@ -133,9 +133,11 @@ export interface StockAlertItem {
   variantId: string | null;
   productName: string;
   variantLabel: string | null;
+  sku: string | null;
   inventory: number;
   lowStockThreshold: number;
   isOutOfStock: boolean;
+  updatedAt: string;
 }
 
 export interface StockOverview {

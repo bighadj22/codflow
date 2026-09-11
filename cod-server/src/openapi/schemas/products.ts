@@ -282,9 +282,18 @@ export const StockAlertItemSchema = z
         "Concatenated variant option values, e.g. 'Red / M'. Null for simple products.",
       example: "أحمر / M",
     }),
+    sku: z.string().nullable().openapi({
+      description: "SKU code of the tracked row. Null when a simple product has none.",
+      example: "TSHIRT-RED-M",
+    }),
     inventory: z.number().int().openapi({ example: 2 }),
     lowStockThreshold: z.number().int().openapi({ example: 5 }),
     isOutOfStock: z.boolean().openapi({ example: false }),
+    updatedAt: z.string().openapi({
+      description:
+        "Last write to the SKU row — every stock adjustment updates it.",
+      example: "2025-01-15T10:30:00.000Z",
+    }),
   })
   .openapi("StockAlertItem");
 

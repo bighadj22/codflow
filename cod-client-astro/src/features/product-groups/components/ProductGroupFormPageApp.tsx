@@ -9,7 +9,7 @@ import { SCOPES } from "../../../../../cod-shared/rbac/scopes";
 import { createProductGroup, getProductGroup, listProductGroups, updateProductGroup } from "@/features/product-groups/api";
 import { productGroupErrorMessage, toSlug } from "@/features/product-groups/model";
 import type { ProductCategory, ProductCategoryFormValues } from "@/features/product-groups/types";
-import { Button, Alert, PageHeader, Select, Card } from "@/components/ui";
+import { Button, Alert, LinkButton, PageHeader, Select, Card, StickyFormActions } from "@/components/ui";
 import { CategoryImageUploader } from "@/features/product-groups/components/CategoryImageUploader";
 
 const EMPTY_FORM: ProductCategoryFormValues = { name: "", slug: "", description: "", parentId: "", imageUrl: "", metaTitle: "", metaDescription: "", metaKeywords: "" };
@@ -83,8 +83,8 @@ function ProductGroupForm({ groupId }: { groupId?: string }) {
 
   const parentOptions = allGroups.filter((group) => group.id !== groupId);
   const backHref = "/product-groups";
-  return <div className="space-y-5 pb-24 lg:pb-0">
-    <PageHeader title={editing ? t("form.title_edit") : t("form.title_add")} backHref={backHref} backLabel={common("cancel")} actions={<Button type="button" onClick={() => void save()} disabled={busy}><Save size={16} />{busy ? t("form.saving") : t("form.save")}</Button>} />
+  return <div className="space-y-5">
+    <PageHeader title={editing ? t("form.title_edit") : t("form.title_add")} backHref={backHref} backLabel={common("cancel")} />
     {message && <Alert role="alert" tone="critical"><AlertCircle size={18} className="shrink-0" /><span>{message}</span></Alert>}
     <div className="space-y-5">
       <Card title={t("form.title_add")}>
@@ -130,6 +130,10 @@ function ProductGroupForm({ groupId }: { groupId?: string }) {
         </div>
       </Card>
     </div>
+    <StickyFormActions>
+      <LinkButton href={backHref} variant="secondary">{common("cancel")}</LinkButton>
+      <Button type="button" onClick={() => void save()} disabled={busy}><Save size={16} />{busy ? t("form.saving") : t("form.save")}</Button>
+    </StickyFormActions>
   </div>;
 }
 
