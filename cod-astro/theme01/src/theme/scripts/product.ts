@@ -93,6 +93,7 @@ export function initProductPage() {
   /** Maximum quantity allowed by stock; 100 = uncapped */
   let currentVariantMax   = 100;
   let hasStockCap         = false;
+  let latestCommuneRequest = 0;
 
   /**
    * Formats a number for currency display using Algerian locale.
@@ -555,12 +556,14 @@ export function initProductPage() {
    * Uses window.__selectSetLoading / __selectPopulate from Select.astro.
    */
   async function loadCommunes(wilayaId: string) {
+    const requestId = ++latestCommuneRequest;
     if (typeof window.__selectSetLoading === 'function') {
       window.__selectSetLoading("f-commune", true, communeLoading);
     }
     try {
       const res = await fetch(`/api/communes/${wilayaId}`);
       const json = (await res.json()) as { data: Array<{ id: string; name: string; nameAr: string }> };
+      if (requestId !== latestCommuneRequest) return;
       const communes = (json.data ?? []).map((c) => ({
         value: c.id,
         label: isRTL ? c.nameAr : c.name,
@@ -569,6 +572,7 @@ export function initProductPage() {
         window.__selectPopulate("f-commune", communes, communePlaceholder);
       }
     } catch (error) {
+      if (requestId !== latestCommuneRequest) return;
       console.warn('Failed to load communes:', error);
       if (typeof window.__selectPopulate === 'function') {
         window.__selectPopulate("f-commune", [], communePlaceholder);
@@ -582,6 +586,7 @@ export function initProductPage() {
     if (wilayaId) {
       loadCommunes(wilayaId);
     } else {
+      latestCommuneRequest += 1;
       if (typeof window.__selectSetDisabled === 'function') {
         window.__selectSetDisabled("f-commune", communeDisabled);
       }

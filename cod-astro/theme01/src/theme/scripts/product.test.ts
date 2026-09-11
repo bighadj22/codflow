@@ -10,6 +10,7 @@
 /// <reference types="vitest/globals" />
 
 import * as fc from "fast-check";
+import { initProductPage } from "./product.ts";
 
 describe("Property 2: Preservation - Initial Page Load Behavior", () => {
   let container: HTMLElement;
@@ -103,7 +104,6 @@ describe("Property 2: Preservation - Initial Page Load Behavior", () => {
     
     // Call initProductPage directly to simulate what happens on initial page load
     // In the real browser, this is called by the auto-execution block
-    const { initProductPage } = require("./product.ts");
     initProductPage();
     
     return container;
@@ -230,7 +230,6 @@ describe("Property 2: Preservation - Initial Page Load Behavior", () => {
           testContainer.innerHTML = html;
           
           // Simulate initial page load by calling initProductPage
-          const { initProductPage } = require("./product.ts");
           initProductPage();
           
           // Verify: Interactive elements should be functional
@@ -273,7 +272,6 @@ describe("Property 2: Preservation - Initial Page Load Behavior", () => {
   it("edge case: script handles multiple initializations without errors", () => {
     // First initialization
     createProductPageDOM();
-    const { initProductPage } = require("./product.ts");
     initProductPage();
     const result1 = checkInteractiveElementsFunctional();
     
@@ -371,5 +369,152 @@ describe("Property 2: Preservation - Initial Page Load Behavior", () => {
         expect(summaryItemPrice.textContent).toContain("2");
       }
     }
+  });
+});
+
+interface DeferredResponse {
+  promise: Promise<Response>;
+  resolve: (response: Response) => void;
+  reject: (reason?: unknown) => void;
+}
+
+function createDeferredResponse(): DeferredResponse {
+  let resolve!: (response: Response) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<Response>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+}
+
+function communeResponse(name: string): Response {
+  return new Response(JSON.stringify({ data: [{ id: name, name, nameAr: name }] }), {
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+async function flushCommuneUpdates() {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+describe("Commune loading race protection", () => {
+  let container: HTMLElement;
+  let originalFetch: typeof fetch;
+  let originalPopulate: typeof window.__selectPopulate;
+  let originalSetLoading: typeof window.__selectSetLoading;
+  let originalSetDisabled: typeof window.__selectSetDisabled;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+    container.innerHTML = `
+      <div id="page-data"
+        data-variants='[{"id":"v1","price":1000,"compareAtPrice":null,"inventory":10,"variations":{},"isDefault":true,"imageId":null}]'
+        data-cur="DA"
+        data-is-rtl="0"
+        data-shipping-calc="Calculated at checkout"
+        data-shipping-free="Free"
+        data-commune-placeholder="Select commune"
+        data-commune-loading="Loading..."
+        data-commune-disabled="Select wilaya first"
+        data-offers='[]'
+      ></div>
+      <select id="f-wilaya">
+        <option value="">Select wilaya</option>
+        <option value="16">Alger</option>
+        <option value="31">Oran</option>
+      </select>
+    `;
+    document.body.appendChild(container);
+
+    originalFetch = window.fetch;
+    originalPopulate = window.__selectPopulate;
+    originalSetLoading = window.__selectSetLoading;
+    originalSetDisabled = window.__selectSetDisabled;
+    window.__selectSetLoading = () => undefined;
+    window.__selectSetDisabled = () => undefined;
+  });
+
+  afterEach(() => {
+    window.fetch = originalFetch;
+    if (originalPopulate) window.__selectPopulate = originalPopulate;
+    else Reflect.deleteProperty(window, "__selectPopulate");
+    if (originalSetLoading) window.__selectSetLoading = originalSetLoading;
+    else Reflect.deleteProperty(window, "__selectSetLoading");
+    if (originalSetDisabled) window.__selectSetDisabled = originalSetDisabled;
+    else Reflect.deleteProperty(window, "__selectSetDisabled");
+    container.remove();
+  });
+
+  function startCommuneRequests() {
+    const requests: Array<{ url: string; deferred: DeferredResponse }> = [];
+    window.fetch = vi.fn((input: RequestInfo | URL) => {
+      const deferred = createDeferredResponse();
+      requests.push({ url: String(input), deferred });
+      return deferred.promise;
+    });
+
+    const populateCalls: SelectOption[][] = [];
+    window.__selectPopulate = (_id, options) => {
+      populateCalls.push(options);
+    };
+
+    const wilayaSelect = container.querySelector<HTMLSelectElement>("#f-wilaya");
+    if (!wilayaSelect) throw new Error("Wilaya selector was not created");
+    initProductPage();
+
+    const selectWilaya = (wilayaId: string) => {
+      wilayaSelect.value = wilayaId;
+      wilayaSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+
+    return { requests, populateCalls, selectWilaya };
+  }
+
+  it("ignores a stale successful response", async () => {
+    const { requests, populateCalls, selectWilaya } = startCommuneRequests();
+
+    selectWilaya("16");
+    selectWilaya("31");
+    requests[1].deferred.resolve(communeResponse("Oran"));
+    await flushCommuneUpdates();
+    requests[0].deferred.resolve(communeResponse("Alger"));
+    await flushCommuneUpdates();
+
+    expect(populateCalls).toHaveLength(1);
+    expect(populateCalls[0].map((option) => option.value)).toEqual(["Oran"]);
+  });
+
+  it("ignores a stale error after the latest request succeeds", async () => {
+    const { requests, populateCalls, selectWilaya } = startCommuneRequests();
+
+    selectWilaya("16");
+    selectWilaya("31");
+    requests[1].deferred.resolve(communeResponse("Oran"));
+    await flushCommuneUpdates();
+    requests[0].deferred.reject(new Error("Alger request failed"));
+    await flushCommuneUpdates();
+
+    expect(populateCalls).toHaveLength(1);
+    expect(populateCalls[0].map((option) => option.value)).toEqual(["Oran"]);
+  });
+
+  it("accepts only the latest request in Alger to Oran to Alger", async () => {
+    const { requests, populateCalls, selectWilaya } = startCommuneRequests();
+
+    selectWilaya("16");
+    selectWilaya("31");
+    selectWilaya("16");
+    requests[2].deferred.resolve(communeResponse("latest-Alger"));
+    await flushCommuneUpdates();
+    requests[0].deferred.resolve(communeResponse("stale-Alger"));
+    await flushCommuneUpdates();
+    requests[1].deferred.resolve(communeResponse("stale-Oran"));
+    await flushCommuneUpdates();
+
+    expect(populateCalls).toHaveLength(1);
+    expect(populateCalls[0].map((option) => option.value)).toEqual(["latest-Alger"]);
   });
 });
