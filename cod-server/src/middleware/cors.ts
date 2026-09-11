@@ -31,17 +31,20 @@ export async function corsMiddleware(c: Context<AppContext>, next: Next) {
     allowedOrigin = requestOrigin;
   }
 
-  // Set CORS headers
-  c.header("Access-Control-Allow-Origin", allowedOrigin);
-  c.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-  c.header("Access-Control-Allow-Headers", "Content-Type, X-API-Key, X-Store-API-Key, Accept, Authorization");
-  c.header("Access-Control-Expose-Headers", "Content-Type, X-API-Key, X-Store-API-Key");
-  c.header("Access-Control-Max-Age", "86400");
-  
-  // Only set credentials header if origin is specific (not *)
-  if (allowedOrigin !== "*") {
-    c.header("Access-Control-Allow-Credentials", "true");
-  }
+  const applyCorsHeaders = () => {
+    c.header("Access-Control-Allow-Origin", allowedOrigin);
+    c.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    c.header("Access-Control-Allow-Headers", "Content-Type, X-API-Key, X-Store-API-Key, Accept, Authorization");
+    c.header("Access-Control-Expose-Headers", "Content-Type, X-API-Key, X-Store-API-Key");
+    c.header("Access-Control-Max-Age", "86400");
+
+    // Only set credentials header if origin is specific (not *)
+    if (allowedOrigin !== "*") {
+      c.header("Access-Control-Allow-Credentials", "true");
+    }
+  };
+
+  applyCorsHeaders();
 
   // Handle preflight requests
   if (c.req.method === "OPTIONS") {
@@ -54,5 +57,10 @@ export async function corsMiddleware(c: Context<AppContext>, next: Next) {
   }
 
   await next();
+
+  // Handlers that return a raw `new Response(...)` (streamed PDFs, R2 objects)
+  // bypass Hono's prepared-header application, so the headers set before
+  // `next()` never reach them — re-apply on the final response.
+  applyCorsHeaders();
 }
 

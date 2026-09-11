@@ -165,4 +165,50 @@ describe("CORS Middleware", () => {
       expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://app.example.com");
     });
   });
+
+  describe("Raw Response handlers (streamed bodies)", () => {
+    beforeEach(() => {
+      app = new Hono<AppContext>();
+      app.use("*", async (c, next) => {
+        c.env = {
+          ENVIRONMENT: "production",
+          ALLOWED_ORIGINS: "https://app.example.com",
+        } as any;
+        await next();
+      });
+      app.use("*", corsMiddleware);
+    });
+
+    // Regression: handlers returning a raw `new Response(...)` (label PDF
+    // proxy, R2 image streaming) bypass Hono's prepared-header application,
+    // so headers set before next() never reached them and the browser
+    // blocked the response with a CORS error despite the 200.
+    it("adds CORS headers to a raw Response", async () => {
+      app.get("/raw", () => new Response("raw-body", {
+        status: 200,
+        headers: { "Content-Type": "application/pdf" },
+      }));
+
+      const res = await app.request("/raw", {
+        method: "GET",
+        headers: { origin: "https://app.example.com" },
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://app.example.com");
+      expect(res.headers.get("Access-Control-Allow-Credentials")).toBe("true");
+    });
+
+    it("does not duplicate CORS headers on context-built responses", async () => {
+      app.get("/json", (c) => c.json({ ok: true }));
+
+      const res = await app.request("/json", {
+        method: "GET",
+        headers: { origin: "https://app.example.com" },
+      });
+
+      expect(res.status).toBe(200);
+      expect([...res.headers.keys()].filter((k) => k === "access-control-allow-origin")).toHaveLength(1);
+    });
+  });
 });
