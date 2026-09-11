@@ -1,0 +1,245 @@
+{
+  "GetSupplierResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "codeName": {
+        "type": "string",
+        "nullable": true
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "assignedPriceListId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "hubName": {
+        "type": "string",
+        "nullable": true
+      },
+      "address": {
+        "$ref": "#/components/schemas/AddressDto"
+      },
+      "phone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      },
+      "supportPhone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      },
+      "tenantId": {
+        "type": "string",
+        "nullable": true
+      },
+      "legalInformation": {
+        "$ref": "#/components/schemas/SupplierLegalInformationDto"
+      },
+      "owner": {
+        "$ref": "#/components/schemas/GetSupplierOwnerDto"
+      },
+      "paymentDays": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "services": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SupplierServiceDto"
+        },
+        "nullable": true
+      },
+      "isBlocked": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "SupplierServiceDto": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GetSupplierOwnerDto": {
+    "type": "object",
+    "properties": {
+      "firstName": {
+        "type": "string",
+        "nullable": true
+      },
+      "lastName": {
+        "type": "string",
+        "nullable": true
+      },
+      "email": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SupplierLegalInformationDto": {
+    "type": "object",
+    "properties": {
+      "rc": {
+        "type": "string",
+        "nullable": true
+      },
+      "nif": {
+        "type": "string",
+        "nullable": true
+      },
+      "ai": {
+        "type": "string",
+        "nullable": true
+      },
+      "nis": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "PhoneDto": {
+    "type": "object",
+    "properties": {
+      "number1": {
+        "type": "string",
+        "nullable": true
+      },
+      "number2": {
+        "type": "string",
+        "nullable": true
+      },
+      "number3": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "AddressDto": {
+    "type": "object",
+    "properties": {
+      "street": {
+        "type": "string",
+        "nullable": true
+      },
+      "city": {
+        "type": "string",
+        "nullable": true
+      },
+      "cityTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "district": {
+        "type": "string",
+        "nullable": true
+      },
+      "districtTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "postalCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "country": {
+        "type": "string",
+        "nullable": true
+      },
+      "coordinates": {
+        "$ref": "#/components/schemas/Coordinates"
+      }
+    },
+    "additionalProperties": false
+  },
+  "Coordinates": {
+    "type": "object",
+    "properties": {
+      "lat": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "lng": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateSupplierBlockedStatusResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GetSupplierRequest": {
+    "type": "object",
+    "properties": {
+      "supplierId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "includeServices": {
+        "type": "boolean"
+      },
+      "expiration": {
+        "type": "string",
+        "format": "date-span",
+        "nullable": true,
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateSupplierBlockedStatusRequest": {
+    "type": "object",
+    "properties": {
+      "supplierId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "isBlocked": {
+        "type": "boolean"
+      },
+      "cachedRequestsToInvalidate": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true,
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  }
+}

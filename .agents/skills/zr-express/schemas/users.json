@@ -1,0 +1,172 @@
+{
+  "CreateUserKeyRequest": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "expiresInDays": {
+        "type": "integer",
+        "format": "int32"
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchUserKeysRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "Filter": {
+    "type": "object",
+    "properties": {
+      "logic": {
+        "type": "string",
+        "nullable": true
+      },
+      "filters": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Filter"
+        },
+        "nullable": true
+      },
+      "field": {
+        "type": "string",
+        "nullable": true
+      },
+      "operator": {
+        "type": "string",
+        "nullable": true
+      },
+      "value": {
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "Search": {
+    "type": "object",
+    "properties": {
+      "fields": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UserDetail": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "nullable": true
+      },
+      "firstName": {
+        "type": "string",
+        "nullable": true
+      },
+      "lastName": {
+        "type": "string",
+        "nullable": true
+      },
+      "email": {
+        "type": "string",
+        "nullable": true
+      },
+      "phoneNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "memberships": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/TenantMembershipDto"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "TenantMembershipDto": {
+    "type": "object",
+    "properties": {
+      "tenantId": {
+        "type": "string",
+        "nullable": true
+      },
+      "tenantName": {
+        "type": "string",
+        "nullable": true
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "isDefault": {
+        "type": "boolean"
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "supplierType": {
+        "type": "string",
+        "nullable": true
+      },
+      "membership": {
+        "type": "string",
+        "nullable": true
+      },
+      "subContractorNameSubDomain": {
+        "type": "string",
+        "nullable": true
+      },
+      "roles": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  }
+}

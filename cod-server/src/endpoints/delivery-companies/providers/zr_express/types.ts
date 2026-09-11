@@ -112,6 +112,21 @@ export interface ZrCreateParcelResponse {
 export interface ZrGetParcelResponse {
   id: string;
   trackingNumber: string | null;
+  customer?: {
+    customerId?: string;
+    name?: string | null;
+    phone?: { number1?: string | null; number2?: string | null } | null;
+  } | null;
+  deliveryAddress?: {
+    street?: string | null;
+    city?: string | null;
+    cityTerritoryId?: string | null;
+    district?: string | null;
+    districtTerritoryId?: string | null;
+    /** Integer wilaya code (e.g. 16 for Alger) echoed by the API. */
+    cityTerritoryCode?: number | null;
+    postalCode?: string | null;
+  } | null;
   state?: {
     id?: string;
     name: string | null;
@@ -126,6 +141,40 @@ export interface ZrGetParcelResponse {
   deliveryType?: string | null;
   description?: string | null;
   productsDescription?: string | null;
+  isReturn?: boolean;
+}
+
+// ─── Hubs ─────────────────────────────────────────────────────────────────────
+
+/** GET/POST /api/v1/hubs/search — pickup points are hubs with isPickupPoint=true. */
+export interface ZrHubAddressDto {
+  street?: string | null;
+  city?: string | null;
+  cityTerritoryId?: string | null;
+  district?: string | null;
+  districtTerritoryId?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+}
+
+export interface ZrHubItem {
+  id: string;
+  name: string | null;
+  /** "hub" | "sorting-center-hub" | "sorting-center" | … */
+  type?: string | null;
+  isPickupPoint?: boolean;
+  isVisible?: boolean;
+  isReturnCenter?: boolean;
+  address?: ZrHubAddressDto | null;
+  openingHours?: string | null;
+}
+
+export interface ZrPagedListHubs {
+  items: ZrHubItem[] | null;
+  pageNumber?: number;
+  pageSize?: number;
+  totalCount?: number;
+  totalPages?: number;
 }
 
 // ─── Create Bulk Parcels ──────────────────────────────────────────────────────

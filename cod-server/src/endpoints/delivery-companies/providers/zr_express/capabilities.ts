@@ -19,7 +19,6 @@ export const ZR_EXPRESS_CAPABILITIES: ProviderCapabilities = {
   canStopDesk: true,
   
   // ─── Lifecycle ────────────────────────────────────────────────────────
-  // Source: Test script has no validate test
   // Source: Note "ZR Express auto-validates on creation"
   autoValidates: true,
   
@@ -28,14 +27,15 @@ export const ZR_EXPRESS_CAPABILITIES: ProviderCapabilities = {
   // Source: Test "Update Parcel Address"
   canUpdateBeforeValidation: true,
   
-  // Source: No rejection in tests, flexible update system
+  // Live-verified 2026-09-10: amount/customer/address PATCHes succeed on a
+  // fresh parcel (state commande_recue — the state ZR assigns on creation).
   canUpdateAfterValidation: true,
   
-  // Source: Test "Delete Parcel"
-  // ⚠️ Test returned HTTP 405 - endpoint not working
-  canDeleteBeforeValidation: false,
+  // Source: DELETE /parcels/bulk/by-tracking-number → 200 (deleted).
+  // Live-verified 2026-09-10 — the previous 405 came from wrongly using POST.
+  canDeleteBeforeValidation: true,
   
-  // Source: Delete doesn't work at all
+  // Delete is only proven while the parcel has not been picked up; unverified after.
   canDeleteAfterValidation: false,
   
   // ─── Package Options ──────────────────────────────────────────────────

@@ -945,7 +945,7 @@ describe("Orders — targeted business-logic tests", () => {
       );
 
       const mockProvider = {
-        deleteShipment: vi.fn(async () => undefined),
+        deleteShipment: vi.fn(async () => true),
       };
       vi.mocked(registry.getProvider).mockReturnValue(mockProvider as any);
       vi.mocked(registry.isEcotrackCompany).mockReturnValue(false);
@@ -987,7 +987,7 @@ describe("Orders — targeted business-logic tests", () => {
       vi.mocked(deliveryCompanyQueries.getDeliveryCompanyRaw).mockResolvedValue(
         companyRow() as any
       );
-      const mockProvider = { deleteShipment: vi.fn(async () => undefined) };
+      const mockProvider = { deleteShipment: vi.fn(async () => true) };
       vi.mocked(registry.getProvider).mockReturnValue(mockProvider as any);
       vi.mocked(registry.isEcotrackCompany).mockReturnValue(false);
       vi.mocked(shipments.getShipmentByOrder).mockResolvedValue(null as any);

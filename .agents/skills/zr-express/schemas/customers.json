@@ -1,0 +1,874 @@
+{
+  "DeleteCustomerAddressResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateIndividualCustomerRequest": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "phone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      },
+      "dateOfBirth": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "timeSlot": {
+        "type": "string",
+        "nullable": true
+      },
+      "instruction": {
+        "type": "string",
+        "nullable": true
+      },
+      "deliveryPreference": {
+        "type": "string",
+        "nullable": true
+      },
+      "addresses": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/CreateAddressDto"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateAddressDto": {
+    "type": "object",
+    "properties": {
+      "street": {
+        "type": "string",
+        "nullable": true
+      },
+      "city": {
+        "type": "string",
+        "nullable": true
+      },
+      "cityTerritoryId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "district": {
+        "type": "string",
+        "nullable": true
+      },
+      "districtTerritoryId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "postalCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "country": {
+        "type": "string",
+        "nullable": true
+      },
+      "isPrimary": {
+        "type": "boolean"
+      },
+      "coordinates": {
+        "$ref": "#/components/schemas/Coordinates"
+      }
+    },
+    "additionalProperties": false
+  },
+  "Coordinates": {
+    "type": "object",
+    "properties": {
+      "lat": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "lng": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "PhoneDto": {
+    "type": "object",
+    "properties": {
+      "number1": {
+        "type": "string",
+        "nullable": true
+      },
+      "number2": {
+        "type": "string",
+        "nullable": true
+      },
+      "number3": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateCustomerAddressRequest": {
+    "type": "object",
+    "properties": {
+      "customerId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "address": {
+        "$ref": "#/components/schemas/CreateAddressDto"
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateIndividualCustomerResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PagedList_ExportReportResponse": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ExportReportResponse"
+        },
+        "nullable": true
+      },
+      "pageNumber": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageSize": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalPages": {
+        "type": "integer",
+        "format": "int32",
+        "readOnly": true
+      },
+      "hasPrevious": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "hasNext": {
+        "type": "boolean",
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ExportReportResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "tenantId": {
+        "type": "string",
+        "nullable": true
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "createdBy": {
+        "$ref": "#/components/schemas/UserSnapshot"
+      },
+      "status": {
+        "type": "string",
+        "nullable": true
+      },
+      "fileId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UserSnapshot": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "readOnly": true
+      },
+      "fullName": {
+        "type": "string",
+        "nullable": true,
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ImportIndividualCustomersFormData": {
+    "type": "object",
+    "properties": {
+      "file": {
+        "type": "string",
+        "format": "binary",
+        "nullable": true
+      },
+      "columnsAndTheirPropertyNames": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ExportCustomersRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      }
+    },
+    "additionalProperties": false
+  },
+  "Filter": {
+    "type": "object",
+    "properties": {
+      "logic": {
+        "type": "string",
+        "nullable": true
+      },
+      "filters": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Filter"
+        },
+        "nullable": true
+      },
+      "field": {
+        "type": "string",
+        "nullable": true
+      },
+      "operator": {
+        "type": "string",
+        "nullable": true
+      },
+      "value": {
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "Search": {
+    "type": "object",
+    "properties": {
+      "fields": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateCompanyCustomerRequest": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "phone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      },
+      "companyId": {
+        "type": "string",
+        "nullable": true
+      },
+      "companyContactPerson": {
+        "type": "string",
+        "nullable": true
+      },
+      "timeSlot": {
+        "type": "string",
+        "nullable": true
+      },
+      "instruction": {
+        "type": "string",
+        "nullable": true
+      },
+      "addresses": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/CreateAddressDto"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "DownloadExportReportResponse": {
+    "type": "object",
+    "properties": {
+      "sasUrl": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ProblemDetails": {
+    "type": "object",
+    "properties": {
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "title": {
+        "type": "string",
+        "nullable": true
+      },
+      "status": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "detail": {
+        "type": "string",
+        "nullable": true
+      },
+      "instance": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": {}
+  },
+  "PagedList_CustomerResponse": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/CustomerResponse"
+        },
+        "nullable": true
+      },
+      "pageNumber": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageSize": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalPages": {
+        "type": "integer",
+        "format": "int32",
+        "readOnly": true
+      },
+      "hasPrevious": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "hasNext": {
+        "type": "boolean",
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CustomerResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "phone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      },
+      "dateOfBirth": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "instruction": {
+        "type": "string",
+        "nullable": true
+      },
+      "timeSlot": {
+        "type": "string",
+        "nullable": true
+      },
+      "deliveryPreference": {
+        "type": "string",
+        "nullable": true
+      },
+      "companyId": {
+        "type": "string",
+        "nullable": true
+      },
+      "companyContactPerson": {
+        "type": "string",
+        "nullable": true
+      },
+      "addresses": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/AddressResponse"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "AddressResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "street": {
+        "type": "string",
+        "nullable": true
+      },
+      "city": {
+        "type": "string",
+        "nullable": true
+      },
+      "cityTerritoryId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "district": {
+        "type": "string",
+        "nullable": true
+      },
+      "districtTerritoryId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "postalCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "country": {
+        "type": "string",
+        "nullable": true
+      },
+      "isPrimary": {
+        "type": "boolean"
+      },
+      "coordinates": {
+        "$ref": "#/components/schemas/Coordinates"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CustomerImportResult": {
+    "type": "object",
+    "properties": {
+      "succeededs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SucceededImportCustomerResult"
+        },
+        "nullable": true
+      },
+      "faileds": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/FailedImportCustomerResult"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "FailedImportCustomerResult": {
+    "type": "object",
+    "properties": {
+      "rowIndex": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "errorMessage": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SucceededImportCustomerResult": {
+    "type": "object",
+    "properties": {
+      "rowIndex": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "customerId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchCustomersRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "includeAllAddresses": {
+        "type": "boolean"
+      },
+      "includePrimaryAddressOnly": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateCustomerAddressResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateIndividualCustomerRequest": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "phone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      },
+      "timeSlot": {
+        "type": "string",
+        "nullable": true
+      },
+      "instruction": {
+        "type": "string",
+        "nullable": true
+      },
+      "deliveryPreference": {
+        "type": "string",
+        "nullable": true
+      },
+      "dateOfBirth": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "Result_CreateCompanyCustomerResponse": {
+    "type": "object",
+    "properties": {
+      "isSuccess": {
+        "type": "boolean"
+      },
+      "isFailure": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "error": {
+        "$ref": "#/components/schemas/Error"
+      },
+      "value": {
+        "$ref": "#/components/schemas/CreateCompanyCustomerResponse"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateCompanyCustomerResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "Error": {
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "type": {
+        "$ref": "#/components/schemas/ErrorType"
+      }
+    },
+    "additionalProperties": false
+  },
+  "ErrorType": {
+    "enum": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "type": "integer",
+    "format": "int32"
+  },
+  "DeleteCustomerResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "GetCustomerResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "phone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      },
+      "dateOfBirth": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "instruction": {
+        "type": "string",
+        "nullable": true
+      },
+      "timeSlot": {
+        "type": "string",
+        "nullable": true
+      },
+      "deliveryPreference": {
+        "type": "string",
+        "nullable": true
+      },
+      "companyId": {
+        "type": "string",
+        "nullable": true
+      },
+      "companyContactPerson": {
+        "type": "string",
+        "nullable": true
+      },
+      "addresses": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/AddressResponse"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateIndividualCustomerResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateCustomerAddressResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateCustomerAddressRequest": {
+    "type": "object",
+    "properties": {
+      "customerId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "addressId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "street": {
+        "type": "string",
+        "nullable": true
+      },
+      "city": {
+        "type": "string",
+        "nullable": true
+      },
+      "cityTerritoryId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "district": {
+        "type": "string",
+        "nullable": true
+      },
+      "districtTerritoryId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "postalCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "country": {
+        "type": "string",
+        "nullable": true
+      },
+      "isPrimary": {
+        "type": "boolean",
+        "nullable": true
+      },
+      "coordinates": {
+        "$ref": "#/components/schemas/Coordinates"
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchExportReportsRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  }
+}

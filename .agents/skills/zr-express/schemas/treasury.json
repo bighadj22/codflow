@@ -1,0 +1,1111 @@
+{
+  "SupplierPaymentSupplierResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "supplier": {
+        "$ref": "#/components/schemas/TreasurySupplierResponse"
+      },
+      "amount": {
+        "type": "number",
+        "format": "double"
+      },
+      "totalParcelsDelivered": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalParcelsCancelled": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalRefundsCredited": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalRefundsDebited": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalItemLabeling": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "labelingAmount": {
+        "type": "number",
+        "format": "double"
+      },
+      "storage": {
+        "type": "number",
+        "format": "double"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "referenceId": {
+        "type": "string",
+        "nullable": true
+      },
+      "status": {
+        "type": "string",
+        "nullable": true
+      },
+      "paymentRequestId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "TreasurySupplierResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "tenantId": {
+        "type": "string",
+        "nullable": true
+      },
+      "address": {
+        "$ref": "#/components/schemas/AddressDto"
+      },
+      "paymentDays": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "phone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      },
+      "owner": {
+        "$ref": "#/components/schemas/TreasurySupplierOwnerDto"
+      },
+      "legalInformation": {
+        "$ref": "#/components/schemas/SupplierLegalInformationDto"
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SupplierLegalInformationDto": {
+    "type": "object",
+    "properties": {
+      "rc": {
+        "type": "string",
+        "nullable": true
+      },
+      "nif": {
+        "type": "string",
+        "nullable": true
+      },
+      "ai": {
+        "type": "string",
+        "nullable": true
+      },
+      "nis": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "TreasurySupplierOwnerDto": {
+    "type": "object",
+    "properties": {
+      "firstName": {
+        "type": "string",
+        "nullable": true
+      },
+      "lastName": {
+        "type": "string",
+        "nullable": true
+      },
+      "email": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "PhoneDto": {
+    "type": "object",
+    "properties": {
+      "number1": {
+        "type": "string",
+        "nullable": true
+      },
+      "number2": {
+        "type": "string",
+        "nullable": true
+      },
+      "number3": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "AddressDto": {
+    "type": "object",
+    "properties": {
+      "street": {
+        "type": "string",
+        "nullable": true
+      },
+      "city": {
+        "type": "string",
+        "nullable": true
+      },
+      "cityTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "district": {
+        "type": "string",
+        "nullable": true
+      },
+      "districtTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "postalCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "country": {
+        "type": "string",
+        "nullable": true
+      },
+      "coordinates": {
+        "$ref": "#/components/schemas/Coordinates"
+      }
+    },
+    "additionalProperties": false
+  },
+  "Coordinates": {
+    "type": "object",
+    "properties": {
+      "lat": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "lng": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdatePaymentRequestDateResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchTreasuryReportsRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "Filter": {
+    "type": "object",
+    "properties": {
+      "logic": {
+        "type": "string",
+        "nullable": true
+      },
+      "filters": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Filter"
+        },
+        "nullable": true
+      },
+      "field": {
+        "type": "string",
+        "nullable": true
+      },
+      "operator": {
+        "type": "string",
+        "nullable": true
+      },
+      "value": {
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "Search": {
+    "type": "object",
+    "properties": {
+      "fields": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "AcceptSupplierPaymentResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ExportSupplierPaymentsCurrentSupplierRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "startDate": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "endDate": {
+        "type": "string",
+        "format": "date-time"
+      }
+    },
+    "additionalProperties": false
+  },
+  "AcceptSupplierPaymentRequest": {
+    "type": "object",
+    "properties": {
+      "supplierPaymentId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PaymentRequestResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "tenantId": {
+        "type": "string",
+        "nullable": true
+      },
+      "supplierHubId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "supplierName": {
+        "type": "string",
+        "nullable": true
+      },
+      "hubName": {
+        "type": "string",
+        "nullable": true
+      },
+      "requestedDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "validatedBy": {
+        "$ref": "#/components/schemas/UserSnapshot"
+      },
+      "validatedAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "isApproved": {
+        "type": "boolean",
+        "nullable": true
+      },
+      "comment": {
+        "type": "string",
+        "nullable": true
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UserSnapshot": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "readOnly": true
+      },
+      "fullName": {
+        "type": "string",
+        "nullable": true,
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdatePaymentRequestDateRequest": {
+    "type": "object",
+    "properties": {
+      "requestId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "requestedDate": {
+        "type": "string",
+        "format": "date"
+      }
+    },
+    "additionalProperties": false
+  },
+  "GetSupplierPaymentCurrentSupplierRequest": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreatePaymentRequestRequest": {
+    "type": "object",
+    "properties": {
+      "requestedDate": {
+        "type": "string",
+        "format": "date"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PagedList_TreasurySupplierPaymentTransactionResponse": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/TreasurySupplierPaymentTransactionResponse"
+        },
+        "nullable": true
+      },
+      "pageNumber": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageSize": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalPages": {
+        "type": "integer",
+        "format": "int32",
+        "readOnly": true
+      },
+      "hasPrevious": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "hasNext": {
+        "type": "boolean",
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "TreasurySupplierPaymentTransactionResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "amount": {
+        "type": "number",
+        "format": "double"
+      },
+      "weightCost": {
+        "type": "number",
+        "format": "double"
+      },
+      "swapCost": {
+        "type": "number",
+        "format": "double"
+      },
+      "phoneChangeCost": {
+        "type": "number",
+        "format": "double"
+      },
+      "comment": {
+        "type": "string",
+        "nullable": true
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "supplier": {
+        "$ref": "#/components/schemas/SupplierInfoDto"
+      },
+      "parcel": {
+        "$ref": "#/components/schemas/ParcelInfoResponse"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "cashReceiptId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "supplierPaymentId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "supplierPaymentReference": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ParcelInfoResponse": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "customerFullName": {
+        "type": "string",
+        "nullable": true
+      },
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "deliveryPrice": {
+        "type": "number",
+        "format": "double"
+      },
+      "returnPrice": {
+        "type": "number",
+        "format": "double"
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "weight": {
+        "type": "number",
+        "format": "double"
+      },
+      "totalSwap": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      },
+      "stateName": {
+        "type": "string",
+        "nullable": true
+      },
+      "managementFee": {
+        "type": "number",
+        "format": "double"
+      }
+    },
+    "additionalProperties": false
+  },
+  "SupplierInfoDto": {
+    "type": "object",
+    "properties": {
+      "supplierId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "hubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "AcceptSupplierPaymentByReferenceIdRequest": {
+    "type": "object",
+    "properties": {
+      "referenceId": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GetSupplierStatsAmountResponse": {
+    "type": "object",
+    "properties": {
+      "totalAmountPaid": {
+        "type": "number",
+        "format": "double"
+      },
+      "totalAmountReadyToBePaid": {
+        "type": "number",
+        "format": "double"
+      },
+      "totalAmountDelivered": {
+        "type": "number",
+        "format": "double"
+      },
+      "totalAmountNotReadyCashed": {
+        "type": "number",
+        "format": "double"
+      },
+      "totalAmountReadyToBeCashed": {
+        "type": "number",
+        "format": "double"
+      }
+    },
+    "additionalProperties": false
+  },
+  "DeletePaymentRequestResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "SupplierTransactionStatsDto": {
+    "type": "object",
+    "properties": {
+      "amount": {
+        "type": "number",
+        "format": "double"
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchSupplierPaymentsCurrentSupplierRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "PagedList_PaymentRequestResponse": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/PaymentRequestResponse"
+        },
+        "nullable": true
+      },
+      "pageNumber": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageSize": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalPages": {
+        "type": "integer",
+        "format": "int32",
+        "readOnly": true
+      },
+      "hasPrevious": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "hasNext": {
+        "type": "boolean",
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "DownloadReportByIdResponse": {
+    "type": "object",
+    "properties": {
+      "sasUrl": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreatePaymentRequestResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PagedList_SupplierPaymentResponse": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SupplierPaymentResponse"
+        },
+        "nullable": true
+      },
+      "pageNumber": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageSize": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalPages": {
+        "type": "integer",
+        "format": "int32",
+        "readOnly": true
+      },
+      "hasPrevious": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "hasNext": {
+        "type": "boolean",
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SupplierPaymentResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "supplier": {
+        "$ref": "#/components/schemas/TreasurySupplierResponse"
+      },
+      "amount": {
+        "type": "number",
+        "format": "double"
+      },
+      "totalParcelsDelivered": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalParcelsCancelled": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalRefundsCredited": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalRefundsDebited": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalItemLabeling": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "labelingAmount": {
+        "type": "number",
+        "format": "double"
+      },
+      "storage": {
+        "type": "number",
+        "format": "double"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "acceptedAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "cashDrawer": {
+        "$ref": "#/components/schemas/CashDrawerResponse"
+      },
+      "referenceId": {
+        "type": "string",
+        "nullable": true
+      },
+      "status": {
+        "type": "string",
+        "nullable": true
+      },
+      "paymentRequestId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CashDrawerResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "cashDrawerUser": {
+        "$ref": "#/components/schemas/CashDrawerUserResponse"
+      },
+      "amount": {
+        "type": "number",
+        "format": "double"
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "hub": {
+        "$ref": "#/components/schemas/TreasuryHubResponse"
+      }
+    },
+    "additionalProperties": false
+  },
+  "TreasuryHubResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "address": {
+        "$ref": "#/components/schemas/AddressDto"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CashDrawerUserResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "firstName": {
+        "type": "string",
+        "nullable": true
+      },
+      "lastName": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchPaymentRequestsCurrentSupplierRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "onlyPending": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PagedList_SearchReportsResponse": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SearchReportsResponse"
+        },
+        "nullable": true
+      },
+      "pageNumber": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageSize": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalPages": {
+        "type": "integer",
+        "format": "int32",
+        "readOnly": true
+      },
+      "hasPrevious": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "hasNext": {
+        "type": "boolean",
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchReportsResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "tenantId": {
+        "type": "string",
+        "nullable": true
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "frequency": {
+        "type": "string",
+        "nullable": true
+      },
+      "startDate": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "endDate": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "createdBy": {
+        "$ref": "#/components/schemas/UserSnapshot"
+      },
+      "status": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "AcceptSupplierPaymentByReferenceIResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchTreasuryTransactionsSupplierPaymentBySupplierPaymentIdRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "supplierPaymentId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  }
+}

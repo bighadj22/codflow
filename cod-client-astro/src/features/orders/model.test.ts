@@ -179,7 +179,10 @@ describe("orders model", () => {
       shipmentCapabilities("zr_express", "dispatched", true),
     ).toMatchObject({
       canUpdate: true,
-      canCancel: false,
+      // DELETE /parcels/bulk/by-tracking-number works (live-verified 2026-09-10;
+      // the old 405 came from wrongly using POST) — cancel is offered while the
+      // order is not in a terminal status.
+      canCancel: true,
       canRemark: false,
       canTrack: true,
     });

@@ -189,6 +189,7 @@ router.openapi(myRoute.route, myRoute.handler);
 | `codflow-setup` | Setting up the project |
 | `whatsapp-otp` | WhatsApp OTP verification feature (dzverify) |
 | `Ecotrack` | EcoTrack carrier integration |
+| `zr-express` | ZR Express delivery platform integration (129 endpoints, organized per domain) |
 | **`diagnosing-bugs`** | **Debug production issues (orders, delivery, payments)** |
 | **`domain-modeling`** | **Design data models for complex domain** |
 | **`implement`** | **Turn specs into working code** |

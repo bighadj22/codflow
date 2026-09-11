@@ -14,14 +14,12 @@ import { eq } from "drizzle-orm";
 import { deliveryCompanies } from "@/db/schema";
 import { getDeliveryCompanyRaw } from "./queries";
 import { NotFoundError, ValidationError, ExternalApiError } from "@/lib/errors/classes";
+import { ORDER_STATUSES } from "@/endpoints/orders/validation";
 
 const ZR_BASE_URL = "https://api.zrexpress.app";
 
 /** Our valid order status strings — used to validate custom mapping keys. */
-const VALID_OUR_STATUSES = new Set([
-  "new", "preparing", "assigned", "out_for_delivery",
-  "delivered", "returned", "cancelled",
-]);
+const VALID_OUR_STATUSES = new Set<string>(ORDER_STATUSES);
 
 // ─── ZR Express — Register ────────────────────────────────────────────────────
 
@@ -82,16 +80,22 @@ export async function registerZrWebhook(c: Context<AppContext>) {
   }
 
   // Register new endpoint with ZR.
-  // Only "parcel.state.updated" is a documented valid eventType filter.
-  // parcel.state.situation.created and parcel.isReturn.updated are received
-  // automatically (all-events default) — do NOT include them in eventTypes.
+  // Subscribe to ALL event types the receiver understands. The handler
+  // processes parcel.state.updated (status mapping), parcel.isReturn.updated
+  // (hardcoded → returned) and logs parcel.state.situation.created. Other ZR
+  // consumers in this tenant register all three; with only state.updated
+  // subscribed, return signals would never arrive.
   const registerRes = await fetch(`${ZR_BASE_URL}/api/v1/webhooks/endpoints`, {
     method: "POST",
     headers: zrHeaders,
     body: JSON.stringify({
       url: webhookUrl,
       description: "CodFlow — parcel status updates",
-      eventTypes: ["parcel.state.updated"],
+      eventTypes: [
+        "parcel.state.updated",
+        "parcel.isReturn.updated",
+        "parcel.state.situation.created",
+      ],
     }),
   });
 
