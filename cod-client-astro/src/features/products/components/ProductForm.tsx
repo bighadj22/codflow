@@ -39,7 +39,9 @@ import {
   Alert,
   Button,
   Card,
+  LinkButton,
   PageHeader,
+  StickyFormActions,
   useConfirmDialog,
 } from "@/components/ui";
 import {
@@ -413,17 +415,11 @@ export function ProductForm({ productId }: { productId?: string }) {
     : "/products";
 
   return (
-    <div className="space-y-5 pb-24 lg:pb-0">
+    <div className="space-y-5">
       <PageHeader
         title={editing ? t("form.title_edit") : t("form.title_add")}
         backHref={backHref}
         backLabel={common("cancel")}
-        actions={
-          <Button type="button" onClick={() => void save()} disabled={busy}>
-            <Save size={16} />
-            {busy ? t("form.saving") : t("form.save")}
-          </Button>
-        }
       />
       {message && (
         <Alert role="alert" tone="critical">
@@ -517,6 +513,15 @@ export function ProductForm({ productId }: { productId?: string }) {
           busy={busy}
         />
       </div>
+      <StickyFormActions>
+        <LinkButton href={backHref} variant="secondary">
+          {common("cancel")}
+        </LinkButton>
+        <Button type="button" onClick={() => void save()} disabled={busy}>
+          <Save size={16} />
+          {busy ? t("form.saving") : t("form.save")}
+        </Button>
+      </StickyFormActions>
     </div>
   );
 }

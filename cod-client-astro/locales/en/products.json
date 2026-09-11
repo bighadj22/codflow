@@ -219,6 +219,16 @@
     "empty_low_desc": "Great job! None of your products are currently below their alert threshold.",
     "empty_all": "No inventory yet",
     "empty_all_desc": "Your inventory is empty. Start adding products to track and manage your stock levels.",
-    "empty_action": "Add First Product"
+    "empty_action": "Add First Product",
+    "search_placeholder": "Search by product, variant or SKU…",
+    "sort_label": "Sort by",
+    "sort_quantity": "Quantity",
+    "sort_name": "Product name",
+    "sort_updated": "Last updated",
+    "sort_asc": "Ascending order",
+    "sort_desc": "Descending order",
+    "results_count": "SKUs",
+    "updated_label": "Updated",
+    "empty_search_desc": "No SKU matches this search. Try a different product name, variant or SKU code."
   }
 }

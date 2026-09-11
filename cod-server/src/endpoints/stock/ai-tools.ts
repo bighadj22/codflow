@@ -111,7 +111,7 @@ export const getStockTools = (db: ReturnType<typeof getDb>) => ({
       "Paginated list of all SKUs at or below their low stock threshold, including out-of-stock items. " +
       "Sorted: out-of-stock first, then by inventory ascending. " +
       "Each item includes productId, variantId (null for simple products), productName, variantLabel, " +
-      "inventory, lowStockThreshold, and isOutOfStock. " +
+      "sku, inventory, lowStockThreshold, isOutOfStock, and updatedAt (last write to the SKU row). " +
       "Optional: limit (1-100, default 50), offset (default 0).",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
     execute: async (args) => {

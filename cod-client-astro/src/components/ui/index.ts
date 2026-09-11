@@ -33,3 +33,4 @@ export { Skeleton } from "./skeleton";
 export { SortHeader } from "./SortHeader";
 export { Pagination } from "./Pagination";
 export { SearchInput } from "./SearchInput";
+export { StickyFormActions } from "./sticky-form-actions";

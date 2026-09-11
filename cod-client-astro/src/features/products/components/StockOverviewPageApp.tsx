@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
-import { AlertCircle, Pencil, X, XCircle, AlertTriangle, Wallet, Package, History } from "lucide-react";
+import { useDeferredValue, useEffect, useState } from "react";
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Pencil, X, XCircle, AlertTriangle, Wallet, Package, History, SearchX } from "lucide-react";
 import { canScope, RequireAuth, useIdentity } from "@/features/auth/components/RequireAuth";
 import { DashboardChrome } from "@/components/layout/chrome";
-import { Button, EmptyState, IconButton, Alert, PageHeader, StatCard } from "@/components/ui";
+import { Button, EmptyState, IconButton, Alert, PageHeader, SearchInput, Select, StatCard } from "@/components/ui";
 import { useLocale, useT } from "@/i18n/react";
 import { SCOPES } from "../../../../../cod-shared/rbac/scopes";
 import { getStockOverview } from "@/features/products/api";
-import { formatMoneyValue, groupStockByProduct, stockAlertTone } from "@/features/products/model";
+import { filterStockItems, formatMoneyValue, formatStockDate, groupStockByProduct, sortStockGroups, stockAlertTone, stockGroupInventory, type StockGroup, type StockSortKey } from "@/features/products/model";
 import type { StockAlertItem, StockOverview } from "@/features/products/types";
 import { StockHistoryDrawer } from "@/features/products/components/StockHistoryDrawer";
 import { StockAdjustmentDialog } from "@/features/products/components/StockAdjustmentDialog";
@@ -15,10 +15,26 @@ function Loading() { return <div role="status" aria-busy="true" className="space
 
 type TabKey = "out" | "low" | "all";
 
+const SORT_KEYS: StockSortKey[] = ["inventory", "name", "updatedAt"];
+const SORT_LABEL_KEYS: Record<StockSortKey, string> = { inventory: "stock_overview.sort_quantity", name: "stock_overview.sort_name", updatedAt: "stock_overview.sort_updated" };
+
 function StockChip({ item }: { item: StockAlertItem }) {
   const tone = stockAlertTone(item);
   const classes = tone === "out" ? "bg-destructive/10 text-destructive ring-destructive/20" : tone === "low" ? "bg-amber-500/10 text-amber-600 ring-amber-500/20" : "bg-muted text-foreground ring-border/60";
   return <span className={`inline-flex h-9 min-w-12 items-center justify-center rounded-xl px-2.5 text-base font-bold tabular-nums ring-1 ring-inset ${classes}`}>{item.inventory}</span>;
+}
+
+/** Status, SKU and last update — the three things a stock row is searched and sorted on. */
+function StockMeta({ item }: { item: StockAlertItem }) {
+  const t = useT("products");
+  const locale = useLocale();
+  const tone = stockAlertTone(item);
+  const updated = formatStockDate(item.updatedAt, locale);
+  return <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+    <span className="truncate">{tone === "out" ? t("stock_overview.out_of_stock") : `${t("stock_overview.threshold_label")} ${item.lowStockThreshold}`}</span>
+    {item.sku && <><span aria-hidden className="text-border">·</span><span className="truncate font-mono" dir="ltr">{item.sku}</span></>}
+    {updated && <><span aria-hidden className="hidden text-border sm:inline">·</span><span className="hidden shrink-0 sm:inline">{t("stock_overview.updated_label")} {updated}</span></>}
+  </p>;
 }
 
 function StockRow({ item, isVariant, onAdjust, onHistory }: { item: StockAlertItem; isVariant: boolean; onAdjust: (item: StockAlertItem) => void; onHistory: (item: StockAlertItem) => void }) {
@@ -30,7 +46,7 @@ function StockRow({ item, isVariant, onAdjust, onHistory }: { item: StockAlertIt
     <button type="button" onClick={() => onHistory(item)} className="flex min-w-0 flex-1 items-center gap-2.5 py-3 text-start">
       <div className="min-w-0 flex-1">
         <p className={`truncate font-semibold text-foreground ${isVariant ? "text-[13px]" : "text-sm"}`}>{isVariant ? item.variantLabel ?? item.productName : item.productName}</p>
-        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{tone === "out" ? t("stock_overview.out_of_stock") : `${t("stock_overview.threshold_label")} ${item.lowStockThreshold}`}</p>
+        <StockMeta item={item} />
       </div>
     </button>
     <StockChip item={item} />
@@ -41,13 +57,13 @@ function StockRow({ item, isVariant, onAdjust, onHistory }: { item: StockAlertIt
   </div>;
 }
 
-function ProductGroupBlock({ group, onAdjust, onHistory }: { group: ReturnType<typeof groupStockByProduct>[number]; onAdjust: (item: StockAlertItem) => void; onHistory: (item: StockAlertItem) => void }) {
+function ProductGroupBlock({ group, onAdjust, onHistory }: { group: StockGroup; onAdjust: (item: StockAlertItem) => void; onHistory: (item: StockAlertItem) => void }) {
   const [open, setOpen] = useState(true);
   const hasMultiple = group.items.length > 1;
   if (!hasMultiple && !group.items[0].variantLabel) {
     return <StockRow item={group.items[0]} isVariant={false} onAdjust={onAdjust} onHistory={onHistory} />;
   }
-  const totalInventory = group.items.reduce((sum, item) => sum + item.inventory, 0);
+  const totalInventory = stockGroupInventory(group);
   const groupTone = group.items.some((item) => item.isOutOfStock) ? "out" : group.items.some((item) => item.inventory <= item.lowStockThreshold) ? "low" : "ok";
   const stripeColor = groupTone === "out" ? "bg-destructive" : groupTone === "low" ? "bg-amber-500" : "bg-transparent";
   return <div className={`overflow-hidden rounded-xl border ${groupTone === "out" ? "border-destructive/20" : groupTone === "low" ? "border-amber-500/20" : "border-border/60"}`}>
@@ -71,8 +87,12 @@ function StockOverviewList() {
   const [loadError, setLoadError] = useState<unknown>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>("all");
+  const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState<StockSortKey>("inventory");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [adjustItem, setAdjustItem] = useState<StockAlertItem | null>(null);
   const [historyItem, setHistoryItem] = useState<StockAlertItem | null>(null);
+  const deferredQuery = useDeferredValue(query);
 
   async function load() {
     setLoadError(null);
@@ -90,13 +110,33 @@ function StockOverviewList() {
     { key: "out" as TabKey, label: t("stock_overview.tab_out"), count: overview.outOfStockCount },
   ];
   const rawRows = tab === "out" ? overview.outOfStockItems : tab === "low" ? overview.lowStockItems : overview.allItems ?? [];
-  const groups = groupStockByProduct(rawRows);
-  const emptyConfig = tab === "out" ? { title: t("stock_overview.empty_out"), desc: t("stock_overview.empty_out_desc"), icon: <XCircle size={22} /> } : tab === "low" ? { title: t("stock_overview.empty_low"), desc: t("stock_overview.empty_low_desc"), icon: <AlertTriangle size={22} /> } : { title: t("stock_overview.empty_all"), desc: t("stock_overview.empty_all_desc"), icon: <Package size={22} /> };
+  const matched = filterStockItems(rawRows, deferredQuery);
+  const groups = sortStockGroups(groupStockByProduct(matched), sortKey, sortDirection);
+  const searching = deferredQuery.trim() !== "";
+  const emptyConfig = searching
+    ? { title: common("no_results_found"), desc: t("stock_overview.empty_search_desc"), icon: <SearchX size={22} /> }
+    : tab === "out"
+      ? { title: t("stock_overview.empty_out"), desc: t("stock_overview.empty_out_desc"), icon: <XCircle size={22} /> }
+      : tab === "low"
+        ? { title: t("stock_overview.empty_low"), desc: t("stock_overview.empty_low_desc"), icon: <AlertTriangle size={22} /> }
+        : { title: t("stock_overview.empty_all"), desc: t("stock_overview.empty_all_desc"), icon: <Package size={22} /> };
+  const DirectionIcon = sortDirection === "asc" ? ArrowUp : ArrowDown;
+  const directionLabel = sortDirection === "asc" ? t("stock_overview.sort_asc") : t("stock_overview.sort_desc");
 
   return <div className="space-y-5">
     {actionError && <Alert role="alert" tone="critical"><AlertCircle size={18} className="shrink-0" /><span className="flex-1">{actionError}</span><button type="button" onClick={() => setActionError(null)} aria-label={common("cancel")}><X size={16} /></button></Alert>}
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-4"><StatCard label={t("stock_overview.total_skus")} value={overview.totalSkus.toLocaleString(locale === "ar" ? "ar-DZ" : "en")} icon={<Package size={20} />} /><StatCard label={t("stock_overview.out_of_stock")} value={overview.outOfStockCount.toLocaleString(locale === "ar" ? "ar-DZ" : "en")} icon={<XCircle size={20} />} tone={overview.outOfStockCount > 0 ? "critical" : "neutral"} /><StatCard label={t("stock_overview.low_stock")} value={overview.lowStockCount.toLocaleString(locale === "ar" ? "ar-DZ" : "en")} icon={<AlertTriangle size={20} />} tone={overview.lowStockCount > 0 ? "warning" : "neutral"} /><StatCard label={t("stock_overview.stock_value")} value={formatMoneyValue(overview.totalInventoryValue, locale)} icon={<Wallet size={20} />} /></div>
     <div className="flex gap-1.5 rounded-xl border border-border bg-muted/40 p-1">{tabs.map((item) => <button key={item.key} type="button" onClick={() => setTab(item.key)} aria-pressed={tab === item.key} className={`flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg px-3 text-[13px] font-bold transition-all ${tab === item.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{item.label}{item.count !== undefined && item.count > 0 && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-bold tabular-nums text-muted-foreground ring-1 ring-inset ring-border/60">{item.count}</span>}</button>)}</div>
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <SearchInput value={query} onChange={setQuery} placeholder={t("stock_overview.search_placeholder")} />
+      <div className="flex shrink-0 items-center gap-2">
+        <Select aria-label={t("stock_overview.sort_label")} value={sortKey} onChange={(event) => setSortKey(event.currentTarget.value as StockSortKey)} wrapperClassName="min-w-0 flex-1 sm:w-48 sm:flex-none" prefix={<ArrowUpDown size={14} className="text-muted-foreground/70" />}>
+          {SORT_KEYS.map((key) => <option key={key} value={key}>{t(SORT_LABEL_KEYS[key])}</option>)}
+        </Select>
+        <IconButton type="button" variant="secondary" onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))} aria-label={directionLabel} title={directionLabel}><DirectionIcon size={15} /></IconButton>
+      </div>
+      <span className="shrink-0 text-xs font-medium text-muted-foreground" aria-live="polite">{matched.length.toLocaleString(locale === "ar" ? "ar-DZ" : "en")} {t("stock_overview.results_count")}</span>
+    </div>
     {groups.length === 0 ? <EmptyState icon={emptyConfig.icon} title={emptyConfig.title} description={emptyConfig.desc} /> : <div className="space-y-2.5">{groups.map((group) => <ProductGroupBlock key={group.productId} group={group} onAdjust={setAdjustItem} onHistory={setHistoryItem} />)}</div>}
     {adjustItem && <StockAdjustmentDialog productId={adjustItem.productId} variantId={adjustItem.variantId} variantDisplayLabel={adjustItem.variantLabel} simpleInventory={adjustItem.inventory} onClose={() => setAdjustItem(null)} onSuccess={() => { setAdjustItem(null); void load(); }} />}
     {historyItem && <StockHistoryDrawer productId={historyItem.productId} variantId={historyItem.variantId ?? undefined} productName={historyItem.productName} variantLabel={historyItem.variantLabel} open onClose={() => setHistoryItem(null)} />}

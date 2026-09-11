@@ -43,9 +43,13 @@ export interface StockAlertItem {
   variantId: string | null;
   productName: string;
   variantLabel: string | null;
+  /** Merchant-facing code — searchable in the dashboard. Null when unset on a simple product. */
+  sku: string | null;
   inventory: number;
   lowStockThreshold: number;
   isOutOfStock: boolean;
+  /** Last write to the SKU row — every stock adjustment touches it. */
+  updatedAt: string;
 }
 
 export interface StockOverview {
@@ -116,10 +120,12 @@ interface TrackedSkuRow {
   variant_id: string | null;
   product_name: string;
   variations: string | null;
+  sku: string | null;
   inventory: number;
   low_stock_threshold: number;
   inventory_value: number;
   is_out_of_stock: number;
+  updated_at: string;
 }
 
 /**
@@ -138,18 +144,20 @@ function trackedSkuSql(alertsOnly: boolean) {
 
   return sql`
     SELECT products.id AS product_id, NULL AS variant_id, products.name AS product_name,
-           NULL AS variations, products.inventory AS inventory,
+           NULL AS variations, products.sku AS sku, products.inventory AS inventory,
            products.low_stock_threshold AS low_stock_threshold,
            products.inventory * products.price AS inventory_value,
-           products.inventory <= 0 AS is_out_of_stock
+           products.inventory <= 0 AS is_out_of_stock,
+           products.updated_at AS updated_at
     FROM products
     WHERE products.has_variants = 0 AND products.track_inventory = 1 AND products.deleted_at IS NULL${simpleAlertFilter}
     UNION ALL
     SELECT product_variants.product_id, product_variants.id, products.name,
-           product_variants.variations, product_variants.inventory,
+           product_variants.variations, product_variants.sku, product_variants.inventory,
            product_variants.low_stock_threshold,
            product_variants.inventory * product_variants.price,
-           product_variants.inventory <= 0
+           product_variants.inventory <= 0,
+           product_variants.updated_at
     FROM product_variants
     INNER JOIN products ON products.id = product_variants.product_id
     WHERE products.has_variants = 1 AND products.track_inventory = 1 AND products.deleted_at IS NULL
@@ -165,9 +173,11 @@ function toAlertItem(row: TrackedSkuRow): StockAlertItem {
     variantLabel: row.variations
       ? Object.values(JSON.parse(row.variations) as Record<string, string>).join(" / ")
       : null,
+    sku: row.sku ?? null,
     inventory: row.inventory,
     lowStockThreshold: row.low_stock_threshold,
     isOutOfStock: Boolean(row.is_out_of_stock),
+    updatedAt: row.updated_at ?? "",
   };
 }
 

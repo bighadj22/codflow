@@ -61,9 +61,11 @@ function alertItem(overrides: Record<string, any> = {}) {
     variantId: null,
     productName: "Samsung Galaxy A54",
     variantLabel: null,
+    sku: "SGA54",
     inventory: 2,
     lowStockThreshold: 5,
     isOutOfStock: false,
+    updatedAt: "2025-01-15T10:30:00.000Z",
     ...overrides,
   };
 }
