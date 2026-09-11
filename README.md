@@ -152,6 +152,8 @@ Run CodFlow locally in 5 steps:
 
 > 🤖 **Using an AI Coding Assistant?** CodFlow includes an autonomous setup skill. Tell your agent: *"Set up CodFlow"* and it will follow the [`codflow-setup` runbook](./.agents/skills/codflow-setup/SKILL.md).
 
+**Already set up and want the latest version?** Don't redo the setup. Tell your agent: *"Update CodFlow"* — it will follow the [`codflow-update` runbook](./.agents/skills/codflow-update/SKILL.md), which pulls the latest code from this repository's `main` branch, applies new database migrations, keeps your resources, secrets, and store data intact, rebuilds and redeploys your workers, and reports each step in plain language.
+
 ### Prerequisites
 - **Node.js 22.12+** and npm
 - **Wrangler CLI**: `npm install -g wrangler`
