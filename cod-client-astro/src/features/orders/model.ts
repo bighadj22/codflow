@@ -114,8 +114,10 @@ export function shipmentCapabilities(
     companyCode === "ecotrack" || companyCode.endsWith("_ecotrack");
   const supportsUpdate =
     isEcotrack || ["noest", "yalidine", "zr_express"].includes(companyCode);
+  // ZR Express deletion works via DELETE /parcels/bulk/by-tracking-number
+  // (live-verified 2026-09-10; the earlier 405 came from a wrong POST).
   const supportsCancel =
-    isEcotrack || ["noest", "yalidine"].includes(companyCode);
+    isEcotrack || ["noest", "yalidine", "zr_express"].includes(companyCode);
   const canUpdate =
     isEcotrack || companyCode === "zr_express"
       ? !isTerminalStatus(status)

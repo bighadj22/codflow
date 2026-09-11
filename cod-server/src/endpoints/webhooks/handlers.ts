@@ -158,8 +158,13 @@ export async function handleZrWebhook(c: Context<AppContext>) {
     } else if (eventType === "parcel.state.updated") {
       const state = data.state as Record<string, unknown> | undefined;
       const stateName = (state?.name as string | undefined) ?? null;
+      const stateDescription = (state?.description as string | undefined) ?? null;
       const customMap = parseCustomMapping(company.webhookStatusMapping ?? null);
-      const mappedZr = mapZrStateName(stateName, customMap);
+      // Match the slug name first, then the French display description —
+      // tenants that rename slugs usually keep the description text.
+      const mappedZr =
+        mapZrStateName(stateName, customMap)
+        ?? mapZrStateName(stateDescription, customMap);
       if (mappedZr === null || !isOrderStatus(mappedZr)) {
         newStatus = null;
         await updateWebhookEvent(db, webhookEventId, {

@@ -6,8 +6,12 @@
  *   - createShipment goes through customer creation → territory resolve → parcel
  *   - parcelId comes back in rawResponse (so the handler can use it for updates)
  *   - phone numbers are normalized to +213 format
- *   - updateShipment treats the first arg as parcelId UUID and posts to the right
- *     per-field endpoints with parcelId in the body
+ *   - stop-desk parcels send a real hub id (not a territory UUID) as hubId
+ *   - updateShipment treats the first arg as parcelId UUID, GETs the parcel
+ *     first, and PATCHes the per-field endpoints with parcelId in the body
+ *   - deleteShipment sends DELETE (POST answers 405) and throws on failure
+ *   - getTrackingInfo resolves the parcel UUID first (state-history 404s on
+ *     tracking numbers), then maps rows to {activity, description, date}
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -48,21 +52,20 @@ describe("ZrExpressProvider.createShipment", () => {
   });
 
   it("creates customer → resolves territory → creates parcel → fetches tracking", async () => {
+    const cityItem = { id: "city-uuid", level: "wilaya", code: 16, name: "Alger" };
+    const districtItem = {
+      id: "district-uuid",
+      level: "commune",
+      parentId: "city-uuid",
+      name: "Alger Centre",
+    };
     fetchMock
       // 1) POST /v1/customers/individual
       .mockResolvedValueOnce(jsonResponse({ id: "cust-uuid" }))
-      // 2) POST /v1/territories/search (city, by name "Alger")
-      .mockResolvedValueOnce(
-        jsonResponse({
-          items: [{ id: "city-uuid", level: "wilaya", code: 16, name: "Alger" }],
-        })
-      )
-      // 3) POST /v1/territories/search (district, by commune)
-      .mockResolvedValueOnce(
-        jsonResponse({
-          items: [{ id: "district-uuid", parentId: "city-uuid", name: "Alger Centre" }],
-        })
-      )
+      // 2) POST /v1/territories/search (city, by accent-stripped name "Alger")
+      .mockResolvedValueOnce(jsonResponse({ items: [cityItem] }))
+      // 3) POST /v1/territories/search (district — parent must match city)
+      .mockResolvedValueOnce(jsonResponse({ items: [districtItem] }))
       // 4) POST /v1/parcels
       .mockResolvedValueOnce(jsonResponse({ id: PARCEL_UUID }))
       // 5) GET /v1/parcels/:id
@@ -106,31 +109,38 @@ describe("ZrExpressProvider.createShipment", () => {
     expect(raw.parcelId).toBe(PARCEL_UUID);
   });
 
-  it("uses the stationCode UUID as districtTerritoryId for stop-desk orders", async () => {
-    const STOP_DESK_UUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  it("sends hub id as hubId", async () => {
+    const HUB_ID = "hub-uuid-1";
+    const hub = {
+      id: HUB_ID,
+      isPickupPoint: true,
+      address: { districtTerritoryId: "hub-district-uuid", cityTerritoryId: "hub-city-uuid" },
+    };
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ id: "cust-uuid" }))
-      .mockResolvedValueOnce(
-        jsonResponse({
-          items: [{ id: "city-uuid", level: "wilaya", code: 16, name: "Alger" }],
-        })
-      )
-      // 4) POST /v1/parcels — district lookup is skipped because stationCode is a UUID
+      .mockResolvedValueOnce(jsonResponse({ items: [hub], totalPages: 1 }))
       .mockResolvedValueOnce(jsonResponse({ id: PARCEL_UUID }))
       .mockResolvedValueOnce(
-        jsonResponse({ id: PARCEL_UUID, trackingNumber: "16-XYZ-ZR" })
+        jsonResponse({ id: PARCEL_UUID, trackingNumber: "16-PP-ZR" })
       );
 
     const provider = new ZrExpressProvider(TOKEN, TENANT);
-    await provider.createShipment({
+    const result = await provider.createShipment({
       ...baseInput,
       stopDesk: true,
-      stationCode: STOP_DESK_UUID,
+      stationCode: HUB_ID,
     });
+
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      "https://api.zrexpress.app/api/v1/hubs/search"
+    );
 
     const parcelBody = JSON.parse(fetchMock.mock.calls[2][1].body as string);
     expect(parcelBody.deliveryType).toBe("pickup-point");
-    expect(parcelBody.deliveryAddress.districtTerritoryId).toBe(STOP_DESK_UUID);
+    expect(parcelBody.hubId).toBe(HUB_ID);
+    expect(parcelBody.deliveryAddress.districtTerritoryId).toBe("hub-district-uuid");
+    expect(parcelBody.deliveryAddress.cityTerritoryId).toBe("hub-city-uuid");
+    expect(result.trackingNumber).toBe("16-PP-ZR");
   });
 
   it("throws if no wilaya territory matches", async () => {
@@ -165,71 +175,105 @@ describe("ZrExpressProvider.updateShipment", () => {
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
-  it("treats the first arg as parcelId UUID — calls /amount, /customer, /deliveryAddress", async () => {
+  it("gets parcel then patches", async () => {
+    const snap = {
+      id: PARCEL_UUID,
+      amount: 4500,
+      customer: { name: "Karim Benali", phone: { number1: "+213551234567" } },
+      deliveryAddress: {
+        street: "Rue 1, Alger",
+        cityTerritoryId: "city-uuid",
+        districtTerritoryId: "district-uuid",
+      },
+    };
     fetchMock
-      .mockResolvedValueOnce(jsonResponse({}))  // amount
-      .mockResolvedValueOnce(jsonResponse({}))  // customer
-      .mockResolvedValueOnce(jsonResponse({})); // deliveryAddress
+      .mockResolvedValueOnce(jsonResponse(snap))
+      .mockResolvedValueOnce(jsonResponse({}))
+      .mockResolvedValueOnce(jsonResponse({}))
+      .mockResolvedValueOnce(jsonResponse({ items: [{ id: "city-uuid", level: "wilaya", code: 16 }] }))
+      .mockResolvedValueOnce(jsonResponse({ items: [{ id: "district-uuid", level: "commune", parentId: "city-uuid" }] }))
+      .mockResolvedValueOnce(jsonResponse({}));
 
     const provider = new ZrExpressProvider(TOKEN, TENANT);
     const ok = await provider.updateShipment(PARCEL_UUID, {
       amount: 5000,
       customerName: "Karim Updated",
       phone: "0552222222",
-      address: "Rue 2",
+      address: "Rue 2, Alger",
+      commune: "Alger Centre",
+      wilayaId: 16,
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
 
     expect(fetchMock.mock.calls[0][0]).toBe(
+      `https://api.zrexpress.app/api/v1/parcels/${PARCEL_UUID}`
+    );
+
+    expect(fetchMock.mock.calls[1][0]).toBe(
       `https://api.zrexpress.app/api/v1/parcels/${PARCEL_UUID}/amount`
     );
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({
+    expect(fetchMock.mock.calls[1][1].method).toBe("PATCH");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
       parcelId: PARCEL_UUID,
       amount: 5000,
     });
 
-    expect(fetchMock.mock.calls[1][0]).toBe(
+    expect(fetchMock.mock.calls[2][0]).toBe(
       `https://api.zrexpress.app/api/v1/parcels/${PARCEL_UUID}/customer`
     );
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body as string)).toEqual({
       parcelId: PARCEL_UUID,
       name: "Karim Updated",
       phone: "+213552222222",
     });
 
-    expect(fetchMock.mock.calls[2][0]).toBe(
+    expect(fetchMock.mock.calls[3][0]).toBe(
+      "https://api.zrexpress.app/api/v1/territories/search"
+    );
+    expect(fetchMock.mock.calls[5][0]).toBe(
       `https://api.zrexpress.app/api/v1/parcels/${PARCEL_UUID}/deliveryAddress`
     );
-    expect(JSON.parse(fetchMock.mock.calls[2][1].body as string)).toEqual({
-      parcelId: PARCEL_UUID,
-      deliveryAddress: { street: "Rue 2" },
-    });
+    const addrBody = JSON.parse(fetchMock.mock.calls[5][1].body as string);
+    expect(addrBody.parcelId).toBe(PARCEL_UUID);
+    expect(addrBody.deliveryAddress.cityTerritoryId).toBe("city-uuid");
+    expect(addrBody.deliveryAddress.districtTerritoryId).toBe("district-uuid");
 
     expect(ok).toBe(true);
   });
 
-  it("only hits the endpoints whose fields are provided", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({}));
+  it("skips unchanged fields", async () => {
+    const snap = {
+      id: PARCEL_UUID,
+      amount: 4500,
+      customer: { name: "Karim Benali", phone: { number1: "+213551234567" } },
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(snap));
 
     const provider = new ZrExpressProvider(TOKEN, TENANT);
-    await provider.updateShipment(PARCEL_UUID, { amount: 100 });
+    await provider.updateShipment(PARCEL_UUID, {
+      amount: 4500,
+      customerName: "Karim Benali",
+      phone: "+213551234567",
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toMatch(/\/amount$/);
   });
 
-  it("returns false (does not throw) when carrier rejects an update", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Locked" }, 400));
+  it("throws when carrier rejects an update", async () => {
+    const snap = { id: PARCEL_UUID, amount: 4500 };
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(snap))
+      .mockResolvedValueOnce(jsonResponse({ detail: "Locked" }, 400));
     const provider = new ZrExpressProvider(TOKEN, TENANT);
-    expect(await provider.updateShipment(PARCEL_UUID, { amount: 1 })).toBe(false);
+    await expect(provider.updateShipment(PARCEL_UUID, { amount: 1 })).rejects.toThrow();
   });
 });
 
 describe("ZrExpressProvider.deleteShipment", () => {
-  it("POSTs trackingNumber to /parcels/bulk/by-tracking-number", async () => {
+  it("sends DELETE and returns true", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ successCount: 1, failureCount: 0 }));
+      .mockResolvedValueOnce(jsonResponse({ successCount: 1, failures: [] }));
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const provider = new ZrExpressProvider(TOKEN, TENANT);
@@ -241,43 +285,68 @@ describe("ZrExpressProvider.deleteShipment", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({
       trackingNumbers: ["16-ABCDEF-ZR"],
     });
+    expect(fetchMock.mock.calls[0][1].method).toBe("DELETE");
   });
 
-  it("returns false on the documented HTTP 405 (carrier-side delete is broken)", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({ message: "Not allowed" }, 405));
+  it("treats not-found as success", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({ successCount: 0, failures: [{ errorMessage: "Parcel not found" }] })
+    );
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const provider = new ZrExpressProvider(TOKEN, TENANT);
-    expect(await provider.deleteShipment("16-ABCDEF-ZR")).toBe(false);
+    expect(await provider.deleteShipment("16-ABCDEF-ZR")).toBe(true);
+  });
+
+  it("throws on carrier failure", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({ successCount: 0, failures: [{ errorMessage: "Already delivered" }] })
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new ZrExpressProvider(TOKEN, TENANT);
+    await expect(provider.deleteShipment("16-ABCDEF-ZR")).rejects.toThrow(/failed to delete/);
   });
 });
 
 describe("ZrExpressProvider.getTrackingInfo", () => {
-  it("maps state-history rows to {activity, description, date}", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(
-      jsonResponse([
-        {
-          newState: { name: "PickupStarted", description: "Picked up by courier" },
-          createdAt: "2026-04-25T10:00:00Z",
-        },
-        {
-          newState: { name: "Delivered", description: "Delivered to customer" },
-          createdAt: "2026-04-26T14:00:00Z",
-        },
-      ])
-    );
+  it("resolves uuid then reads history", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ id: PARCEL_UUID, trackingNumber: "16-ABCDEF-ZR" }))
+      .mockResolvedValueOnce(
+        jsonResponse([
+          {
+            newState: { name: "commande_recue", description: "Commande recue" },
+            createdAt: "2026-04-25T10:00:00Z",
+          },
+          {
+            newState: { name: "livre", description: "Livre au client" },
+            createdAt: "2026-04-26T14:00:00Z",
+          },
+        ])
+      );
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const provider = new ZrExpressProvider(TOKEN, TENANT);
     const events = await provider.getTrackingInfo("16-ABCDEF-ZR");
 
-    expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://api.zrexpress.app/api/v1/parcels/16-ABCDEF-ZR/state-history"
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      `https://api.zrexpress.app/api/v1/parcels/${PARCEL_UUID}/state-history`
     );
     expect(events).toEqual([
-      { activity: "PickupStarted", description: "Picked up by courier", date: "2026-04-25T10:00:00Z" },
-      { activity: "Delivered", description: "Delivered to customer", date: "2026-04-26T14:00:00Z" },
+      { activity: "commande_recue", description: "Commande recue", date: "2026-04-25T10:00:00Z" },
+      { activity: "livre", description: "Livre au client", date: "2026-04-26T14:00:00Z" },
     ]);
+  });
+
+  it("returns empty for unknown tracking", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({ title: "Not Found" }, 404)
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new ZrExpressProvider(TOKEN, TENANT);
+    expect(await provider.getTrackingInfo("16-NOPE-ZR")).toEqual([]);
   });
 });
 

@@ -219,7 +219,17 @@ export async function cancelShipment(c: Context<AppContext>) {
 
   const startMs = Date.now();
   try {
-    await provider.deleteShipment(order.trackingNumber);
+    const deleted = await provider.deleteShipment(order.trackingNumber);
+    if (!deleted) {
+      // Carrier refused (e.g. already validated/picked up) — surface it and
+      // keep the shipment: resetting the order here would desync us from the
+      // carrier (the parcel would keep moving with no local tracking).
+      throw new BusinessLogicError(
+        `The carrier refused to cancel shipment ${order.trackingNumber} — it may already be validated or picked up`,
+        ERROR_CODES.OPERATION_NOT_SUPPORTED,
+        { orderId, provider: company.code, trackingNumber: order.trackingNumber }
+      );
+    }
     const durationMs = Date.now() - startMs;
 
     await logApiCall(db, {

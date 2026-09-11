@@ -1,0 +1,3860 @@
+{
+  "GeneratePickupBagLabelPdfResponse": {
+    "type": "object",
+    "properties": {
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "fileUrl": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateBulkParcelExchangeRequest": {
+    "type": "object",
+    "properties": {
+      "parcels": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SingleParcelExchangeRequest"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SingleParcelExchangeRequest": {
+    "type": "object",
+    "properties": {
+      "customer": {
+        "$ref": "#/components/schemas/ParcelCustomerDto"
+      },
+      "deliveryAddress": {
+        "$ref": "#/components/schemas/DeliveryAddressInputDto"
+      },
+      "hubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "orderedProducts": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/OrderedProductDto"
+        },
+        "nullable": true
+      },
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "amount": {
+        "type": "number",
+        "format": "double"
+      },
+      "weight": {
+        "$ref": "#/components/schemas/ParcelWeightDto"
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      },
+      "hubStockId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "originalParcelTrackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "stateId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ParcelWeightDto": {
+    "type": "object",
+    "properties": {
+      "weight": {
+        "type": "number",
+        "format": "double"
+      },
+      "dimensionalWeight": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "OrderedProductDto": {
+    "type": "object",
+    "properties": {
+      "productId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "productName": {
+        "type": "string",
+        "nullable": true
+      },
+      "productSku": {
+        "type": "string",
+        "nullable": true
+      },
+      "unitPrice": {
+        "type": "number",
+        "format": "double"
+      },
+      "quantity": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "length": {
+        "type": "number",
+        "format": "double"
+      },
+      "width": {
+        "type": "number",
+        "format": "double"
+      },
+      "height": {
+        "type": "number",
+        "format": "double"
+      },
+      "weight": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "stockType": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "DeliveryAddressInputDto": {
+    "type": "object",
+    "properties": {
+      "cityTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "districtTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "street": {
+        "type": "string",
+        "nullable": true
+      },
+      "postalCode": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ParcelCustomerDto": {
+    "type": "object",
+    "properties": {
+      "customerId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "phone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PhoneDto": {
+    "type": "object",
+    "properties": {
+      "number1": {
+        "type": "string",
+        "nullable": true
+      },
+      "number2": {
+        "type": "string",
+        "nullable": true
+      },
+      "number3": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GenerateMultipleLabelsResponse": {
+    "type": "object",
+    "properties": {
+      "fileUrl": {
+        "type": "string",
+        "format": "uri",
+        "nullable": true
+      },
+      "failedTrackingNumbers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateParcelStateResponse": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "newStateId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "newStateName": {
+        "type": "string",
+        "nullable": true
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ProblemDetails": {
+    "type": "object",
+    "properties": {
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "title": {
+        "type": "string",
+        "nullable": true
+      },
+      "status": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "detail": {
+        "type": "string",
+        "nullable": true
+      },
+      "instance": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": {}
+  },
+  "SearchSupplierPickupBagByTrackingNumberRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "onlyUnprocessedParcels": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "Filter": {
+    "type": "object",
+    "properties": {
+      "logic": {
+        "type": "string",
+        "nullable": true
+      },
+      "filters": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Filter"
+        },
+        "nullable": true
+      },
+      "field": {
+        "type": "string",
+        "nullable": true
+      },
+      "operator": {
+        "type": "string",
+        "nullable": true
+      },
+      "value": {
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "Search": {
+    "type": "object",
+    "properties": {
+      "fields": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchWorkflowsRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "expiration": {
+        "type": "string",
+        "format": "date-span",
+        "nullable": true,
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "DeleteBulkParcelsByTrackingNumberResponse": {
+    "type": "object",
+    "properties": {
+      "totalRequested": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "successCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "failureCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "successes": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/BulkParcelDeleteByTrackingNumberSuccess"
+        },
+        "nullable": true
+      },
+      "failures": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/BulkParcelDeleteByTrackingNumberFailure"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "BulkParcelDeleteByTrackingNumberFailure": {
+    "type": "object",
+    "properties": {
+      "index": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "errorCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "errorMessage": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "BulkParcelDeleteByTrackingNumberSuccess": {
+    "type": "object",
+    "properties": {
+      "index": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GenerateIndividualLabelsPdfResponse": {
+    "type": "object",
+    "properties": {
+      "parcelLabelFiles": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ParcelLabelPdfFile"
+        },
+        "nullable": true
+      },
+      "failedTrackingNumbers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ParcelLabelPdfFile": {
+    "type": "object",
+    "properties": {
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "fileUrl": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ChangeParcelPhoneResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateDeliveryAddressRequest": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "deliveryAddress": {
+        "$ref": "#/components/schemas/DeliveryAddressInputDto"
+      },
+      "hubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchSupplierPickupBagsRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "onlyUnprocessed": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateBulkParcelRefundRequest": {
+    "type": "object",
+    "properties": {
+      "parcels": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SingleParcelRefundRequest"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SingleParcelRefundRequest": {
+    "type": "object",
+    "properties": {
+      "customer": {
+        "$ref": "#/components/schemas/ParcelCustomerDto"
+      },
+      "deliveryAddress": {
+        "$ref": "#/components/schemas/DeliveryAddressInputDto"
+      },
+      "hubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "amount": {
+        "type": "number",
+        "format": "double"
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "DeletePickupBagResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateBulkParcelsRequest": {
+    "type": "object",
+    "properties": {
+      "parcels": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SingleParcelCreationRequest"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SingleParcelCreationRequest": {
+    "type": "object",
+    "properties": {
+      "customer": {
+        "$ref": "#/components/schemas/ParcelCustomerDto"
+      },
+      "deliveryAddress": {
+        "$ref": "#/components/schemas/DeliveryAddressInputDto"
+      },
+      "hubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "orderedProducts": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/OrderedProductDto"
+        },
+        "nullable": true
+      },
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "amount": {
+        "type": "number",
+        "format": "double"
+      },
+      "weight": {
+        "$ref": "#/components/schemas/ParcelWeightDto"
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      },
+      "hubStockId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "stateId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateCustomerRequest": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "phone": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchSupplierParcelsModificationRequestsRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "onlyPending": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateCustomerResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateParcelModificationRequestResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "RemoveParcelsFromPickupBagResponse": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateParcelRefundRequest": {
+    "type": "object",
+    "properties": {
+      "customer": {
+        "$ref": "#/components/schemas/ParcelCustomerDto"
+      },
+      "deliveryAddress": {
+        "$ref": "#/components/schemas/DeliveryAddressInputDto"
+      },
+      "hubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "amount": {
+        "type": "number",
+        "format": "double"
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "DeleteBulkParcelsResponse": {
+    "type": "object",
+    "properties": {
+      "totalRequested": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "successCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "failureCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "successes": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/BulkParcelDeleteSuccess"
+        },
+        "nullable": true
+      },
+      "failures": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/BulkParcelDeleteFailure"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "BulkParcelDeleteFailure": {
+    "type": "object",
+    "properties": {
+      "index": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "errorCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "errorMessage": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "BulkParcelDeleteSuccess": {
+    "type": "object",
+    "properties": {
+      "index": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateParcelExchangeRequest": {
+    "type": "object",
+    "properties": {
+      "customer": {
+        "$ref": "#/components/schemas/ParcelCustomerDto"
+      },
+      "deliveryAddress": {
+        "$ref": "#/components/schemas/DeliveryAddressInputDto"
+      },
+      "hubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "orderedProducts": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/OrderedProductDto"
+        },
+        "nullable": true
+      },
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "stateId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "weight": {
+        "$ref": "#/components/schemas/ParcelWeightDto"
+      },
+      "originalParcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "amount": {
+        "type": "number",
+        "format": "double"
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      },
+      "hubStockId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateDeliveryAddressResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ParcelImportResult": {
+    "type": "object",
+    "properties": {
+      "succeededs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SucceededImportParcelResult"
+        },
+        "nullable": true
+      },
+      "faileds": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/FailedImportParcelResult"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "FailedImportParcelResult": {
+    "type": "object",
+    "properties": {
+      "rowIndex": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "reason": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SucceededImportParcelResult": {
+    "type": "object",
+    "properties": {
+      "rowIndex": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "AddParcelsToPickupBagResponse": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "successes": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/PickupBagParcelSuccess"
+        },
+        "nullable": true
+      },
+      "failures": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/PickupBagParcelFailure"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "PickupBagParcelFailure": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "errorCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "errorMessage": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "PickupBagParcelSuccess": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateOrderProductsResponse": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateOrderedProductsRequest": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "orderedProducts": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/OrderedProductDto"
+        },
+        "nullable": true
+      },
+      "amount": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "hubStockId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchTerritoriesRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "expiration": {
+        "type": "string",
+        "format": "date-span",
+        "nullable": true,
+        "readOnly": true
+      },
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "deliveryType": {
+        "$ref": "#/components/schemas/DeliveryType"
+      },
+      "includeUnavailable": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "DeliveryType": {
+    "type": "object",
+    "properties": {
+      "value": {
+        "type": "string",
+        "nullable": true,
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateAmountResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GetSupplierParcelResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "customer": {
+        "$ref": "#/components/schemas/ParcelCustomerDto"
+      },
+      "supplier": {
+        "$ref": "#/components/schemas/ParcelSupplierDto"
+      },
+      "deliveryAddress": {
+        "$ref": "#/components/schemas/ParcelAddressDto"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "amount": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "deliveryPrice": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "returnPrice": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "paymentMethod": {
+        "type": "string",
+        "nullable": true
+      },
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "weight": {
+        "$ref": "#/components/schemas/WeightDto"
+      },
+      "bagId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "deliveryPersonId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "deliveryPerson": {
+        "$ref": "#/components/schemas/GetDeliveryPersonWithHubDto"
+      },
+      "state": {
+        "$ref": "#/components/schemas/StateDto"
+      },
+      "lastStateSituationId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "lastStateSitutationHistoryId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "lastStateHistoryId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "situation": {
+        "$ref": "#/components/schemas/SituationDto"
+      },
+      "tenantId": {
+        "type": "string",
+        "nullable": true
+      },
+      "lastLocationHubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "lastStateUpdateAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "lastSituationUpdateAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "lastStateHistoryAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "hubStockId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "productsDescription": {
+        "type": "string",
+        "nullable": true
+      },
+      "productsStockType": {
+        "type": "string",
+        "nullable": true
+      },
+      "isReturn": {
+        "type": "boolean",
+        "nullable": true
+      },
+      "canBeReturned": {
+        "type": "boolean",
+        "nullable": true
+      },
+      "deliveredAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "markedAsReturnAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "returnedAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "controlInfo": {
+        "$ref": "#/components/schemas/ControlInfoDto"
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "isExchanged": {
+        "type": "boolean",
+        "nullable": true
+      },
+      "originalParcelId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "returnParcelId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "pickupBagId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      },
+      "firstConfirmationAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "hubDeliveryId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "hasActiveModificationRequest": {
+        "type": "boolean",
+        "nullable": true
+      },
+      "orderedProducts": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/OrderedProductResponse"
+        },
+        "nullable": true
+      },
+      "oldTrackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "swap": {
+        "$ref": "#/components/schemas/SupplierSwapInfoDto"
+      },
+      "modificationCount": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "phoneChangeCount": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "phoneChangePaymentCount": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "phoneChangePrice": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "applicablePhoneChangeThreshold": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "applicableModificationThreshold": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "applicableSwapThreshold": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "isEligibleForModification": {
+        "type": "boolean"
+      },
+      "isEligibleForPhoneChange": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "SupplierSwapInfoDto": {
+    "type": "object",
+    "properties": {
+      "count": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "sameCityCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "differentCityCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "swappedAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "sameCityPrice": {
+        "type": "number",
+        "format": "double"
+      },
+      "differentCityPrice": {
+        "type": "number",
+        "format": "double"
+      },
+      "isEligibleForSwap": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "OrderedProductResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "productId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "productName": {
+        "type": "string",
+        "nullable": true
+      },
+      "productSku": {
+        "type": "string",
+        "nullable": true
+      },
+      "unitPrice": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "quantity": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "stockType": {
+        "type": "string",
+        "nullable": true
+      },
+      "dimensions": {
+        "$ref": "#/components/schemas/DimensionsResponse"
+      }
+    },
+    "additionalProperties": false
+  },
+  "DimensionsResponse": {
+    "type": "object",
+    "properties": {
+      "length": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "width": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "height": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ControlInfoDto": {
+    "type": "object",
+    "properties": {
+      "controlledByUserId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "controlledByUserFullName": {
+        "type": "string",
+        "nullable": true
+      },
+      "controlledAtHubId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "controlledAtHubName": {
+        "type": "string",
+        "nullable": true
+      },
+      "controlledAt": {
+        "type": "string",
+        "format": "date-time"
+      }
+    },
+    "additionalProperties": false
+  },
+  "SituationDto": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "slug": {
+        "type": "string",
+        "nullable": true
+      },
+      "metadata": {
+        "type": "object",
+        "additionalProperties": {},
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "StateDto": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "isBlocking": {
+        "type": "boolean",
+        "nullable": true
+      },
+      "isLocked": {
+        "type": "boolean",
+        "nullable": true
+      },
+      "visibleFor": {
+        "$ref": "#/components/schemas/ActorVisibilities"
+      },
+      "editableBy": {
+        "$ref": "#/components/schemas/ActorVisibilities"
+      },
+      "color": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ActorVisibilities": {
+    "enum": [
+      0,
+      1,
+      2,
+      4,
+      8
+    ],
+    "type": "integer",
+    "format": "int32"
+  },
+  "GetDeliveryPersonWithHubDto": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "firstName": {
+        "type": "string",
+        "nullable": true
+      },
+      "lastName": {
+        "type": "string",
+        "nullable": true
+      },
+      "assignedPriceListId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "phone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      },
+      "hub": {
+        "$ref": "#/components/schemas/GetHubDto"
+      },
+      "email": {
+        "type": "string",
+        "nullable": true
+      },
+      "status": {
+        "type": "string",
+        "nullable": true
+      },
+      "isUnavailable": {
+        "type": "boolean"
+      },
+      "isAccountActivated": {
+        "type": "boolean"
+      },
+      "penalities": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/PenalityDto"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "PenalityDto": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "reducedCommission": {
+        "type": "number",
+        "format": "double"
+      },
+      "startDate": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "endDate": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "comment": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GetHubDto": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "isReturnCenter": {
+        "type": "boolean"
+      },
+      "address": {
+        "$ref": "#/components/schemas/AddressDto"
+      },
+      "services": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/HubServiceDto"
+        },
+        "nullable": true
+      },
+      "paymentRequestEligibilityCutoffTime": {
+        "type": "string",
+        "format": "time",
+        "nullable": true
+      },
+      "paymentRequestEligibilityCutoffTimezoneId": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "HubServiceDto": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "AddressDto": {
+    "type": "object",
+    "properties": {
+      "street": {
+        "type": "string",
+        "nullable": true
+      },
+      "city": {
+        "type": "string",
+        "nullable": true
+      },
+      "cityTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "district": {
+        "type": "string",
+        "nullable": true
+      },
+      "districtTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "postalCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "country": {
+        "type": "string",
+        "nullable": true
+      },
+      "coordinates": {
+        "$ref": "#/components/schemas/Coordinates"
+      }
+    },
+    "additionalProperties": false
+  },
+  "Coordinates": {
+    "type": "object",
+    "properties": {
+      "lat": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "lng": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "WeightDto": {
+    "type": "object",
+    "properties": {
+      "weight": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "dimensionalWeight": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "effectiveWeight": {
+        "type": "number",
+        "format": "double"
+      }
+    },
+    "additionalProperties": false
+  },
+  "ParcelAddressDto": {
+    "type": "object",
+    "properties": {
+      "street": {
+        "type": "string",
+        "nullable": true
+      },
+      "city": {
+        "type": "string",
+        "nullable": true
+      },
+      "cityTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "district": {
+        "type": "string",
+        "nullable": true
+      },
+      "districtTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "cityTerritoryCode": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "postalCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "country": {
+        "type": "string",
+        "nullable": true
+      },
+      "coordinates": {
+        "$ref": "#/components/schemas/Coordinates"
+      },
+      "hubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "hubName": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ParcelSupplierDto": {
+    "type": "object",
+    "properties": {
+      "supplierName": {
+        "type": "string",
+        "nullable": true
+      },
+      "supplierCityTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "supplierHubId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "supplierHubCityTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "supplierHubName": {
+        "type": "string",
+        "nullable": true
+      },
+      "phone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      },
+      "supportPhone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchSupplierParcelsRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "stateIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "nullable": true
+      },
+      "parcelTypes": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateParcelModificationRequestRequest": {
+    "type": "object",
+    "properties": {
+      "requestId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "amount": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "deliveryAddress": {
+        "$ref": "#/components/schemas/DeliveryAddressInputDto"
+      },
+      "hubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ImportParcelsFormData": {
+    "type": "object",
+    "properties": {
+      "file": {
+        "type": "string",
+        "format": "binary",
+        "nullable": true
+      },
+      "columnsAndTheirPropertyNames": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateParcelRequest": {
+    "type": "object",
+    "properties": {
+      "customer": {
+        "$ref": "#/components/schemas/ParcelCustomerDto"
+      },
+      "deliveryAddress": {
+        "$ref": "#/components/schemas/DeliveryAddressInputDto"
+      },
+      "hubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "orderedProducts": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/OrderedProductDto"
+        },
+        "nullable": true
+      },
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "stateId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "amount": {
+        "type": "number",
+        "format": "double"
+      },
+      "weight": {
+        "$ref": "#/components/schemas/ParcelWeightDto"
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      },
+      "hubStockId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SupplierPickupBagResult": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "unprocessedParcelsCount": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "state": {
+        "type": "string",
+        "nullable": true
+      },
+      "supplier": {
+        "$ref": "#/components/schemas/PickupBagSupplierDto"
+      },
+      "totalParcels": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "PickupBagSupplierDto": {
+    "type": "object",
+    "properties": {
+      "supplierName": {
+        "type": "string",
+        "nullable": true
+      },
+      "supplierCityTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "supplierHubId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateParcelStateSituationHistorySupplierRequest": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "workflowId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "parcelStateHistoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "situation": {
+        "$ref": "#/components/schemas/SituationDto"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PagedList_PickupBagParcelResponse": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/PickupBagParcelResponse"
+        },
+        "nullable": true
+      },
+      "pageNumber": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageSize": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalPages": {
+        "type": "integer",
+        "format": "int32",
+        "readOnly": true
+      },
+      "hasPrevious": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "hasNext": {
+        "type": "boolean",
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "PickupBagParcelResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "pickupBagId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "supplier": {
+        "$ref": "#/components/schemas/PickupBagParcelSupplierResponse"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PickupBagParcelSupplierResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "AddParcelsToPickupBagRequest": {
+    "type": "object",
+    "properties": {
+      "pickupBagId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "parcelIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "DeleteBulkParcelsRequest": {
+    "type": "object",
+    "properties": {
+      "parcelIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "PagedList_SearchSupplierParcelResponse": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SearchSupplierParcelResponse"
+        },
+        "nullable": true
+      },
+      "pageNumber": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageSize": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalPages": {
+        "type": "integer",
+        "format": "int32",
+        "readOnly": true
+      },
+      "hasPrevious": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "hasNext": {
+        "type": "boolean",
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchSupplierParcelResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "customer": {
+        "$ref": "#/components/schemas/ParcelCustomerDto"
+      },
+      "supplier": {
+        "$ref": "#/components/schemas/ParcelSupplierDto"
+      },
+      "deliveryAddress": {
+        "$ref": "#/components/schemas/ParcelAddressDto"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "amount": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "returnPrice": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "deliveryPrice": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "paymentMethod": {
+        "type": "string",
+        "nullable": true
+      },
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "weight": {
+        "$ref": "#/components/schemas/WeightDto"
+      },
+      "bagId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "deliveryPersonId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "state": {
+        "$ref": "#/components/schemas/StateDto"
+      },
+      "lastStateSituationId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "lastStateSitutationHistoryId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "lastStateHistoryId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "hubStockId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "situation": {
+        "$ref": "#/components/schemas/SituationDto"
+      },
+      "tenantId": {
+        "type": "string",
+        "nullable": true
+      },
+      "lastLocationHubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "lastStateUpdateAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "lastSituationUpdateAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "lastStateHistoryAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "productsDescription": {
+        "type": "string",
+        "nullable": true
+      },
+      "productsStockType": {
+        "type": "string",
+        "nullable": true
+      },
+      "isReturn": {
+        "type": "boolean",
+        "nullable": true
+      },
+      "canBeReturned": {
+        "type": "boolean",
+        "nullable": true
+      },
+      "deliveredAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "markedAsReturnAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "returnedAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "controlInfo": {
+        "$ref": "#/components/schemas/ControlInfoDto"
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "isExchanged": {
+        "type": "boolean",
+        "nullable": true
+      },
+      "originalParcelId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "returnParcelId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "pickupBagId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      },
+      "firstConfirmationAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "hubDeliveryId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "oldTrackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "swap": {
+        "$ref": "#/components/schemas/SupplierSwapInfoDto"
+      },
+      "modificationCount": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "firstConfirmationHubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "phoneChangeCount": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "phoneChangePaymentCount": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "phoneChangePrice": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "applicablePhoneChangeThreshold": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "applicableModificationThreshold": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "applicableSwapThreshold": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "isEligibleForModification": {
+        "type": "boolean"
+      },
+      "isEligibleForPhoneChange": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PagedList_SearchOrdersReportsResponse": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SearchOrdersReportsResponse"
+        },
+        "nullable": true
+      },
+      "pageNumber": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageSize": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalPages": {
+        "type": "integer",
+        "format": "int32",
+        "readOnly": true
+      },
+      "hasPrevious": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "hasNext": {
+        "type": "boolean",
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchOrdersReportsResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "tenantId": {
+        "type": "string",
+        "nullable": true
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "createdBy": {
+        "$ref": "#/components/schemas/UserSnapshot"
+      },
+      "status": {
+        "type": "string",
+        "nullable": true
+      },
+      "request": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UserSnapshot": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "readOnly": true
+      },
+      "fullName": {
+        "type": "string",
+        "nullable": true,
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateParcelResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PagedList_WorkflowResponse": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/WorkflowResponse"
+        },
+        "nullable": true
+      },
+      "pageNumber": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageSize": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalPages": {
+        "type": "integer",
+        "format": "int32",
+        "readOnly": true
+      },
+      "hasPrevious": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "hasNext": {
+        "type": "boolean",
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "WorkflowResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "isDefault": {
+        "type": "boolean"
+      },
+      "states": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/StateResponseDto"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "StateResponseDto": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "ranking": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "visibleFor": {
+        "$ref": "#/components/schemas/ActorVisibilities"
+      },
+      "editableBy": {
+        "$ref": "#/components/schemas/ActorVisibilities"
+      },
+      "color": {
+        "type": "string",
+        "nullable": true
+      },
+      "requirements": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "transitions": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/TransitionResponseDto"
+        },
+        "nullable": true
+      },
+      "situations": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SituationResponseDto"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SituationResponseDto": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "slug": {
+        "type": "string",
+        "nullable": true
+      },
+      "description": {
+        "type": "string",
+        "nullable": true
+      },
+      "order": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "requirements": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "metadataType": {
+        "type": "string",
+        "nullable": true
+      },
+      "metadataConfiguration": {
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "TransitionResponseDto": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "actionName": {
+        "type": "string",
+        "nullable": true
+      },
+      "fromStateId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toStateId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchParcelModificationRequestsRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "onlyPending": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PagedList_SupplierPickupBagResult": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SupplierPickupBagResult"
+        },
+        "nullable": true
+      },
+      "pageNumber": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageSize": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalPages": {
+        "type": "integer",
+        "format": "int32",
+        "readOnly": true
+      },
+      "hasPrevious": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "hasNext": {
+        "type": "boolean",
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GenerateIndividualLabelsRequest": {
+    "required": [
+      "trackingNumbers"
+    ],
+    "type": "object",
+    "properties": {
+      "trackingNumbers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GenerateIndividualLabelsResponse": {
+    "type": "object",
+    "properties": {
+      "parcelLabelFiles": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ParcelLabelFile"
+        },
+        "nullable": true
+      },
+      "failedTrackingNumbers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ParcelLabelFile": {
+    "type": "object",
+    "properties": {
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "fileUrl": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateBulkParcelsResponse": {
+    "type": "object",
+    "properties": {
+      "totalRequested": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "successCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "failureCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "successes": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/BulkParcelSuccess"
+        },
+        "nullable": true
+      },
+      "failures": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/BulkParcelFailure"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "BulkParcelFailure": {
+    "type": "object",
+    "properties": {
+      "index": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "errorCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "errorMessage": {
+        "type": "string",
+        "nullable": true
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "BulkParcelSuccess": {
+    "type": "object",
+    "properties": {
+      "index": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "DeleteBulkParcelsByTrackingNumberRequest": {
+    "type": "object",
+    "properties": {
+      "trackingNumbers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GenerateMultipleLabelsRequest": {
+    "required": [
+      "trackingNumbers"
+    ],
+    "type": "object",
+    "properties": {
+      "trackingNumbers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateParcelModificationRequestResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateBulkParcelExchangeResponse": {
+    "type": "object",
+    "properties": {
+      "totalRequested": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "successCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "failureCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "successes": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/BulkParcelExchangeSuccess"
+        },
+        "nullable": true
+      },
+      "failures": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/BulkParcelExchangeFailure"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "BulkParcelExchangeFailure": {
+    "type": "object",
+    "properties": {
+      "index": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "errorCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "errorMessage": {
+        "type": "string",
+        "nullable": true
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "BulkParcelExchangeSuccess": {
+    "type": "object",
+    "properties": {
+      "index": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "newParcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "newParcelTrackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "returnParcelId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "returnParcelTrackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "originalParcelId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreatePickupBagResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "successes": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/PickupBagParcelSuccess"
+        },
+        "nullable": true
+      },
+      "failures": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/PickupBagParcelFailure"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "PagedList_ParcelModificationRequestResult": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ParcelModificationRequestResult"
+        },
+        "nullable": true
+      },
+      "pageNumber": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageSize": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalPages": {
+        "type": "integer",
+        "format": "int32",
+        "readOnly": true
+      },
+      "hasPrevious": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "hasNext": {
+        "type": "boolean",
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ParcelModificationRequestResult": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "parcelTrackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "clientName": {
+        "type": "string",
+        "nullable": true
+      },
+      "parcelProductsDescription": {
+        "type": "string",
+        "nullable": true
+      },
+      "parcelState": {
+        "$ref": "#/components/schemas/StateDto"
+      },
+      "parcelPhone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      },
+      "parcelAmount": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "parcelDeliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "parcelDeliveryAddress": {
+        "$ref": "#/components/schemas/ParcelAddressDto"
+      },
+      "newPhone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      },
+      "newAmount": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "newDeliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "newDeliveryAddress": {
+        "$ref": "#/components/schemas/ParcelAddressDto"
+      },
+      "newCustomerName": {
+        "type": "string",
+        "nullable": true
+      },
+      "oldPhone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      },
+      "oldAmount": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "oldDeliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "oldDeliveryAddress": {
+        "$ref": "#/components/schemas/ParcelAddressDto"
+      },
+      "oldCustomerName": {
+        "type": "string",
+        "nullable": true
+      },
+      "validatedBy": {
+        "$ref": "#/components/schemas/UserSnapshot"
+      },
+      "validatedAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "isApproved": {
+        "type": "boolean",
+        "nullable": true
+      },
+      "isSwap": {
+        "type": "boolean",
+        "nullable": true
+      },
+      "oldTrackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "newTrackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "comment": {
+        "type": "string",
+        "nullable": true
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "isManagedByProDelivery": {
+        "type": "boolean"
+      },
+      "parcelSubContractorId": {
+        "type": "string",
+        "nullable": true
+      },
+      "canValidate": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateParcelExchangeResponse": {
+    "type": "object",
+    "properties": {
+      "newParcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "returnParcelId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "originalParcelId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ExportSupplierParcelsRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "stateIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "nullable": true
+      },
+      "parcelTypes": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GeneratePickupBagLabelPdfRequest": {
+    "required": [
+      "trackingNumber"
+    ],
+    "type": "object",
+    "properties": {
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateParcelModificationRequestRequest": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "amount": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "deliveryAddress": {
+        "$ref": "#/components/schemas/DeliveryAddressInputDto"
+      },
+      "hubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateParcelStateSituationHistorySupplierResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreatePickupBagRequest": {
+    "type": "object",
+    "properties": {
+      "parcelIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "PagedList_TerritoryResponse": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/TerritoryResponse"
+        },
+        "nullable": true
+      },
+      "pageNumber": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageSize": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "totalPages": {
+        "type": "integer",
+        "format": "int32",
+        "readOnly": true
+      },
+      "hasPrevious": {
+        "type": "boolean",
+        "readOnly": true
+      },
+      "hasNext": {
+        "type": "boolean",
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "TerritoryResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "nameArabic": {
+        "type": "string",
+        "nullable": true
+      },
+      "postalCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "level": {
+        "type": "string",
+        "nullable": true
+      },
+      "parentId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "delivery": {
+        "$ref": "#/components/schemas/DeliveryCapability"
+      }
+    },
+    "additionalProperties": false
+  },
+  "DeliveryCapability": {
+    "type": "object",
+    "properties": {
+      "hasHomeDelivery": {
+        "type": "boolean"
+      },
+      "hasPickupPoint": {
+        "type": "boolean"
+      },
+      "canSend": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "DeleteParcelRespone": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateParcelRefundStateRequest": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "newStateId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "deliveryPersonId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "arrivalHubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "comment": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GenerateIndividualLabelsPdfRequest": {
+    "required": [
+      "trackingNumbers"
+    ],
+    "type": "object",
+    "properties": {
+      "trackingNumbers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "format": {
+        "$ref": "#/components/schemas/PdfLabelFormat"
+      },
+      "isPreview": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PdfLabelFormat": {
+    "type": "object",
+    "properties": {
+      "value": {
+        "type": "string",
+        "nullable": true,
+        "readOnly": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ChangeParcelPhoneRequest": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "phone": {
+        "$ref": "#/components/schemas/PhoneDto"
+      }
+    },
+    "additionalProperties": false
+  },
+  "GenerateMultipleLabelsPdfRequest": {
+    "required": [
+      "trackingNumbers"
+    ],
+    "type": "object",
+    "properties": {
+      "trackingNumbers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      },
+      "format": {
+        "$ref": "#/components/schemas/PdfLabelFormat"
+      }
+    },
+    "additionalProperties": false
+  },
+  "GenerateMultipleLabelsPdfResponse": {
+    "type": "object",
+    "properties": {
+      "fileUrl": {
+        "type": "string",
+        "format": "uri",
+        "nullable": true
+      },
+      "failedTrackingNumbers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateAmountRequest": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "amount": {
+        "type": "number",
+        "format": "double"
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateParcelRefundResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateParcelStateRequest": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "newStateId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "deliveryPersonId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "arrivalHubId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "comment": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "SearchOrdersReportsRequest": {
+    "type": "object",
+    "properties": {
+      "advancedSearch": {
+        "$ref": "#/components/schemas/Search"
+      },
+      "keyword": {
+        "type": "string",
+        "nullable": true
+      },
+      "advancedFilter": {
+        "$ref": "#/components/schemas/Filter"
+      },
+      "pageSize": {
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "pageNumber": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer",
+        "format": "int32"
+      },
+      "orderBy": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "CreateBulkParcelRefundResponse": {
+    "type": "object",
+    "properties": {
+      "totalRequested": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "successCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "failureCount": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "successes": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/BulkParcelRefundSuccess"
+        },
+        "nullable": true
+      },
+      "failures": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/BulkParcelRefundFailure"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "BulkParcelRefundFailure": {
+    "type": "object",
+    "properties": {
+      "index": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "errorCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "errorMessage": {
+        "type": "string",
+        "nullable": true
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "BulkParcelRefundSuccess": {
+    "type": "object",
+    "properties": {
+      "index": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      },
+      "externalId": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "UpdateParcelRefundStateResponse": {
+    "type": "object",
+    "properties": {
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "newStateId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "newStateName": {
+        "type": "string",
+        "nullable": true
+      },
+      "trackingNumber": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "DeleteParcelModificationRequestResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "RemoveParcelFromPickupBagRequest": {
+    "type": "object",
+    "properties": {
+      "pickupBagId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "parcelId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  },
+  "DownloadReportResponse": {
+    "type": "object",
+    "properties": {
+      "sasUrl": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  }
+}

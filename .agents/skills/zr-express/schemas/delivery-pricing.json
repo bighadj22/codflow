@@ -1,0 +1,352 @@
+{
+  "GetAllRatesResponse": {
+    "type": "object",
+    "properties": {
+      "rates": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/TerritoryRateDto"
+        },
+        "nullable": true
+      },
+      "appliedDiscounts": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/AppliedDiscountDto"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "AppliedDiscountDto": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "percentage": {
+        "type": "number",
+        "format": "double"
+      },
+      "toTerritoryName": {
+        "type": "string",
+        "nullable": true
+      },
+      "toTerritoryNameArabic": {
+        "type": "string",
+        "nullable": true
+      },
+      "startDate": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "endDate": {
+        "type": "string",
+        "format": "date-time"
+      }
+    },
+    "additionalProperties": false
+  },
+  "TerritoryRateDto": {
+    "type": "object",
+    "properties": {
+      "toTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toTerritoryCode": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "toTerritoryName": {
+        "type": "string",
+        "nullable": true
+      },
+      "toTerritoryNameArabic": {
+        "type": "string",
+        "nullable": true
+      },
+      "toTerritoryLevel": {
+        "type": "string",
+        "nullable": true
+      },
+      "deliveryPrices": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/RateDeliveryPriceDto"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "RateDeliveryPriceDto": {
+    "type": "object",
+    "properties": {
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "price": {
+        "type": "number",
+        "format": "double"
+      },
+      "discountedPrice": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "isSpecificPrice": {
+        "type": "boolean"
+      },
+      "specificPriceId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "priceTtc": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "discountedPriceTtc": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "vatRate": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GetRateResponse": {
+    "type": "object",
+    "properties": {
+      "toTerritoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toTerritoryName": {
+        "type": "string",
+        "nullable": true
+      },
+      "toTerritoryNameArabic": {
+        "type": "string",
+        "nullable": true
+      },
+      "toTerritoryLevel": {
+        "type": "string",
+        "nullable": true
+      },
+      "deliveryPrices": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/RateDeliveryPriceDto"
+        },
+        "nullable": true
+      },
+      "appliedDiscounts": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/AppliedDiscountDto"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GetPriceListResponse": {
+    "type": "object",
+    "properties": {
+      "priceLists": {
+        "$ref": "#/components/schemas/PriceListDto"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PriceListDto": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "isDefault": {
+        "type": "boolean"
+      },
+      "fromTerritory": {
+        "$ref": "#/components/schemas/TerritoryResponse"
+      },
+      "deliveryPrices": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/GetPriceListDeliveryPriceDto"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GetPriceListDeliveryPriceDto": {
+    "type": "object",
+    "properties": {
+      "toTerritory": {
+        "$ref": "#/components/schemas/TerritoryResponse"
+      },
+      "deliveryPriceDetails": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/GetPriceListDeliveryPriceDetailDto"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "GetPriceListDeliveryPriceDetailDto": {
+    "type": "object",
+    "properties": {
+      "deliveryType": {
+        "type": "string",
+        "nullable": true
+      },
+      "price": {
+        "type": "number",
+        "format": "double"
+      }
+    },
+    "additionalProperties": false
+  },
+  "TerritoryResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "name": {
+        "type": "string",
+        "nullable": true
+      },
+      "nameArabic": {
+        "type": "string",
+        "nullable": true
+      },
+      "postalCode": {
+        "type": "string",
+        "nullable": true
+      },
+      "level": {
+        "type": "string",
+        "nullable": true
+      },
+      "parentId": {
+        "type": "string",
+        "format": "uuid",
+        "nullable": true
+      },
+      "delivery": {
+        "$ref": "#/components/schemas/DeliveryCapability"
+      }
+    },
+    "additionalProperties": false
+  },
+  "DeliveryCapability": {
+    "type": "object",
+    "properties": {
+      "hasHomeDelivery": {
+        "type": "boolean"
+      },
+      "hasPickupPoint": {
+        "type": "boolean"
+      },
+      "canSend": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "ProblemDetails": {
+    "type": "object",
+    "properties": {
+      "type": {
+        "type": "string",
+        "nullable": true
+      },
+      "title": {
+        "type": "string",
+        "nullable": true
+      },
+      "status": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "detail": {
+        "type": "string",
+        "nullable": true
+      },
+      "instance": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": {}
+  },
+  "ServicePricingResponse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "supplierName": {
+        "type": "string",
+        "nullable": true
+      },
+      "labelingPrice": {
+        "type": "number",
+        "format": "double"
+      },
+      "weightingPrice": {
+        "type": "number",
+        "format": "double"
+      },
+      "swapSameCityPrice": {
+        "type": "number",
+        "format": "double"
+      },
+      "swapDifferentCityPrice": {
+        "type": "number",
+        "format": "double"
+      },
+      "phoneChangePrice": {
+        "type": "number",
+        "format": "double"
+      }
+    },
+    "additionalProperties": false
+  }
+}
