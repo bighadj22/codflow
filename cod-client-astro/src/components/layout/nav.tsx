@@ -213,7 +213,6 @@ export function useNavSections(): NavSection[] {
           label: tN("sidebar.mcp"),
           icon: Sparkles,
           scope: "mcp:view",
-          badge: "BETA",
         },
         {
           kind: "leaf",

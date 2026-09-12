@@ -21,13 +21,13 @@ import { SCOPES } from "../../../../../cod-shared/rbac/scopes";
 import {
   deleteLandingPageImage,
   getLandingPage,
+  getPresignedLandingUploadUrl,
   publishLandingPage,
   reorderLandingPageImages,
   saveLandingPageImage,
   unpublishLandingPage,
   updateLandingPage,
 } from "@/features/landing-pages/api";
-import { getPresignedUploadUrl } from "@/features/products/api";
 import { landingPageErrorMessage, landingPagePublicUrl } from "@/features/landing-pages/model";
 import type { LandingPage, LandingPageImage } from "@/features/landing-pages/types";
 
@@ -223,7 +223,7 @@ function Gated({ landingPageId }: { landingPageId: string }) {
       setUploading(true);
       try {
         for (const file of arr) {
-          const { presignedUrl, key, publicUrl } = await getPresignedUploadUrl(file.type);
+          const { presignedUrl, key, publicUrl } = await getPresignedLandingUploadUrl(file.type);
           const putRes = await fetch(presignedUrl, {
             method: "PUT",
             headers: { "Content-Type": file.type },
