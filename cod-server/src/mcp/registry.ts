@@ -52,6 +52,7 @@ import { getOrderTools }         from "@/endpoints/orders/ai-tools";
 
 type ToolFactory = (
   db: ReturnType<typeof getDb>,
+  env: Env,
   props: McpProps,
 ) => Record<string, Tool>;
 
@@ -62,7 +63,12 @@ export interface ToolRegistryEntry {
    * For "any of these scopes" semantics split into multiple entries.
    */
   requires: string[];
-  /** Factory that returns one or more tool definitions. Called only when scopes pass. */
+  /**
+   * Factory that returns one or more tool definitions. Called only when
+   * scopes pass. Receives the Worker env so tool domains can reach bindings
+   * (R2, workflows) and deployment vars (STOREFRONT_URL) without
+   * restructuring.
+   */
   build: ToolFactory;
 }
 
@@ -214,7 +220,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   // ─── Landing Pages ────────────────────────────────────────────────────────
   {
     requires: [SCOPES.LANDING_PAGES_READ],
-    build: (db) => pick(getLandingPageTools(db), [
+    build: (db, env) => pick(getLandingPageTools(db, env), [
       "listLandingPages",
       "getLandingPageDetails",
       "getLandingPageStats",
@@ -222,11 +228,18 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   },
   {
     requires: [SCOPES.LANDING_PAGES_MANAGE],
-    build: (db) => pick(getLandingPageTools(db), [
+    build: (db, env, props) => pick(getLandingPageTools(db, env, props), [
       "createLandingPage",
       "updateLandingPage",
       "publishLandingPage",
       "deleteLandingPage",
+      "uploadLandingPageImage",
+      "getLandingPageImageUploadStatus",
+      "removeLandingPageImage",
+      "reorderLandingPageImages",
+      "duplicateLandingPage",
+      "unpublishLandingPage",
+      "archiveLandingPage",
     ]),
   },
 
@@ -403,7 +416,7 @@ export function buildToolsForUser(env: Env, props: McpProps): Record<string, Too
   for (const entry of TOOL_REGISTRY) {
     const allowed = isAdmin || entry.requires.every((s) => hasPermission(props.scopes, s));
     if (!allowed) continue;
-    Object.assign(out, entry.build(db, props));
+    Object.assign(out, entry.build(db, env, props));
   }
 
   return out;

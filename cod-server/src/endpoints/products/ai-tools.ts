@@ -8,6 +8,7 @@ import {
   updateStatusSchema,
 } from "./validation";
 import { getDb } from "@/db";
+import { toolOutput, timestampSchema } from "@/lib/tool-output-schema";
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -39,6 +40,62 @@ export const PRODUCT_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   updateProductDetails: updateProductDetailsSchema.shape,
   updateProductStatus: updateProductStatusToolSchema.shape,
   deleteProduct: deleteProductSchema.shape,
+};
+
+const productRowSchema = z.looseObject({
+  id: z.string().describe("Product UUID"),
+  name: z.string(),
+  handle: z.string().describe("Unique URL slug"),
+  price: z.number().describe("Price in DZD (integer, smallest unit)"),
+  sku: z.string().nullable().optional().describe("Merchant-facing code — set on simple products only"),
+  status: z.string().optional().describe("DRAFT | ACTIVE | ARCHIVED"),
+  visibility: z.boolean().optional().describe("Master internal switch — off means hidden everywhere"),
+  hasVariants: z.boolean().optional().describe("True → stock and pricing live on variants"),
+});
+
+export const PRODUCT_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  listProducts: toolOutput({
+    count: z.number().int(),
+    products: z.array(
+      z.looseObject({
+        id: z.string().describe("Product UUID"),
+        name: z.string(),
+        handle: z.string().describe("Unique URL slug"),
+        sku: z.string().nullable().describe("Null on variant products (SKU lives on each variant)"),
+        price: z.number().describe("Price in DZD"),
+        status: z.string().describe("DRAFT | ACTIVE | ARCHIVED"),
+        visibility: z.boolean(),
+        hasVariants: z.boolean(),
+        variantsCount: z.number().int(),
+        totalInventory: z.number().int().describe("Variant stock sum, or own stock for simple products"),
+        primaryImageSrc: z.string().nullable(),
+        categoryId: z.string().nullable(),
+        tags: z.array(z.string()),
+        reviewCount: z.number().int().describe("Approved reviews only"),
+        avgRating: z.number().nullable().describe("Average of approved reviews, or null"),
+        showInStore: z.boolean().describe("Storefront-only visibility switch"),
+        storeFeatured: z.boolean(),
+      }),
+    ).describe("Products matching the filters"),
+  }),
+  getProductDetails: toolOutput({
+    product: productRowSchema.describe("Full product: variants, images, category, and review aggregates"),
+  }),
+  createNewProduct: toolOutput({
+    product: productRowSchema.describe("The created product"),
+    message: z.string(),
+  }),
+  updateProductDetails: toolOutput({
+    product: productRowSchema.describe("The updated product"),
+    message: z.string(),
+  }),
+  updateProductStatus: toolOutput({
+    product: productRowSchema.describe("The product with its new status"),
+    message: z.string(),
+  }),
+  deleteProduct: toolOutput({
+    message: z.string(),
+  }),
 };
 
 /**

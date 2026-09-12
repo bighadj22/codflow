@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from "vitest";
 import { TOOL_REGISTRY } from "./registry";
-import { TOOL_SCHEMAS, TOOL_NAMES } from "./schemas";
+import { TOOL_SCHEMAS, TOOL_NAMES, TOOL_META, TOOL_OUTPUT_SCHEMAS } from "./schemas";
 
 type SafeParse = { safeParse: (v: unknown) => { success: boolean } };
 
@@ -19,7 +19,7 @@ function registryToolNames(): string[] {
   for (const entry of TOOL_REGISTRY) {
     // Building a bundle only constructs tool objects — no DB access happens
     // until an execute() runs.
-    const bundle = entry.build({} as never, {} as never);
+    const bundle = entry.build({} as never, {} as never, {} as never);
     for (const name of Object.keys(bundle)) names.add(name);
   }
   return [...names].sort();
@@ -37,6 +37,51 @@ describe("TOOL_SCHEMAS derivation", () => {
     // referenced by schemas.ts (identity, not a copy).
     expect(Object.keys(TOOL_SCHEMAS)).toContain("listCustomers");
     expect(Object.keys(TOOL_SCHEMAS)).toContain("setShippingCommuneOverride");
+  });
+});
+
+describe("TOOL_META (client-specific tool-descriptor extensions)", () => {
+  it("declares openai/fileParams and toolInvocation status text for the upload tool", () => {
+    expect(TOOL_META["uploadLandingPageImage"]).toEqual({
+      "openai/fileParams": ["image"],
+      "openai/toolInvocation/invoking": "Starting background image upload…",
+      "openai/toolInvocation/invoked": "Upload job created — poll status until complete",
+    });
+  });
+
+  it("toolInvocation status text stays within the documented 64-char limit", () => {
+    for (const value of Object.values(TOOL_META["uploadLandingPageImage"] ?? {})) {
+      if (typeof value === "string") {
+        expect(value.length).toBeLessThanOrEqual(64);
+      }
+    }
+  });
+
+  it("only carries meta for tools that actually exist in TOOL_SCHEMAS", () => {
+    for (const name of Object.keys(TOOL_META)) {
+      expect(TOOL_NAMES).toContain(name);
+    }
+  });
+});
+
+describe("TOOL_OUTPUT_SCHEMAS derivation", () => {
+  it("covers exactly the registry's tool set (no drift, both directions)", () => {
+    expect(Object.keys(TOOL_OUTPUT_SCHEMAS).sort()).toEqual(TOOL_NAMES);
+  });
+
+  it("every output schema is a success/failure union accepting the handled-failure envelope", () => {
+    for (const [name, schema] of Object.entries(TOOL_OUTPUT_SCHEMAS)) {
+      const parsed = schema.safeParse({ success: false, error: "x" });
+      if (!parsed.success) {
+        throw new Error(`Output schema for ${name} does not accept the failure envelope`);
+      }
+    }
+  });
+
+  it("every output schema rejects a non-conforming success payload (validation is real)", () => {
+    const schema = TOOL_OUTPUT_SCHEMAS["listWilayas"]!;
+    expect(schema.safeParse({ success: true, wilayas: "not-an-array" }).success).toBe(false);
+    expect(schema.safeParse({ success: "true" }).success).toBe(false);
   });
 });
 

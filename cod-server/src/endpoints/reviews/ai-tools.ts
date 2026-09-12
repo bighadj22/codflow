@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import * as queries from "./queries";
 import { getDb } from "@/db";
+import { toolOutput, timestampSchema } from "@/lib/tool-output-schema";
 
 /**
  * AI Tools for Review Moderation
@@ -56,6 +57,46 @@ export const REVIEW_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   listReviews: listReviewsSchema.shape,
   moderateReview: moderateReviewSchema.shape,
   deleteReview: deleteReviewSchema.shape,
+};
+
+const reviewRowSchema = z.looseObject({
+  id: z.string().describe("Review UUID"),
+  productId: z.string().optional(),
+  rating: z.number().int().optional().describe("Whole stars 1–5"),
+  status: z.string().optional().describe("pending | approved | rejected — only approved appear on the storefront"),
+  customerName: z.string().optional().describe("Snapshot copied at submission time"),
+});
+
+export const REVIEW_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  listReviews: toolOutput({
+    count: z.number().int().describe("Reviews on this page"),
+    total: z.number().int().describe("Total matching the filters across all pages"),
+    pendingCount: z.number().int().describe("Global pending count — returned regardless of filters (drives the moderation badge)"),
+    reviews: z.array(
+      z.looseObject({
+        id: z.string().describe("Review UUID"),
+        productId: z.string(),
+        productName: z.string(),
+        orderId: z.string().describe("The anchor order — one review per order, ever"),
+        orderNumber: z.string(),
+        customerName: z.string(),
+        rating: z.number().int().describe("Whole stars 1–5"),
+        title: z.string().nullable(),
+        body: z.string().nullable(),
+        status: z.string().describe("pending | approved | rejected"),
+        helpfulCount: z.number().int(),
+        createdAt: timestampSchema,
+        updatedAt: timestampSchema,
+      }),
+    ).describe("Reviews, newest first"),
+  }),
+  moderateReview: toolOutput({
+    review: reviewRowSchema.describe("The review with its new moderation status"),
+    message: z.string(),
+  }),
+  deleteReview: toolOutput({
+    message: z.string().describe("Deletion is permanent — no soft delete, no archive"),
+  }),
 };
 
 export const getReviewTools = (db: ReturnType<typeof getDb>) => ({

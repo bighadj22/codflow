@@ -344,6 +344,67 @@ describe("Slice 2 — landing pages management API (real D1 + real routes)", () 
     expect(compare.data.map((d: any) => d.slug).sort()).toEqual([slugA, slugB].sort());
   });
 
+  it("list pagination: opt-in limit/offset; omitted → full list", async () => {
+    const productId = await seedProduct();
+    const rnd = crypto.randomUUID().slice(0, 6);
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const res = (await (
+        await createLp({ name: `Page ${i}`, productId, slug: `pg-${i}-${rnd}` })
+      ).json()) as any;
+      ids.push(res.data.id);
+    }
+
+    // No params → unbounded (dashboard contract).
+    const full = (await (
+      await app.request(`/api/landing-pages?productId=${productId}`)
+    ).json()) as any;
+    expect(full.data).toHaveLength(3);
+
+    // limit=2 → exactly 2 rows of this product.
+    const page1 = (await (
+      await app.request(`/api/landing-pages?productId=${productId}&limit=2`)
+    ).json()) as any;
+    expect(page1.data).toHaveLength(2);
+    expect(page1.count).toBe(2);
+    page1.data.forEach((row: any) => expect(row.productId).toBe(productId));
+
+    // limit=2&offset=2 → exactly 1 row.
+    const page2 = (await (
+      await app.request(`/api/landing-pages?productId=${productId}&limit=2&offset=2`)
+    ).json()) as any;
+    expect(page2.data).toHaveLength(1);
+    expect(page2.data[0].productId).toBe(productId);
+
+    // Pages cover the full set without overlap.
+    const paged = new Set([...page1.data, ...page2.data].map((d: any) => d.id));
+    expect([...paged].sort()).toEqual([...ids].sort());
+
+    // Out-of-range limit is a 400 validation error.
+    const bad = await app.request(`/api/landing-pages?limit=500`);
+    expect(bad.status).toBe(400);
+  });
+
+  it("getLandingPageById detail carries images + product + stats together (batched read)", async () => {
+    const productId = await seedProduct();
+    const rnd = crypto.randomUUID().slice(0, 6);
+    const created = (await (
+      await createLp({ name: "Detail page", productId, slug: `detail-${rnd}` })
+    ).json()) as any;
+
+    const detail = (await (
+      await app.request(`/api/landing-pages/${created.data.id}`)
+    ).json()) as any;
+    expect(detail.data.id).toBe(created.data.id);
+    expect(Array.isArray(detail.data.images)).toBe(true);
+    expect(detail.data.product).toMatchObject({ id: productId, price: expect.any(Number) });
+    expect(detail.data.stats).toMatchObject({
+      views: expect.any(Number),
+      orders: expect.any(Number),
+      revenue: expect.any(Number),
+    });
+  });
+
   it("invalid slug format is a 400 validation error (not a 500)", async () => {
     const productId = await seedProduct();
     const res = await createLp({ name: "Bad slug", productId, slug: "Invalid Slug!" });

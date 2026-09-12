@@ -36,12 +36,29 @@ export async function listLandingPages(c: Context<AppContext>) {
   const withPublicUrl = await publicUrlDecorator(c);
   const productId = c.req.query("productId");
   const status = c.req.query("status");
-  const data = await queries.listLandingPages(db, {
-    ...(productId ? { productId } : {}),
-    ...(status === "draft" || status === "published" || status === "archived"
-      ? { status }
-      : {}),
-  });
+  // Route-validated query (coerced numbers); manual fallback parses the raw
+  // strings the same way the JSON-body pattern in this file does.
+  const valid = (c.req as any).valid?.("query") as
+    | { limit?: number; offset?: number }
+    | undefined;
+  const limit =
+    valid?.limit ?? (c.req.query("limit") !== undefined
+      ? Number(c.req.query("limit"))
+      : undefined);
+  const offset =
+    valid?.offset ?? (c.req.query("offset") !== undefined
+      ? Number(c.req.query("offset"))
+      : undefined);
+  const data = await queries.listLandingPages(
+    db,
+    {
+      ...(productId ? { productId } : {}),
+      ...(status === "draft" || status === "published" || status === "archived"
+        ? { status }
+        : {}),
+    },
+    { ...(limit !== undefined ? { limit } : {}), ...(offset !== undefined ? { offset } : {}) },
+  );
   return c.json({ success: true, data: data.map(withPublicUrl), count: data.length }, 200);
 }
 

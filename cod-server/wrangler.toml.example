@@ -48,6 +48,13 @@ name       = "capi-workflow"
 binding    = "CAPI_WORKFLOW"
 class_name = "CodCapiWorkflow"
 
+# CodLandingPageImageUploadWorkflow — durable background upload of MCP-agent
+# images (ChatGPT & co.) into landing page image stacks.
+[[workflows]]
+name       = "lp-image-upload-workflow"
+binding    = "LP_IMAGE_UPLOAD_WORKFLOW"
+class_name = "CodLandingPageImageUploadWorkflow"
+
 # The `agents` package statically imports `cloudflare:email`. Declaring this
 # satisfies the module resolver even though this Worker never sends email.
 # (Cloudflare's local dev runtime fails to load the Worker without it.)
@@ -115,6 +122,11 @@ name = "SEND_EMAIL_UNUSED"
 name       = "capi-workflow"
 binding    = "CAPI_WORKFLOW"
 class_name = "CodCapiWorkflow"
+
+[[env.production.workflows]]
+name       = "lp-image-upload-workflow"
+binding    = "LP_IMAGE_UPLOAD_WORKFLOW"
+class_name = "CodLandingPageImageUploadWorkflow"
 
 # Share local D1 state with the dashboard so both read the same SQLite file in
 # dev. `persist_to` under [dev] is not a wrangler 3.x field (hence the old

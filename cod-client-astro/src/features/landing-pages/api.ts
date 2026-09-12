@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api";
+import type { PresignedUpload } from "@/features/products/api";
 import type {
   CreateLandingPageInput,
   LandingPage,
@@ -103,4 +104,13 @@ export function deleteLandingPageImage(lpId: string, imageId: string) {
     `/api/landing-pages/${id(lpId)}/images/${id(imageId)}`,
     { method: "DELETE" },
   );
+}
+
+export async function getPresignedLandingUploadUrl(contentType: string) {
+  return (
+    await apiFetch<DataEnvelope<PresignedUpload>>(
+      "/api/images/presign",
+      json({ method: "POST", body: JSON.stringify({ contentType, folder: "landing" }) }),
+    )
+  ).data;
 }

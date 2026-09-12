@@ -1,7 +1,7 @@
 /**
- * DANGEROUS_TOOLS — the HITL risk allowlist. These tests are the audit proof
- * that destructive/financial tools are classified as confirmation-required
- * and that read/update tools are not.
+ * DANGEROUS_TOOLS — the risk classification feeding destructiveHint
+ * annotations. These tests are the audit proof that destructive/financial
+ * tools are classified as such and that read/update tools are not.
  */
 
 import { describe, it, expect } from "vitest";
@@ -17,6 +17,8 @@ describe("DANGEROUS_TOOLS allowlist", () => {
     expect(isDangerous("deleteOrder")).toBe(true);
     expect(isDangerous("updateOrderStatus")).toBe(true);
     expect(isDangerous("deleteLandingPage")).toBe(true);
+    expect(isDangerous("removeLandingPageImage")).toBe(true);
+    expect(isDangerous("archiveLandingPage")).toBe(true);
   });
 
   it("does NOT flag read or normal update tools", () => {
@@ -26,6 +28,11 @@ describe("DANGEROUS_TOOLS allowlist", () => {
     expect(isDangerous("listDriverPayments")).toBe(false);
     expect(isDangerous("listLandingPages")).toBe(false);
     expect(isDangerous("publishLandingPage")).toBe(false);
+    expect(isDangerous("unpublishLandingPage")).toBe(false);
+    expect(isDangerous("reorderLandingPageImages")).toBe(false);
+    expect(isDangerous("duplicateLandingPage")).toBe(false);
+    expect(isDangerous("uploadLandingPageImage")).toBe(false);
+    expect(isDangerous("getLandingPageImageUploadStatus")).toBe(false);
   });
 
   it("mirrors the allowlist set", () => {
@@ -52,6 +59,8 @@ describe("DANGEROUS_TOOLS allowlist", () => {
         "recordOrderProductReturn",
         "updateVariant",
         "deleteLandingPage",
+        "removeLandingPageImage",
+        "archiveLandingPage",
       ].sort(),
     );
   });

@@ -7,6 +7,7 @@ import {
   customerGroupFiltersSchema,
 } from "./validation";
 import { getDb } from "@/db";
+import { toolOutput, timestampSchema } from "@/lib/tool-output-schema";
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -44,6 +45,41 @@ export const CUSTOMER_GROUP_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   deleteCustomerGroup: deleteCustomerGroupSchema.shape,
   addCustomerToGroup: addCustomerToGroupSchema.shape,
   removeCustomerFromGroup: removeCustomerFromGroupSchema.shape,
+};
+
+const customerGroupRowSchema = z.looseObject({
+  id: z.string().describe("Group UUID"),
+  name: z.string().describe("Names are not unique — distinguish groups by color or description"),
+  description: z.string().nullable().optional().describe("Internal policy note, never shown to shoppers"),
+  color: z.string().optional().describe("Hex color for dashboard identification"),
+  memberCount: z.number().int().optional().describe("Denormalized member counter — doubles as the deletion guard"),
+});
+
+export const CUSTOMER_GROUP_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  listCustomerGroups: toolOutput({
+    count: z.number().int(),
+    groups: z.array(customerGroupRowSchema).describe("Customer groups"),
+  }),
+  getCustomerGroupDetails: toolOutput({
+    group: customerGroupRowSchema.describe("The group; includes members when withMembers was true"),
+  }),
+  createCustomerGroup: toolOutput({
+    group: customerGroupRowSchema.describe("The created group"),
+    message: z.string(),
+  }),
+  updateCustomerGroup: toolOutput({
+    group: customerGroupRowSchema.describe("The updated group"),
+    message: z.string(),
+  }),
+  deleteCustomerGroup: toolOutput({
+    message: z.string(),
+  }),
+  addCustomerToGroup: toolOutput({
+    message: z.string().describe("Idempotent — adding an existing member succeeds without change"),
+  }),
+  removeCustomerFromGroup: toolOutput({
+    message: z.string().describe("Silent on unknown pairings — returns success"),
+  }),
 };
 
 /**

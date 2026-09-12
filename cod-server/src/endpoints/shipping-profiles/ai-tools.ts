@@ -8,6 +8,7 @@ import {
   communeOverrideSchema,
 } from "./validation";
 import { getDb } from "@/db";
+import { toolOutput } from "@/lib/tool-output-schema";
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -62,6 +63,77 @@ export const SHIPPING_PROFILE_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   listCommuneOverrides: listCommuneOverridesSchema.shape,
   setShippingCommuneOverride: setShippingCommuneOverrideToolSchema.shape,
   resetShippingCommuneOverride: resetShippingCommuneOverrideSchema.shape,
+};
+
+const shippingRuleSchema = z.looseObject({
+  wilayaId: z.number().int().optional().describe("Wilaya number 1–58"),
+  wilayaName: z.string().optional(),
+  homePrice: z.number().optional().describe("Home delivery price in DZD"),
+  stopDeskPrice: z.number().optional().describe("Stop-desk pickup price in DZD"),
+  homeEnabled: z.boolean().optional().describe("False → this profile cannot deliver home there"),
+  stopDeskEnabled: z.boolean().optional(),
+});
+
+const shippingProfileRowSchema = z.looseObject({
+  id: z.string().describe("Profile ID (plain string, not a UUID)"),
+  name: z.string(),
+  isDefault: z.boolean().optional().describe("Exactly one profile is default at any time"),
+  ruleCount: z.number().int().optional().describe("Wilaya rules configured"),
+  productCount: z.number().int().optional().describe("Products using this profile instead of the default"),
+  rules: z.array(shippingRuleSchema).optional().describe("Per-wilaya rules"),
+});
+
+export const SHIPPING_PROFILE_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  listShippingProfiles: toolOutput({
+    count: z.number().int(),
+    profiles: z.array(shippingProfileRowSchema).describe("All shipping rate profiles"),
+  }),
+  getShippingProfile: toolOutput({
+    profile: shippingProfileRowSchema.describe("The profile with its per-wilaya rules"),
+  }),
+  getDefaultShippingRules: toolOutput({
+    count: z.number().int(),
+    rules: z.array(shippingRuleSchema).describe("The default profile's rules — the storefront fee source"),
+  }),
+  createShippingProfile: toolOutput({
+    profile: shippingProfileRowSchema.describe("The created profile"),
+    message: z.string(),
+  }),
+  updateShippingProfile: toolOutput({
+    profile: shippingProfileRowSchema.describe("The updated profile"),
+    message: z.string(),
+  }),
+  deleteShippingProfile: toolOutput({
+    message: z.string(),
+  }),
+  setShippingProfileRules: toolOutput({
+    profile: shippingProfileRowSchema.describe("The profile after the full atomic rule replacement"),
+    message: z.string(),
+  }),
+  listCommuneOverrides: toolOutput({
+    count: z.number().int(),
+    communes: z.array(
+      z.looseObject({
+        id: z.string().optional().describe("Commune ID (c-XX-YYY)"),
+        name: z.string().optional(),
+        rule: z
+          .looseObject({
+            id: z.string().optional().describe("The override row ID, or the inherited rule when no override exists"),
+            homeEnabled: z.boolean().optional(),
+            stopDeskEnabled: z.boolean().optional(),
+            homePrice: z.number().optional().nullable().describe("Effective home price — override where set, wilaya rule where null"),
+            stopDeskPrice: z.number().optional().nullable().describe("Effective stop-desk price — override where set, wilaya rule where null"),
+          })
+          .optional(),
+      }),
+    ).describe("The wilaya's communes with their override state"),
+  }),
+  setShippingCommuneOverride: toolOutput({
+    message: z.string(),
+  }),
+  resetShippingCommuneOverride: toolOutput({
+    message: z.string(),
+  }),
 };
 
 /**

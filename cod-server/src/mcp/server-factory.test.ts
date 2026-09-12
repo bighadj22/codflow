@@ -5,18 +5,16 @@
  * Contract:
  *   • registers exactly the tools `buildToolsForUser` returns for the identity
  *   • no verified identity → zero tools (fail closed)
- *   • dangerous tools run the two-round `inputRequired` confirmation: first
- *     round prompts, second round executes only on an accepted confirmation
- *   • dangerous tools fail CLOSED when no confirmation key is configured
- *   • safe tools run through the shared execution wrapper
+ *   • every tool — destructive ones included — executes through the shared
+ *     wrapper: human confirmation is the CLIENT's documented job, framed by
+ *     our destructiveHint annotations; the server gates by scope, validates,
+ *     rate-limits, and audits
+ *   • client hints (openai/subject, openai/session) reach the audit row
+ *   • the per-subject rate limit blocks sustained flooding before execution
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  createRequestStateCodec,
-  type InputRequiredResult,
-  type ServerContext,
-} from "@modelcontextprotocol/server";
+import type { ServerContext } from "@modelcontextprotocol/server";
 import type { Tool } from "ai";
 
 const mocks = vi.hoisted(() => ({
@@ -32,9 +30,12 @@ vi.mock("@/lib/activity", () => ({
   ACTIONS: mocks.ACTIONS,
 }));
 vi.mock("@/db", () => ({ getDb: mocks.getDb }));
-vi.mock("./registry", () => ({ buildToolsForUser: mocks.buildToolsForUser }));
-vi.mock("./elicit", () => ({
-  isDangerous: (name: string) => name === "deleteCustomer",
+// TOOL_REGISTRY is stubbed for consumers that derive from it (annotations)
+// with an empty array — classification correctness is proven in
+// annotations.test.ts against the REAL registry; here we assert wiring only.
+vi.mock("./registry", () => ({
+  buildToolsForUser: mocks.buildToolsForUser,
+  TOOL_REGISTRY: [],
 }));
 vi.mock("agents/mcp/server", () => ({
   getMcpAuthContext: mocks.getMcpAuthContext,
@@ -42,7 +43,6 @@ vi.mock("agents/mcp/server", () => ({
 }));
 
 import { createCodMcpServer } from "./server-factory";
-import type { ConfirmationState } from "./confirm-tool";
 import type { McpProps } from "./props";
 import type { Env } from "@/types/env";
 
@@ -54,9 +54,7 @@ const props: McpProps = {
   email: "ada@example.com",
 };
 
-const KEY = "0123456789abcdef0123456789abcdef"; // 32 bytes
-const env = { DB: {}, MCP_REQUEST_STATE_KEY: KEY } as unknown as Env;
-const envWithoutKey = { DB: {} } as unknown as Env;
+const env = { DB: {} } as unknown as Env;
 
 interface RegisteredToolEntry {
   handler: (args: unknown, ctx: unknown) => unknown;
@@ -72,15 +70,12 @@ function registeredHandler(server: unknown, name: string): RegisteredToolEntry["
   return tools[name]!.handler;
 }
 
-function makeCtx(
-  state: ConfirmationState | undefined,
-  inputResponses: Record<string, unknown> = {},
-): ServerContext {
+function makeCtx(): ServerContext {
   return {
     mcpReq: {
       method: "tools/call",
-      inputResponses,
-      requestState: () => state,
+      inputResponses: {},
+      requestState: () => undefined,
     },
   } as unknown as ServerContext;
 }
@@ -88,17 +83,6 @@ function makeCtx(
 const safeTool = { description: "List customers", execute: vi.fn(async () => ({ success: true })) } as unknown as Tool;
 const dangerousTool = { description: "Delete customer", execute: vi.fn(async () => ({ success: true })) } as unknown as Tool;
 const dangerousArgs = { customerId: "c1" };
-
-async function confirmThrough(server: unknown, ctx: ServerContext): Promise<unknown> {
-  const handler = registeredHandler(server, "deleteCustomer");
-  const first = await handler(dangerousArgs, ctx);
-  const codec = createRequestStateCodec<ConfirmationState>({
-    key: KEY,
-    bind: (c) => c.mcpReq.method,
-  });
-  const decoded = await codec.verify((first as InputRequiredResult).requestState!, ctx);
-  return handler(dangerousArgs, makeCtx(decoded, ctx.mcpReq.inputResponses));
-}
 
 describe("createCodMcpServer", () => {
   beforeEach(() => {
@@ -125,14 +109,76 @@ describe("createCodMcpServer", () => {
     expect(registeredToolNames(server)).toEqual(["deleteCustomer", "listCustomers"]);
   });
 
-  it("prompts for confirmation on a dangerous tool and executes after acceptance", async () => {
-    mocks.buildToolsForUser.mockReturnValue({ deleteCustomer: dangerousTool });
+  it("attaches TOOL_META extensions to matching tools and to no others", () => {
+    mocks.buildToolsForUser.mockReturnValue({
+      listCustomers: safeTool,
+      uploadLandingPageImage: safeTool,
+    });
+
     const server = createCodMcpServer(env);
 
-    const result = await confirmThrough(
-      server,
-      makeCtx(undefined, { confirmation: { action: "accept", content: { confirmed: true } } }),
-    );
+    const tools = (
+      server as unknown as { _registeredTools: Record<string, Record<string, unknown>> }
+    )._registeredTools;
+    expect(tools["uploadLandingPageImage"]._meta).toEqual({
+      "openai/fileParams": ["image"],
+      "openai/toolInvocation/invoking": "Starting background image upload…",
+      "openai/toolInvocation/invoked": "Upload job created — poll status until complete",
+    });
+    expect(tools["listCustomers"]._meta).toBeUndefined();
+  });
+
+  it("advertises human-readable titles and behavior annotations on every tool", () => {
+    mocks.buildToolsForUser.mockReturnValue({
+      listCustomers: safeTool,
+      deleteCustomer: dangerousTool,
+      uploadLandingPageImage: safeTool,
+    });
+
+    const server = createCodMcpServer(env);
+
+    const tools = (
+      server as unknown as {
+        _registeredTools: Record<
+          string,
+          { title?: string; annotations?: Record<string, boolean> }
+        >;
+      }
+    )._registeredTools;
+    expect(tools["listCustomers"].title).toBe("List customers");
+    expect(tools["uploadLandingPageImage"].title).toBe("Upload landing page image");
+    // Wiring only: every tool carries a full four-hint annotation object.
+    // The VALUES are proven in annotations.test.ts against the real registry.
+    for (const name of ["listCustomers", "deleteCustomer", "uploadLandingPageImage"]) {
+      expect(tools[name].annotations).toMatchObject({
+        readOnlyHint: expect.any(Boolean),
+        destructiveHint: expect.any(Boolean),
+        idempotentHint: expect.any(Boolean),
+        openWorldHint: expect.any(Boolean),
+      });
+    }
+  });
+
+  it("advertises the output schema for schema'd tools and none for others", () => {
+    mocks.buildToolsForUser.mockReturnValue({
+      listCustomers: safeTool,
+      someUnschemaTool: safeTool,
+    });
+
+    const server = createCodMcpServer(env);
+
+    const tools = (
+      server as unknown as { _registeredTools: Record<string, { outputSchema?: unknown }> }
+    )._registeredTools;
+    expect(tools["listCustomers"].outputSchema).toBeDefined();
+    expect(tools["someUnschemaTool"].outputSchema).toBeUndefined();
+  });
+
+  it("executes destructive tools directly through the wrapper — client-side confirmation is the human gate", async () => {
+    mocks.buildToolsForUser.mockReturnValue({ deleteCustomer: dangerousTool });
+
+    const server = createCodMcpServer(env);
+    const result = await registeredHandler(server, "deleteCustomer")(dangerousArgs, makeCtx());
 
     expect(dangerousTool.execute).toHaveBeenCalledWith(dangerousArgs, { toolCallId: "" });
     expect(result).toEqual({ content: [{ type: "text", text: JSON.stringify({ success: true }) }] });
@@ -145,45 +191,11 @@ describe("createCodMcpServer", () => {
     );
   });
 
-  it("does not execute a dangerous tool on decline", async () => {
-    mocks.buildToolsForUser.mockReturnValue({ deleteCustomer: dangerousTool });
-    const server = createCodMcpServer(env);
-
-    const result = await confirmThrough(server, makeCtx(undefined, { confirmation: { action: "decline" } }));
-
-    expect(dangerousTool.execute).not.toHaveBeenCalled();
-    expect(result).toEqual({ content: [{ type: "text", text: "Action cancelled by user." }] });
-    expect(mocks.logActivity).toHaveBeenCalledWith(
-      expect.anything(),
-      { id: "u1", name: "Ada", role: "staff" },
-      "mcp.tool_declined",
-      { type: "tool", id: "deleteCustomer", label: "deleteCustomer" },
-      expect.objectContaining({ reason: "user-declined" }),
-    );
-  });
-
-  it("fails closed for dangerous tools when no confirmation key is configured", async () => {
-    mocks.buildToolsForUser.mockReturnValue({ deleteCustomer: dangerousTool });
-
-    const server = createCodMcpServer(envWithoutKey);
-    const result = await registeredHandler(server, "deleteCustomer")(dangerousArgs, {});
-
-    expect(dangerousTool.execute).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ isError: true });
-    expect(mocks.logActivity).toHaveBeenCalledWith(
-      expect.anything(),
-      { id: "u1", name: "Ada", role: "staff" },
-      "mcp.tool_declined",
-      { type: "tool", id: "deleteCustomer", label: "deleteCustomer" },
-      expect.objectContaining({ reason: "confirmation-unavailable" }),
-    );
-  });
-
   it("runs safe tools through the execution wrapper", async () => {
     mocks.buildToolsForUser.mockReturnValue({ listCustomers: safeTool });
 
     const server = createCodMcpServer(env);
-    const result = await registeredHandler(server, "listCustomers")({}, makeCtx(undefined, {}));
+    const result = await registeredHandler(server, "listCustomers")({}, makeCtx());
 
     expect(safeTool.execute).toHaveBeenCalledWith({}, { toolCallId: "" });
     expect(result).toEqual({ content: [{ type: "text", text: JSON.stringify({ success: true }) }] });
@@ -194,5 +206,70 @@ describe("createCodMcpServer", () => {
       { type: "tool", id: "listCustomers", label: "listCustomers" },
       expect.objectContaining({ ok: true }),
     );
+  });
+
+  it("threads client hints (subject/session) into the audit row", async () => {
+    mocks.buildToolsForUser.mockReturnValue({ listCustomers: safeTool });
+
+    const server = createCodMcpServer(env);
+    const ctx = makeCtx();
+    (ctx.mcpReq as unknown as Record<string, unknown>)._meta = {
+      "openai/subject": "sub-anon-1",
+      "openai/session": "sess-anon-2",
+    };
+
+    await registeredHandler(server, "listCustomers")({}, ctx);
+
+    expect(mocks.logActivity).toHaveBeenCalledWith(
+      expect.anything(),
+      { id: "u1", name: "Ada", role: "staff" },
+      "mcp.tool_called",
+      { type: "tool", id: "listCustomers", label: "listCustomers" },
+      expect.objectContaining({ ok: true, clientSubject: "sub-anon-1", clientSession: "sess-anon-2" }),
+    );
+  });
+
+  it("blocks a tool call over the rate limit, before any execution, with a model-readable retry hint", async () => {
+    mocks.buildToolsForUser.mockReturnValue({ listCustomers: safeTool });
+    const kvStub = {
+      get: async () => "9999",
+      put: async () => undefined,
+    };
+    const envWithKv = { DB: {}, RATE_LIMIT: kvStub } as unknown as Env;
+
+    const server = createCodMcpServer(envWithKv);
+    const result = (await registeredHandler(server, "listCustomers")(
+      {},
+      makeCtx(),
+    )) as { isError?: boolean; content: Array<{ text: string }> };
+
+    expect(safeTool.execute).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Rate limit exceeded");
+    expect(result.content[0].text).toContain("retry");
+    expect(mocks.logActivity).toHaveBeenCalledWith(
+      expect.anything(),
+      { id: "u1", name: "Ada", role: "staff" },
+      "mcp.tool_called",
+      { type: "tool", id: "listCustomers", label: "listCustomers" },
+      expect.objectContaining({ ok: false, error: expect.stringContaining("rate_limited") }),
+    );
+  });
+
+  it("rate-limits on the client subject hint when present, not the user id", async () => {
+    mocks.buildToolsForUser.mockReturnValue({ listCustomers: safeTool });
+    const get = vi.fn(async (key: string) => (key.includes("sub-anon") ? "9999" : null));
+    const kvStub = { get, put: async () => undefined };
+    const envWithKv = { DB: {}, RATE_LIMIT: kvStub } as unknown as Env;
+
+    const server = createCodMcpServer(envWithKv);
+    const ctx = makeCtx();
+    (ctx.mcpReq as unknown as Record<string, unknown>)._meta = { "openai/subject": "sub-anon" };
+
+    const result = (await registeredHandler(server, "listCustomers")({}, ctx)) as {
+      isError?: boolean;
+    };
+    expect(get).toHaveBeenCalledWith(expect.stringContaining("sub-anon"));
+    expect(result.isError).toBe(true);
   });
 });

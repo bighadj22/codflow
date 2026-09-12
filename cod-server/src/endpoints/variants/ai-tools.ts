@@ -3,6 +3,7 @@ import { z } from "zod";
 import * as queries from "./queries";
 import { createVariantSchema, updateVariantSchema } from "./validation";
 import { getDb } from "@/db";
+import { toolOutput } from "@/lib/tool-output-schema";
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -34,6 +35,56 @@ export const VARIANT_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   createProductVariant: createProductVariantToolSchema.shape,
   updateVariant: updateVariantToolSchema.shape,
   deleteProductVariant: deleteProductVariantSchema.shape,
+};
+
+const variantRowSchema = z.looseObject({
+  id: z.string().describe("Variant UUID"),
+  productId: z.string().describe("Parent product UUID"),
+  price: z.number().describe("Price in DZD — independent of the parent's price"),
+  sku: z.string().optional().describe("Globally unique merchant-facing code"),
+  variations: z.record(z.string(), z.string()).optional().describe('The combination as option-axis → value, e.g. {"Color": "Red", "Size": "M"}'),
+  inventory: z.number().int().optional(),
+  isDefault: z.boolean().optional().describe("Storefront pre-selects this variant when true"),
+  active: z.boolean().optional().describe("False → hidden from the storefront, data kept"),
+  position: z.number().int().optional().describe("Display order; listings sort by it"),
+});
+
+export const VARIANT_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  listProductVariants: toolOutput({
+    count: z.number().int(),
+    variants: z.array(
+      z.looseObject({
+        id: z.string().describe("Variant UUID"),
+        productId: z.string(),
+        variations: z.record(z.string(), z.string()).describe('The combination, e.g. {"Color": "Red", "Size": "M"}'),
+        price: z.number().describe("Price in DZD"),
+        compareAtPrice: z.number().nullable().describe("Strike-through anchor price, or null"),
+        sku: z.string(),
+        barcode: z.string().nullable(),
+        inventory: z.number().int(),
+        lowStockThreshold: z.number().int(),
+        weightKg: z.number().nullable(),
+        imageId: z.string().nullable().describe("Linked product-image UUID, or null"),
+        isDefault: z.boolean(),
+        active: z.boolean(),
+        position: z.number().int(),
+      }),
+    ).describe("The product's variants, ordered by position"),
+  }),
+  getVariantDetails: toolOutput({
+    variant: variantRowSchema.describe("The variant"),
+  }),
+  createProductVariant: toolOutput({
+    variant: variantRowSchema.describe("The created variant"),
+    message: z.string(),
+  }),
+  updateVariant: toolOutput({
+    variant: variantRowSchema.describe("The updated variant"),
+    message: z.string(),
+  }),
+  deleteProductVariant: toolOutput({
+    message: z.string().describe("Confirms deletion; order history keeps its label and SKU text"),
+  }),
 };
 
 /**

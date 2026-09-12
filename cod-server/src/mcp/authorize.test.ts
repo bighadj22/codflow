@@ -185,6 +185,120 @@ describe("authorize helpers", () => {
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
   });
+
+  it("renders the real logo, app card, and grouped permission chips", () => {
+    const html = renderConsentPage({
+      clientName: "ChatGPT",
+      grantableScopes: ["landing_pages:manage", "orders:read", "orders:create", "mcp:view"],
+      formAction: "/authorize?a=b",
+      csrfToken: "tok",
+      ticket: "t",
+      denyUrl: "https://x.test/cb?e=1",
+      lang: "en",
+      userName: "Ada",
+      userEmail: "ada@example.com",
+    });
+    // The real wordmark asset (both light/dark variants, CSS-toggled).
+    expect(html).toContain('class="logo logo-on-light"');
+    expect(html).toContain('class="logo logo-on-dark"');
+    expect(html).toContain("<svg");
+    // App card with the client's initial.
+    expect(html).toContain('class="appavatar">C<');
+    // Domain groups with compact chips — not one full-width row per scope.
+    expect(html).toContain('class="domain">Landing pages<');
+    expect(html).toContain('class="domain">Orders<');
+    expect(html).toContain('class="domain">AI app connections<');
+    expect(html.match(/class="chip"/g)?.length).toBe(4);
+    expect(html).toContain('>full control</span></label>');
+    expect(html).toContain('>view</span></label>');
+    expect(html).toContain('>create</span></label>');
+    // Raw scope codes stay available on each chip (tooltip).
+    expect(html).toContain('title="landing_pages:manage"');
+    expect(html).toContain('title="orders:read"');
+    // Identity + trust footer.
+    expect(html).toContain("Approving as");
+    expect(html).toContain("ada@example.com");
+    expect(html).toContain("revoke");
+  });
+
+  it("chips are localized and unknown scopes fall back to the raw code", () => {
+    const ar = renderConsentPage({
+      clientName: "ChatGPT",
+      grantableScopes: ["orders:read", "future_scope:x"],
+      formAction: "/authorize",
+      csrfToken: "tok",
+      ticket: "t",
+      denyUrl: "https://x.test/cb",
+      lang: "ar",
+    });
+    expect(ar).toContain('dir="rtl"');
+    expect(ar).toContain('class="domain">الطلبات<');
+    expect(ar).toContain('>عرض</span></label>');
+    // Unknown domain: the raw code is the honest label, not a mistranslation.
+    expect(ar).toContain('class="domain">future_scope<');
+    expect(ar).toContain(">future_scope:x</span></label>");
+
+    const fr = renderConsentPage({
+      clientName: "ChatGPT",
+      grantableScopes: ["orders:read"],
+      formAction: "/authorize",
+      csrfToken: "tok",
+      ticket: "t",
+      denyUrl: "https://x.test/cb",
+      lang: "fr",
+    });
+    expect(fr).toContain('class="domain">Commandes<');
+    expect(fr).toContain(">consultation</span></label>");
+  });
+
+  it("groups multiple scopes of one domain under a single heading", () => {
+    const html = renderConsentPage({
+      clientName: "ChatGPT",
+      grantableScopes: ["orders:read", "orders:create", "orders:update", "orders:delete", "orders:assign"],
+      formAction: "/authorize",
+      csrfToken: "tok",
+      ticket: "t",
+      denyUrl: "https://x.test/cb",
+      lang: "en",
+    });
+    expect(html.match(/class="domain">Orders</g)?.length).toBe(1);
+    expect(html.match(/class="chip"/g)?.length).toBe(5);
+    // All five scopes remain grantable checkboxes — nothing was removed.
+    for (const scope of ["orders:read", "orders:create", "orders:update", "orders:delete", "orders:assign"]) {
+      expect(html).toContain(`value="${scope}" checked`);
+    }
+  });
+
+  it("escapes the account identity fields as well", () => {
+    const html = renderConsentPage({
+      clientName: "ChatGPT",
+      grantableScopes: ["orders:read"],
+      formAction: "/authorize",
+      csrfToken: "tok",
+      ticket: "t",
+      denyUrl: "https://x.test/cb",
+      lang: "en",
+      userName: '<img src=x onerror=alert(1)>',
+      userEmail: "a<b>@example.com",
+    });
+    expect(html).not.toContain("<img src=x");
+    expect(html).toContain("&lt;img src=x");
+    expect(html).toContain("a&lt;b&gt;@example.com");
+  });
+
+  it("works without an identity (no identity line rendered)", () => {
+    const html = renderConsentPage({
+      clientName: null,
+      grantableScopes: ["orders:read"],
+      formAction: "/authorize",
+      csrfToken: "tok",
+      ticket: "t",
+      denyUrl: "https://x.test/cb",
+      lang: "en",
+    });
+    expect(html).toContain("An application");
+    expect(html).not.toContain("Approving as");
+  });
 });
 
 describe("authorize GET", () => {

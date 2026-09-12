@@ -52,8 +52,10 @@ import { authorizeGet, authorizePost } from "@/mcp/authorize";
 import { recordMcpLastUsed } from "@/mcp/last-used";
 import { ALL_SCOPES } from "../../cod-shared/rbac/scopes";
 
-// CodCapiWorkflow — MUST be re-exported so Cloudflare can bind it via wrangler.toml [[workflows]].
+// Cloudflare Workflow classes — MUST be re-exported so Cloudflare can bind
+// them via wrangler.toml [[workflows]].
 export { CodCapiWorkflow } from "@/workflows/capi";
+export { CodLandingPageImageUploadWorkflow } from "@/workflows/landing-page-image-upload";
 
 // OpenAPIHono extends Hono: existing routes/middleware keep working, and
 // routes registered via app.openapi() validate requests and feed the
