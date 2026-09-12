@@ -40,6 +40,15 @@ const listQuery = z.object({
   status: z.enum(["draft", "published", "archived"]).optional().openapi({
     description: "Filter by lifecycle status",
   }),
+  limit: z.coerce.number().int().min(1).max(200).optional().openapi({
+    description:
+      "Opt-in page size (1-200). Omitted → the full list (the dashboard fetches everything; LLM-facing clients should set a limit).",
+    example: 50,
+  }),
+  offset: z.coerce.number().int().min(0).optional().openapi({
+    description: "Opt-in page offset — pair with limit. Rows are newest-first.",
+    example: 0,
+  }),
 });
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
@@ -51,7 +60,7 @@ const listLandingPagesRoute = defineRoute({
   tags: ["Landing Pages"],
   summary: "List landing pages",
   description:
-    "List landing pages (newest first) with per-page stats: views, attributed orders, revenue. Filter by product or status.",
+    "List landing pages (newest first) with per-page stats: views, attributed orders, revenue — orders count as placed regardless of status (cancelled/returned included). Filter by product or status. limit/offset are opt-in pagination; omitting them returns the full list.",
   operationId: "listLandingPages",
   query: listQuery,
   responses: {
@@ -70,7 +79,7 @@ const compareLandingPagesRoute = defineRoute({
   tags: ["Landing Pages"],
   summary: "Compare landing pages of one product",
   description:
-    "The A/B view: every landing page of one product side by side with views, orders, revenue. Conversion rate = orders / views (undefined on zero views — compute client-side).",
+    "The A/B view: every landing page of one product side by side with views, orders, revenue — orders count as placed regardless of status (cancelled/returned included). Conversion rate = orders / views (undefined on zero views — compute client-side).",
   operationId: "compareLandingPages",
   query: z.object({
     productId: z.string().openapi({ description: "Product UUID to compare pages for" }),
