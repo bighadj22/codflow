@@ -1,17 +1,18 @@
 /**
- * Human-in-the-loop (HITL) tool classification.
+ * Risk classification for MCP tools.
  *
- * DANGEROUS_TOOLS is the hard-coded allowlist of tools that ALWAYS require
- * user confirmation before executing — deletes across domains, driver
- * settlements, stock adjustments, order status changes. Risk classification
- * lives in ONE file reviewers can audit at a glance; adding a destructive
- * tool means editing this file in the same change.
+ * DANGEROUS_TOOLS is the hard-coded set of destructive tools — deletes across
+ * domains, driver settlements, stock adjustments, order status changes. Risk
+ * classification lives in ONE file reviewers can audit at a glance; adding a
+ * destructive tool means editing this file in the same change.
  *
- * Confirmation policy (Slice 2):
- * The MCP wrapper fails CLOSED for dangerous tools — they refuse to run —
- * until Slice 3 wires SDK v2 `inputRequired` confirmation. Failing closed is
- * strictly safer than the previous SDK v1 `elicitInput` path, which was broken
- * for Streamable HTTP (an empty relatedRequestId never reached a live stream).
+ * What this classification drives today: the destructiveHint annotations
+ * (./annotations.ts) that tell clients how to frame their own confirmation
+ * prompts. Per the platform docs, human confirmation for write actions is the
+ * CLIENT's responsibility — "ChatGPT currently requires manual confirmation in
+ * any conversation before write actions can be taken" — so the server does not
+ * run a duplicate confirmation round; it labels accurately, gates by OAuth
+ * scope, validates inputs, and writes the audit trail.
  */
 export const DANGEROUS_TOOLS: ReadonlySet<string> = new Set<string>([
   // Customers — destructive
@@ -34,6 +35,10 @@ export const DANGEROUS_TOOLS: ReadonlySet<string> = new Set<string>([
 
   // Landing pages — destructive (refuses with attributed orders, but still irreversible without)
   "deleteLandingPage",
+  // Landing pages — destructive (storage object removed on last reference; restore = re-upload)
+  "removeLandingPageImage",
+  // Landing pages — lifecycle exit (retires the link; the safe alternative to delete)
+  "archiveLandingPage",
 
   // Variants — destructive
   "deleteProductVariant",
