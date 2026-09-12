@@ -41,15 +41,15 @@ A known identity-library bug serializes token expiry as a duration instead of a 
 ### Safety
 
 **Dangerous Tools Gate**:
-A hard-coded allowlist of tools that always demand human confirmation first — deletes across domains, driver settlements, stock adjustments, order status changes. Risk classification lives in one auditable place.
+The hard-coded classification of destructive tools — deletes across domains, driver settlements, stock adjustments, order status changes. Risk classification lives in one auditable place and feeds the `destructiveHint` annotations, so clients frame their own confirmation prompts correctly.
 _Avoid_: Blacklist, auto-block
 
-**Elicitation Confirmation**:
-The protocol-native confirmation dialog rendered by the MCP client itself. A decline is a normal outcome: logged, reported tersely, never thrown.
-_Avoid_: Error, rejection failure
+**Client-Side Confirmation**:
+Human approval for write actions is the client's documented responsibility — ChatGPT requires merchant confirmation before any write action, framed by our annotations. The server never runs a duplicate confirmation round: it labels accurately, gates by OAuth scope, validates inputs, rate-limits, and writes the audit trail. A server-side gate would depend on elicitation support the client may not have, and a fail-closed fallback would break destructive tools entirely in incapable clients.
+_Avoid_: Server confirmation, HITL round
 
 **Tool Call Audit**:
-Every agent invocation lands in the activity trail tagged as via-MCP with its arguments and outcome — including declines and failures — so operations can reconstruct exactly what each agent did.
+Every agent invocation lands in the activity trail tagged as via-MCP with its arguments and outcome — failures included — so operations can reconstruct exactly what each agent did.
 
 **Connection Revocation**:
 Cutting an agent's access revokes the provider grant — the grant and every access token under it disappear, and token validation rejects any token whose grant is gone, so live sessions die instantly. Retries are safe; revocation is idempotent.
@@ -76,9 +76,7 @@ Terms owned by neighboring contexts — use them, don't redefine them here:
 
 **No props, no tools**: If session identity ever fails to attach, the agent starts with an empty tool list rather than crashing — fail-closed by construction.
 
-**Confirmation needs a capable client**: Elicitation support is announced by the MCP client, not advertised by the server; incapable clients skip the dialog entirely, so the gate depends on client capability.
-
-**Three ways to decline**: Denying the dialog, leaving the confirm box unchecked, or timing out all count identically as decline — recorded, never raised.
+**Classification, not gating**: The dangerous-tools set never blocks execution by itself — it drives annotations so the CLIENT's confirmation is framed correctly; the server's own walls are scopes, validation, the rate limit, and the audit trail.
 
 **Revocation closes the race window**: Revoking the grant removes the grant itself, and token validation requires the grant to exist, so an in-flight agent call cannot slip through after revocation.
 
