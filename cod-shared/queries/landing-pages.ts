@@ -64,6 +64,8 @@ export interface LandingPageImageInput {
   /** Intrinsic pixel size — reserved by the storefront to prevent CLS. */
   width?: number | null;
   height?: number | null;
+  /** Provenance of the upload — AI agents set "ai", browser uploads default to "upload". */
+  source?: "upload" | "ai";
 }
 
 const STATS_SELECT = {
@@ -77,16 +79,24 @@ const STATS_SELECT = {
   )`,
 };
 
+/** Opt-in pagination — applied only when provided; omitted means unbounded
+ *  (the dashboard list fetches everything). */
+export interface LandingPageListPagination {
+  limit?: number;
+  offset?: number;
+}
+
 async function resolveListRow(
   db: AppDb,
   filters: { productId?: string; status?: "draft" | "published" | "archived" } = {},
+  pagination: LandingPageListPagination = {},
 ): Promise<LandingPageListItem[]> {
   // Filters belong in SQL: stat subselects must not run for discarded rows.
   const conditions = [];
   if (filters.productId) conditions.push(eq(landingPages.productId, filters.productId));
   if (filters.status) conditions.push(eq(landingPages.status, filters.status));
 
-  const rows = await db
+  const baseQuery = db
     .select({
       id: landingPages.id,
       slug: landingPages.slug,
@@ -108,8 +118,14 @@ async function resolveListRow(
     .from(landingPages)
     .leftJoin(products, eq(landingPages.productId, products.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(landingPages.createdAt))
-    .all();
+    .orderBy(desc(landingPages.createdAt));
+
+  // $dynamic() because limit/offset are applied conditionally — drizzle's
+  // static builder cannot chain .limit(undefined).
+  let query = baseQuery.$dynamic();
+  if (pagination.limit !== undefined) query = query.limit(pagination.limit);
+  if (pagination.offset !== undefined) query = query.offset(pagination.offset);
+  const rows = await query.all();
 
   return rows.map((row) => ({
     ...row,
@@ -123,8 +139,9 @@ async function resolveListRow(
 export async function listLandingPages(
   db: AppDb,
   filters: { productId?: string; status?: "draft" | "published" | "archived" } = {},
+  pagination: LandingPageListPagination = {},
 ) {
-  return resolveListRow(db, filters);
+  return resolveListRow(db, filters, pagination);
 }
 
 export async function getLandingPageStats(db: AppDb, id: string): Promise<LandingPageStats | null> {
@@ -149,6 +166,13 @@ export function generateLandingPageSlug(): string {
   return `lp-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
 }
 
+/**
+ * Full LP detail by id in TWO round trips (mirrors the slug path's shape):
+ *   1. the landing page row by id
+ *   2. ONE db.batch carrying images + stats + product ref — a single HTTP
+ *      call to D1 instead of three parallel-but-separate queries. Used by
+ *      every REST detail read and every MCP write tool's post-mutation read.
+ */
 export async function getLandingPageById(db: AppDb, id: string) {
   const row = await db
     .select()
@@ -157,26 +181,42 @@ export async function getLandingPageById(db: AppDb, id: string) {
     .get();
   if (!row) return null;
 
-  const [images, product, stats] = await Promise.all([
+  const results = await db.batch([
     db
       .select()
       .from(landingPageImages)
       .where(eq(landingPageImages.landingPageId, id))
-      .orderBy(landingPageImages.position)
-      .all(),
+      .orderBy(landingPageImages.position),
+    db
+      .select({
+        views: landingPages.views,
+        ...STATS_SELECT,
+      })
+      .from(landingPages)
+      .where(eq(landingPages.id, id)),
     db
       .select({ id: products.id, name: products.name, handle: products.handle, price: products.price })
       .from(products)
-      .where(eq(products.id, row.productId))
-      .get(),
-    getLandingPageStats(db, id),
-  ]);
+      .where(eq(products.id, row.productId)),
+  ] as [BatchStatement, ...BatchStatement[]]);
+
+  const images = (results[0] as unknown as typeof landingPageImages.$inferSelect[]) ?? [];
+  const statsRow = ((results[1] as unknown as Array<Record<string, unknown>>) ?? [])[0];
+  const productRow = ((results[2] as unknown as Array<Record<string, unknown>>) ?? [])[0];
 
   return {
     ...row,
     images,
-    product: product ?? null,
-    stats: stats ?? { views: 0, orders: 0, revenue: 0 },
+    product: productRow
+      ? (productRow as unknown as { id: string; name: string; handle: string; price: number })
+      : null,
+    stats: statsRow
+      ? {
+          views: Number(statsRow.views),
+          orders: Number(statsRow.orders),
+          revenue: Number(statsRow.revenue),
+        }
+      : { views: 0, orders: 0, revenue: 0 },
   };
 }
 
@@ -350,7 +390,7 @@ export async function addLandingPageImage(
     r2Key: image.r2Key,
     src: image.src,
     altText: image.altText ?? null,
-    source: "upload",
+    source: image.source ?? "upload",
     position: nextPosition,
     width: image.width ?? null,
     height: image.height ?? null,

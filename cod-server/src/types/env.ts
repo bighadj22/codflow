@@ -48,12 +48,6 @@ export interface Env {
    */
   WORKER_SELF_URL: string;
   /**
-   * HMAC key (>= 32 bytes) sealing the MCP `requestState` used by tool
-   * confirmation. Optional: when missing or too short, dangerous MCP tools fail
-   * closed. Set via `wrangler secret put` in production, `.dev.vars` locally.
-   */
-  MCP_REQUEST_STATE_KEY?: string;
-  /**
    * HMAC secret (>= 32 bytes) shared with the Astro dashboard for the MCP OAuth
    * login tickets minted after dashboard sign-in. Optional: when missing or too
    * short, the MCP authorize flow fails closed.
@@ -74,4 +68,9 @@ export interface Env {
    * Fires CAPI Purchase events at order delivery — decoupled from status handler.
    */
   CAPI_WORKFLOW: Workflow;
+  /**
+   * Cloudflare Workflow binding for CodLandingPageImageUploadWorkflow.
+   * Durable background upload of MCP-agent images into the landing page stack.
+   */
+  LP_IMAGE_UPLOAD_WORKFLOW: Workflow;
 }
