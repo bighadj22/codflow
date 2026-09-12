@@ -7,6 +7,7 @@ import {
   updateGroupSchema,
 } from "./validation";
 import { getDb } from "@/db";
+import { toolOutput } from "@/lib/tool-output-schema";
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -33,6 +34,38 @@ export const PRODUCT_GROUP_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   createProductGroup: createProductGroupToolSchema.shape,
   updateProductGroup: updateProductGroupToolSchema.shape,
   deleteProductGroup: deleteProductGroupSchema.shape,
+};
+
+const productGroupRowSchema = z.looseObject({
+  id: z.string().describe("Group UUID"),
+  name: z.string(),
+  slug: z.string().describe("Unique URL-safe identifier"),
+  description: z.string().nullable().optional(),
+  parentId: z.string().nullable().optional().describe("Parent group UUID — null for top-level groups"),
+  imageUrl: z.string().nullable().optional(),
+  position: z.number().int().optional().describe("Display order among siblings; lower sorts first"),
+  productsCount: z.number().int().optional().describe("Non-deleted products filed under this group (any status) — doubles as the deletion guard"),
+});
+
+export const PRODUCT_GROUP_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  listProductGroups: toolOutput({
+    count: z.number().int(),
+    groups: z.array(productGroupRowSchema).describe("Groups ordered by position"),
+  }),
+  getProductGroupDetails: toolOutput({
+    group: productGroupRowSchema.describe("The group, including immediate child groups"),
+  }),
+  createProductGroup: toolOutput({
+    group: productGroupRowSchema.describe("The created group"),
+    message: z.string(),
+  }),
+  updateProductGroup: toolOutput({
+    group: productGroupRowSchema.describe("The updated group"),
+    message: z.string(),
+  }),
+  deleteProductGroup: toolOutput({
+    message: z.string(),
+  }),
 };
 
 /**

@@ -3,6 +3,7 @@ import { z } from "zod";
 import * as queries from "./queries";
 import { createPaymentSchema } from "./validation";
 import { getDb } from "@/db";
+import { toolOutput, timestampSchema } from "@/lib/tool-output-schema";
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -24,6 +25,44 @@ export const DRIVER_PAYMENT_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   listDriverPayments: listDriverPaymentsSchema.shape,
   getPendingSettlements: getPendingSettlementsSchema.shape,
   createDriverSettlement: createDriverSettlementSchema.shape,
+};
+
+export const DRIVER_PAYMENT_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  listDriverPayments: toolOutput({
+    count: z.number().int(),
+    payments: z.array(
+      z.looseObject({
+        id: z.string().describe("Payment record UUID"),
+        type: z.string().describe("Settlement type (COD remittance, fee payment, or net settlement)"),
+        amount: z.number().describe("Server-computed settlement amount in DZD"),
+        orderCount: z.number().int().describe("Orders settled in this payment"),
+        createdAt: timestampSchema,
+        createdByName: z.string().describe("Who created the settlement (audit attribution)"),
+        notes: z.string().nullable(),
+      }),
+    ).describe("Settlement history, newest first"),
+  }),
+  getPendingSettlements: toolOutput({
+    count: z.number().int(),
+    orders: z.array(
+      z.looseObject({
+        id: z.string().describe("Order UUID"),
+        orderNumber: z.string(),
+        codAmount: z.number().describe("Customer cash the driver still owes the shop (DZD)"),
+        driverFee: z.number().describe("Frozen per-delivery fee owed to the driver (DZD)"),
+        updatedAt: timestampSchema,
+        status: z.string(),
+      }),
+    ).describe("Delivered orders awaiting settlement"),
+  }),
+  createDriverSettlement: toolOutput({
+    settlement: z.looseObject({
+      type: z.string().optional().describe("Settlement type"),
+      orderCount: z.number().int().optional().describe("Orders settled"),
+      amount: z.number().optional().describe("Settled amount in DZD"),
+    }).describe("The created payment record"),
+    message: z.string(),
+  }),
 };
 
 /**

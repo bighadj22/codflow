@@ -3,6 +3,7 @@ import { z } from "zod";
 import * as queries from "./queries";
 import { wilayaFiltersSchema } from "./validation";
 import { getDb } from "@/db";
+import { toolOutput } from "@/lib/tool-output-schema";
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -23,6 +24,33 @@ export const listWilayaCommunesSchema = z.object({
 export const WILAYA_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   listWilayas: listWilayasSchema.shape,
   listWilayaCommunes: listWilayaCommunesSchema.shape,
+};
+
+export const WILAYA_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  listWilayas: toolOutput({
+    count: z.number().int(),
+    wilayas: z.array(
+      z.looseObject({
+        id: z.number().int().describe("Official wilaya number (1–58) — used in orders, shipping rules, and driver pay grids; NOT a UUID"),
+        name: z.string().describe("French name"),
+        nameAr: z.string().describe("Arabic name"),
+      }),
+    ).describe("All 58 wilayas in official-number order"),
+  }),
+  listWilayaCommunes: toolOutput({
+    wilaya: z.looseObject({
+      id: z.number().int(),
+      name: z.string(),
+      nameAr: z.string(),
+    }).describe("The wilaya"),
+    count: z.number().int(),
+    communes: z.array(
+      z.looseObject({
+        id: z.string().describe('Commune ID in c-XX-YYY format (e.g. "c-16-001") — use this for precise addresses, NOT a UUID'),
+        name: z.string(),
+      }),
+    ).describe("Communes of the wilaya, alphabetical by Latin name"),
+  }),
 };
 
 /**

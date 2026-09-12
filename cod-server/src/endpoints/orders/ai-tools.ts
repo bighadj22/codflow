@@ -10,6 +10,7 @@ import {
   ORDER_STATUSES,
 } from "./validation";
 import { getDb } from "@/db";
+import { toolOutput, timestampSchema } from "@/lib/tool-output-schema";
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -51,6 +52,89 @@ export const ORDER_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   unassignDriverFromOrder: unassignDriverFromOrderToolSchema.shape,
   recordOrderProductReturn: recordOrderProductReturnToolSchema.shape,
   deleteOrder: deleteOrderSchema.shape,
+};
+
+const orderRowSchema = z.looseObject({
+  id: z.string().describe("Order UUID"),
+  orderNumber: z.string().describe("Human-readable number (ORD-YYYYMMDD-NNNN) — what the customer sees"),
+  status: z.string().optional().describe("Lifecycle status; delivered, returned, and cancelled are terminal"),
+  customerName: z.string().optional(),
+  phone: z.string().optional(),
+  price: z.number().optional().describe("Product subtotal excluding delivery fee (DZD)"),
+  deliveryFee: z.number().optional().describe("Delivery charge to the customer (DZD)"),
+  codAmount: z.number().optional().describe("Cash the courier collects = price + deliveryFee (DZD)"),
+  deliveryType: z.string().optional().describe("home | stop_desk"),
+  trackingNumber: z.string().nullable().optional().describe("Carrier tracking number once dispatched, or null"),
+  driverId: z.string().nullable().optional().describe("Assigned driver UUID, or null"),
+});
+
+export const ORDER_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  listOrders: toolOutput({
+    count: z.number().int(),
+    orders: z.array(
+      z.looseObject({
+        id: z.string().describe("Order UUID"),
+        orderNumber: z.string(),
+        status: z.string().describe("Lifecycle status"),
+        customerName: z.string(),
+        phone: z.string(),
+        wilaya: z.string(),
+        commune: z.string(),
+        price: z.number().describe("Product subtotal excluding delivery fee (DZD)"),
+        deliveryFee: z.number().describe("Delivery charge (DZD)"),
+        codAmount: z.number().describe("Cash the courier collects at the door (DZD)"),
+        deliveryType: z.string().describe("home | stop_desk"),
+        orderType: z.string().describe("online | offline"),
+        driverName: z.string().nullable().describe("Assigned driver's name, or null"),
+        trackingNumber: z.string().nullable().describe("Carrier tracking number, or null"),
+        companyId: z.string().nullable().describe("Carrier company ID once dispatched, or null"),
+        hasReview: z.boolean().describe("Whether the anchor review exists"),
+        createdAt: timestampSchema,
+        updatedAt: timestampSchema,
+      }),
+    ).describe("Orders, newest first"),
+  }),
+  getOrderDetails: toolOutput({
+    order: orderRowSchema.describe("Full order: product lines, status history, place names, and delivery references"),
+  }),
+  createOrder: toolOutput({
+    order: z.looseObject({
+      id: z.string().describe("Order UUID"),
+      orderNumber: z.string(),
+      status: z.literal("new").describe("Newly created — not yet confirmed"),
+      deliveryFee: z.number().describe("Delivery charge (DZD)"),
+      price: z.number().describe("Product subtotal (DZD)"),
+      codAmount: z.number().describe("Cash the courier collects = price + deliveryFee (DZD)"),
+      customerId: z.string(),
+      customerName: z.string(),
+      phone: z.string(),
+      wilayaId: z.number().int().describe("Wilaya number 1–58"),
+      communeId: z.string().nullable().describe("Commune ID (c-XX-YYY), or null"),
+      deliveryType: z.enum(["home", "stop_desk"]),
+      orderType: z.enum(["online", "offline"]),
+    }).describe("The created order — inventory was deducted"),
+    message: z.string(),
+  }),
+  updateOrderStatus: toolOutput({
+    message: z.string(),
+    previousStatus: z.string(),
+    newStatus: z.string().describe("cancelled/returned restore inventory; delivered/returned/cancelled are terminal"),
+  }),
+  assignDriverToOrder: toolOutput({
+    message: z.string(),
+  }),
+  unassignDriverFromOrder: toolOutput({
+    message: z.string().describe("Allowed until out_for_delivery"),
+  }),
+  recordOrderProductReturn: toolOutput({
+    result: z.looseObject({
+      status: z.enum(["fulfilled", "partially_returned", "returned"]).optional().describe("The order's return state after this line return"),
+    }).describe("Return outcome"),
+    message: z.string(),
+  }),
+  deleteOrder: toolOutput({
+    message: z.string().describe("Deletion restores all remaining inventory"),
+  }),
 };
 
 /**

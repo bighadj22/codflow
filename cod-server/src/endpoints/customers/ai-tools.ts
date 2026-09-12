@@ -7,6 +7,7 @@ import {
   updateCustomerSchema 
 } from "./validation";
 import { getDb } from "@/db";
+import { toolOutput, timestampSchema } from "@/lib/tool-output-schema";
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -45,6 +46,63 @@ export const CUSTOMER_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   createNewCustomer: createNewCustomerSchema.shape,
   updateCustomerProfile: updateCustomerProfileSchema.shape,
   deleteCustomer: deleteCustomerSchema.shape,
+};
+
+const customerRowSchema = z.looseObject({
+  id: z.string().describe("Customer UUID"),
+  name: z.string(),
+  phone: z.string().describe("Primary Algerian mobile (05/06/07) — the customer's identity anchor"),
+  wilaya: z.string().optional().describe("Wilaya display-name snapshot"),
+  commune: z.string().optional().describe("Commune display-name snapshot"),
+  totalSpent: z.number().optional().describe("Running value of kept orders in DZD"),
+  totalOrders: z.number().optional().describe("Orders ever placed, minus deleted ones"),
+  lastOrderAt: timestampSchema.nullable().optional().describe("Creation time of the most recent order, or null"),
+});
+
+export const CUSTOMER_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  listCustomers: toolOutput({
+    count: z.number().int(),
+    customers: z.array(customerRowSchema).describe("Customers matching the filters"),
+  }),
+  getCustomerDetails: toolOutput({
+    customer: customerRowSchema.describe("The customer profile"),
+  }),
+  findCustomerByPhone: toolOutput({
+    customer: customerRowSchema.describe("The customer owning that phone number"),
+  }),
+  createNewCustomer: toolOutput({
+    customer: customerRowSchema.describe("The created customer"),
+    message: z.string(),
+  }),
+  updateCustomerProfile: toolOutput({
+    customer: customerRowSchema.describe("The updated customer"),
+    message: z.string(),
+  }),
+  getCustomerOrderHistory: toolOutput({
+    count: z.number().int(),
+    orders: z
+      .array(
+        z.looseObject({
+          id: z.string().describe("Order UUID"),
+          orderNumber: z.string().describe("Human-readable order number (ORD-YYYYMMDD-NNNN)"),
+          status: z.string().describe("Order lifecycle status"),
+          totalPrice: z.number().describe("Product subtotal excluding delivery fee (DZD)"),
+          createdAt: timestampSchema,
+          wilaya: z.string(),
+          commune: z.string(),
+        }),
+      )
+      .describe("The customer's orders, newest first"),
+  }),
+  getCustomerMemberships: toolOutput({
+    groups: z.array(z.looseObject({ id: z.string(), name: z.string() })).describe("Customer groups this customer belongs to"),
+    tags: z.array(z.looseObject({ id: z.string(), name: z.string() })).describe("Tags assigned to this customer"),
+    groupCount: z.number().int(),
+    tagCount: z.number().int(),
+  }),
+  deleteCustomer: toolOutput({
+    message: z.string(),
+  }),
 };
 
 /**

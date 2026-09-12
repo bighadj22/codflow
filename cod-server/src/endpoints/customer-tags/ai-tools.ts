@@ -7,6 +7,7 @@ import {
   customerTagFiltersSchema,
 } from "./validation";
 import { getDb } from "@/db";
+import { toolOutput } from "@/lib/tool-output-schema";
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -44,6 +45,40 @@ export const CUSTOMER_TAG_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   deleteCustomerTag: deleteCustomerTagSchema.shape,
   assignTagToCustomer: assignTagToCustomerSchema.shape,
   unassignTagFromCustomer: unassignTagFromCustomerSchema.shape,
+};
+
+const customerTagRowSchema = z.looseObject({
+  id: z.string().describe("Tag UUID"),
+  name: z.string().describe("Unique across the whole store"),
+  color: z.string().optional().describe("Hex color for dashboards"),
+  assignmentCount: z.number().int().optional().describe("Denormalized counter — doubles as the deletion guard"),
+});
+
+export const CUSTOMER_TAG_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  listCustomerTags: toolOutput({
+    count: z.number().int(),
+    tags: z.array(customerTagRowSchema).describe("Customer tags"),
+  }),
+  getCustomerTagDetails: toolOutput({
+    tag: customerTagRowSchema.describe("The tag; includes assigned customers when withCustomers was true"),
+  }),
+  createCustomerTag: toolOutput({
+    tag: customerTagRowSchema.describe("The created tag"),
+    message: z.string(),
+  }),
+  updateCustomerTag: toolOutput({
+    tag: customerTagRowSchema.describe("The updated tag"),
+    message: z.string(),
+  }),
+  deleteCustomerTag: toolOutput({
+    message: z.string(),
+  }),
+  assignTagToCustomer: toolOutput({
+    message: z.string().describe("Idempotent — assigning an already-tagged customer succeeds without change"),
+  }),
+  unassignTagFromCustomer: toolOutput({
+    message: z.string().describe("Silent on unknown pairings — returns success"),
+  }),
 };
 
 /**

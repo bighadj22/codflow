@@ -3,6 +3,7 @@ import { z } from "zod";
 import * as queries from "./queries";
 import { createOfferSchema, updateOfferSchema } from "./validation";
 import { getDb } from "@/db";
+import { toolOutput, timestampSchema } from "@/lib/tool-output-schema";
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -29,6 +30,58 @@ export const OFFER_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   createOffer: createOfferToolSchema.shape,
   updateOffer: updateOfferToolSchema.shape,
   deleteOffer: deleteOfferSchema.shape,
+};
+
+const offerProductRefSchema = z
+  .looseObject({
+    id: z.string().optional(),
+    name: z.string().optional(),
+  })
+  .nullable()
+  .describe("The referenced product, or null");
+
+const offerRowSchema = z.looseObject({
+  id: z.string().describe("Offer UUID"),
+  name: z.string(),
+  status: z.string().optional().describe("active | inactive — only active offers within schedule can qualify"),
+});
+
+export const OFFER_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  listOffers: toolOutput({
+    count: z.number().int(),
+    offers: z.array(
+      z.looseObject({
+        id: z.string().describe("Offer UUID"),
+        name: z.string(),
+        status: z.string().describe("active | inactive"),
+        discountType: z.string().describe("free (Buy X Get Y reward) | free_shipping (delivery fee waived)"),
+        triggerProduct: offerProductRefSchema,
+        triggerVariant: z.looseObject({ id: z.string().optional() }).nullable().describe("The triggering variant, or null"),
+        triggerQuantity: z.number().int().describe("Minimum ordered units of the trigger product"),
+        rewardProduct: offerProductRefSchema,
+        rewardVariant: z.looseObject({ id: z.string().optional() }).nullable().describe("The rewarded variant, or null"),
+        rewardQuantity: z.number().int().describe("Free units granted on trigger"),
+        startsAt: timestampSchema.nullable().describe("Null means active immediately"),
+        endsAt: timestampSchema.nullable().describe("Null means it never expires"),
+        createdAt: timestampSchema,
+        updatedAt: timestampSchema,
+      }),
+    ).describe("Offers, newest first"),
+  }),
+  getOfferDetails: toolOutput({
+    offer: offerRowSchema.describe("The offer with resolved trigger and reward references"),
+  }),
+  createOffer: toolOutput({
+    offer: offerRowSchema.describe("The created offer"),
+    message: z.string(),
+  }),
+  updateOffer: toolOutput({
+    offer: offerRowSchema.describe("The updated offer"),
+    message: z.string(),
+  }),
+  deleteOffer: toolOutput({
+    message: z.string(),
+  }),
 };
 
 /**

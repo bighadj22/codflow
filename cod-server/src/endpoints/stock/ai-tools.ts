@@ -9,6 +9,7 @@ import {
   MOVEMENT_TYPES,
 } from "./validation";
 import { getDb } from "@/db";
+import { toolOutput, timestampSchema } from "@/lib/tool-output-schema";
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -57,6 +58,74 @@ export const STOCK_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   adjustVariantStock: adjustVariantStockToolSchema.shape,
   updateProductStockThreshold: updateProductStockThresholdToolSchema.shape,
   updateVariantStockThreshold: updateVariantStockThresholdToolSchema.shape,
+};
+
+const stockAlertItemSchema = z.looseObject({
+  productId: z.string(),
+  variantId: z.string().nullable().describe("Null for simple products"),
+  productName: z.string(),
+  variantLabel: z.string().nullable().describe('Option values joined with " / ", or null for simple products'),
+  sku: z.string().nullable(),
+  inventory: z.number().int(),
+  lowStockThreshold: z.number().int(),
+  isOutOfStock: z.boolean(),
+  updatedAt: timestampSchema,
+});
+
+const stockMovementRowSchema = z.looseObject({
+  id: z.string(),
+  productId: z.string(),
+  variantId: z.string().nullable(),
+  type: z.enum(MOVEMENT_TYPES).describe("Kind of change — PURCHASE and ADJUSTMENT_* are manual; ORDER_* are order-driven automation"),
+  delta: z.number().int().describe("Signed change — positive = stock arriving, negative = stock leaving"),
+  qtyBefore: z.number().int(),
+  qtyAfter: z.number().int(),
+  reason: z.string().nullable().describe("Required on manual movement types"),
+  reference: z.string().nullable(),
+  createdBy: z.string(),
+  createdByName: z.string(),
+  createdAt: timestampSchema,
+});
+
+export const STOCK_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  getStockOverview: toolOutput({
+    overview: z
+      .looseObject({
+        totalSkus: z.number().int().describe("Tracked SKUs — simple products plus active variants"),
+        outOfStockCount: z.number().int(),
+        lowStockCount: z.number().int(),
+        totalInventoryValue: z.number().describe("Valued at each SKU's selling price, in DZD"),
+        currency: z.string(),
+        outOfStockItems: z.array(stockAlertItemSchema).describe("Most urgent first — out-of-stock leads"),
+        lowStockItems: z.array(stockAlertItemSchema),
+        allItems: z.array(stockAlertItemSchema).describe("Every tracked SKU regardless of stock level"),
+      })
+      .describe("Health snapshot recomputed from live tables on every call"),
+  }),
+  getStockAlerts: toolOutput({
+    items: z.array(stockAlertItemSchema).describe("Attention list — out-of-stock first, then by rising inventory"),
+    total: z.number().int().describe("Total matching rows across all pages"),
+  }),
+  getProductStockHistory: toolOutput({
+    movements: z.array(stockMovementRowSchema).describe("The SKU's ledger, newest first"),
+    total: z.number().int().describe("Total matching rows across all pages"),
+  }),
+  adjustProductStock: toolOutput({
+    movement: stockMovementRowSchema.describe("The created ledger row — immutable once written"),
+    currentInventory: z.number().int().describe("The product's inventory after the adjustment"),
+    message: z.string(),
+  }),
+  adjustVariantStock: toolOutput({
+    movement: stockMovementRowSchema.describe("The created ledger row — immutable once written"),
+    currentInventory: z.number().int().describe("The variant's inventory after the adjustment"),
+    message: z.string(),
+  }),
+  updateProductStockThreshold: toolOutput({
+    message: z.string(),
+  }),
+  updateVariantStockThreshold: toolOutput({
+    message: z.string(),
+  }),
 };
 
 /**

@@ -8,6 +8,7 @@ import {
   updateDriverStatusSchema as updateDriverStatusInputSchema,
 } from "./validation";
 import { getDb } from "@/db";
+import { toolOutput } from "@/lib/tool-output-schema";
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -39,6 +40,52 @@ export const DRIVER_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   updateDriverProfile: updateDriverProfileSchema.shape,
   updateDriverStatus: updateDriverStatusSchema.shape,
   deleteDriver: deleteDriverSchema.shape,
+};
+
+const driverRowSchema = z.looseObject({
+  id: z.string().describe("Driver UUID"),
+  firstName: z.string(),
+  lastName: z.string(),
+  phone: z.string().describe("Primary phone — uniquely identifies the driver"),
+  status: z.string().optional().describe("Availability: available | busy | inactive (changed only by its dedicated endpoint)"),
+  vehicleType: z.string().nullable().optional().describe("motorcycle | car | van, or null when unknown"),
+});
+
+export const DRIVER_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
+  listDrivers: toolOutput({
+    count: z.number().int(),
+    drivers: z.array(
+      z.looseObject({
+        id: z.string().describe("Driver UUID"),
+        firstName: z.string(),
+        lastName: z.string(),
+        phone: z.string(),
+        status: z.string().describe("Availability: available | busy | inactive"),
+        vehicleType: z.string().nullable().describe("motorcycle | car | van, or null"),
+        compensationWilayaCount: z.number().int().describe("Wilayas with a configured pay rate — zero is legal but unpaid work"),
+        totalDelivered: z.number().int().describe("Delivered orders all time"),
+        pendingCash: z.number().describe("Collected customer cash not yet remitted, in DZD"),
+      }),
+    ).describe("Drivers matching the filters"),
+  }),
+  getDriverDetails: toolOutput({
+    driver: driverRowSchema.describe("Driver profile, compensation grid, and recent orders"),
+  }),
+  createNewDriver: toolOutput({
+    driver: driverRowSchema.describe("The created driver"),
+    message: z.string(),
+  }),
+  updateDriverProfile: toolOutput({
+    driver: driverRowSchema.describe("The updated driver"),
+    message: z.string(),
+  }),
+  updateDriverStatus: toolOutput({
+    driver: driverRowSchema.describe("The driver with its new availability status"),
+    message: z.string(),
+  }),
+  deleteDriver: toolOutput({
+    message: z.string(),
+  }),
 };
 
 /**
