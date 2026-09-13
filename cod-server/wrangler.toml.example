@@ -31,6 +31,11 @@ migrations_dir = "src/db/migrations"
 binding = "IMAGES"
 bucket_name = "codflow-images"
 
+# Cloudflare Images binding — write-time WebP transcode for landing page
+# uploads (billed as unique transformations; 5,000/month free tier).
+[images]
+binding = "IMAGE_TRANSFORM"
+
 # KV namespace for rate limiting.
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
@@ -99,6 +104,9 @@ vars = { ENVIRONMENT = "production", WORKER_URL = "https://api.example.com", MED
 [[env.production.r2_buckets]]
 binding = "IMAGES"
 bucket_name = "codflow-images"
+
+[env.production.images]
+binding = "IMAGE_TRANSFORM"
 
 # Environment bindings are non-inheritable in Wrangler — every binding used by
 # the Worker must be declared here or a production deploy silently ships without it.

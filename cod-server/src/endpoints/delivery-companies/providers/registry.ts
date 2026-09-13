@@ -56,8 +56,7 @@ export function getProvider(company: ProviderCompany): DeliveryProvider {
       if (!company.apiUserGuid) throw new Error("Yalidine: X-API-ID (apiUserGuid) is required");
       // Parse optional config from notes JSON: from_wilaya_name (sender
       // wilaya on every parcel) + proxy_base_url/proxy_secret (egress relay
-      // for Yalidine's Cloudflare-Worker traffic block — see
-      // scripts/yalidine-egress-proxy.ts).
+      // for Yalidine's Cloudflare-Worker traffic block).
       let fromWilayaName = "Alger";
       let proxyBaseUrl: string | undefined;
       let proxySecret: string | undefined;

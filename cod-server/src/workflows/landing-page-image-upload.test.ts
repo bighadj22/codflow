@@ -233,10 +233,12 @@ describe("CodLandingPageImageUploadWorkflow.run — url path", () => {
       width: 1,
       height: 1,
       altText: null,
+      converted: false,
+      storedContentType: "image/png",
     });
 
     expect(step.calls.map((c) => c.name)).toEqual([
-      "fetch-and-store-image",
+      "fetch-transcode-store-image",
       "insert-image-record",
       "audit-image-added",
     ]);
@@ -364,7 +366,7 @@ describe("CodLandingPageImageUploadWorkflow.run — bytes path", () => {
     expect(activity.logActivity).toHaveBeenCalled();
     expect(result.imageId).toBe("img-row-1");
     expect(step.calls.map((c) => c.name)).toEqual([
-      "read-and-measure-object",
+      "transcode-stored-object",
       "insert-image-record",
       "audit-image-added",
     ]);
@@ -514,5 +516,268 @@ describe("CodLandingPageImageUploadWorkflow.run — fetch hardening", () => {
         );
       })(),
     ).rejects.toMatchObject({ name: "NonRetryableError" });
+  });
+});
+
+/** Minimal valid VP8L WebP (width × height) — the transcode mock's output. */
+function webpLosslessFixture(width: number, height: number): Uint8Array {
+  const b = Buffer.alloc(30);
+  b.write("RIFF", 0, "ascii");
+  b.writeUInt32LE(18, 4);
+  b.write("WEBP", 8, "ascii");
+  b.write("VP8L", 12, "ascii");
+  b.writeUInt32LE(5, 16);
+  b.writeUInt8(0x2f, 20);
+  b.writeUInt32LE((width - 1) | ((height - 1) << 14), 21);
+  return new Uint8Array(b);
+}
+
+const WEBP_10x10 = webpLosslessFixture(10, 10);
+
+/** Images-binding mock: input(stream).output(opts).response() → canned WebP. */
+function makeImageTransform(
+  webp: Uint8Array,
+  opts: { fail?: "throw" | "http" | "empty" } = {},
+) {
+  const output = vi.fn(async () => ({
+    // response() is synchronous on the real binding — returns Response directly.
+    response: () => {
+      if (opts.fail === "throw") throw new Error("images binding exploded");
+      if (opts.fail === "http") return new Response("err", { status: 500 });
+      if (opts.fail === "empty") return new Response(null, { status: 200 });
+      return new Response(webp as unknown as BodyInit, { status: 200 });
+    },
+  }));
+  const input = vi.fn(() => ({ output }));
+  return { input, __output: output } as unknown as ImagesBinding & { __output: ReturnType<typeof vi.fn> };
+}
+
+describe("CodLandingPageImageUploadWorkflow.run — WebP transcode (Images binding)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(okFetch(REAL_1X1_PNG, { "content-type": "image/png", "content-length": "70" })),
+    );
+    sharedQueries.getLandingPageById.mockResolvedValue(LANDING_PAGE);
+    sharedQueries.getLandingPageImages.mockResolvedValue([]);
+    sharedQueries.addLandingPageImage.mockResolvedValue([STACK_ROW]);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("url path: transcodes a PNG source to WebP and stores it under the webp key", async () => {
+    const binding = makeImageTransform(WEBP_10x10);
+    const { workflow, put } = makeWorkflow({ IMAGE_TRANSFORM: binding });
+    const step = makeFakeStep();
+
+    const result = await workflow.run(
+      { payload: urlPayload(), instanceId: "lpimg-t" } as never,
+      step as never,
+    );
+
+    expect(binding.input).toHaveBeenCalledTimes(1);
+    expect((binding as unknown as { __output: ReturnType<typeof vi.fn> }).__output)
+      .toHaveBeenCalledWith({ format: "image/webp", quality: 85 });
+    expect(put).toHaveBeenCalledWith(
+      R2_KEY,
+      expect.any(Uint8Array),
+      {
+        httpMetadata: {
+          contentType: "image/webp",
+          cacheControl: "public, max-age=31536000, immutable",
+        },
+        customMetadata: { source: "ai", uploadedAt: expect.any(String) },
+      },
+    );
+    expect(result.converted).toBe(true);
+    expect(result.storedContentType).toBe("image/webp");
+    // Dimensions measured from the transcoded WebP (10x10 fixture) flow into
+    // the record insert (the result echoes the DB row, which the query mock
+    // stubs with its own fixture values).
+    expect(sharedQueries.addLandingPageImage).toHaveBeenCalledWith(
+      expect.anything(),
+      UUID,
+      expect.objectContaining({ r2Key: R2_KEY, width: 10, height: 10 }),
+    );
+  });
+
+  it("url path: a WebP source passes through without touching the binding (no billed transformation)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(okFetch(WEBP_10x10, { "content-type": "image/webp" })),
+    );
+    const WEBP_KEY = `landing/${KEY_HEX}.webp`;
+    sharedQueries.addLandingPageImage.mockResolvedValue([
+      { ...STACK_ROW, r2Key: WEBP_KEY, src: `https://media.example.com/${WEBP_KEY}` },
+    ]);
+    const binding = makeImageTransform(WEBP_10x10);
+    const { workflow, put } = makeWorkflow({ IMAGE_TRANSFORM: binding });
+    const step = makeFakeStep();
+
+    const result = await workflow.run(
+      {
+        payload: urlPayload({
+          contentType: "image/webp",
+          r2Key: WEBP_KEY,
+        }),
+        instanceId: "lpimg-t",
+      } as never,
+      step as never,
+    );
+
+    expect(binding.input).not.toHaveBeenCalled();
+    expect(put).toHaveBeenCalledWith(
+      WEBP_KEY,
+      expect.any(Uint8Array),
+      expect.objectContaining({ httpMetadata: { contentType: "image/webp", cacheControl: expect.any(String) } }),
+    );
+    expect(result.converted).toBe(true);
+    expect(result.storedContentType).toBe("image/webp");
+  });
+
+  it("bytes path: transcodes the stored original in place under the same key", async () => {
+    const binding = makeImageTransform(WEBP_10x10);
+    const { workflow, get, put } = makeWorkflow({ IMAGE_TRANSFORM: binding });
+    const step = makeFakeStep();
+
+    const result = await workflow.run(
+      { payload: bytesPayload(), instanceId: "lpimg-t" } as never,
+      step as never,
+    );
+
+    expect(get).toHaveBeenCalledWith(R2_KEY);
+    expect(put).toHaveBeenCalledWith(
+      R2_KEY,
+      expect.any(Uint8Array),
+      {
+        httpMetadata: {
+          contentType: "image/webp",
+          cacheControl: "public, max-age=31536000, immutable",
+        },
+        customMetadata: { source: "ai", uploadedAt: expect.any(String) },
+      },
+    );
+    expect(result.converted).toBe(true);
+    expect(result.storedContentType).toBe("image/webp");
+  });
+
+  it("bytes path: an already-WebP object skips the binding (idempotent re-run after a successful transcode)", async () => {
+    const binding = makeImageTransform(WEBP_10x10);
+    // R2 get returns the WebP a prior run stored at the key.
+    const put = vi.fn(async () => undefined);
+    const get = vi.fn(async () => ({
+      arrayBuffer: async () => WEBP_10x10.buffer.slice(0) as ArrayBuffer,
+    }));
+    const env = {
+      IMAGES: { put, get },
+      MEDIA_DOMAIN: "media.example.com",
+      DB: {} as never,
+      IMAGE_TRANSFORM: binding,
+    };
+    const wf = new (CodLandingPageImageUploadWorkflow as unknown as new (
+      ctx: unknown,
+      env: unknown,
+    ) => InstanceType<typeof CodLandingPageImageUploadWorkflow>)({}, env);
+    const step = makeFakeStep();
+    const WEBP_KEY = `landing/${KEY_HEX}.webp`;
+    sharedQueries.addLandingPageImage.mockResolvedValue([
+      { ...STACK_ROW, r2Key: WEBP_KEY, src: `https://media.example.com/${WEBP_KEY}` },
+    ]);
+
+    const result = await wf.run(
+      {
+        payload: bytesPayload({ contentType: "image/webp", r2Key: WEBP_KEY }),
+        instanceId: "lpimg-t",
+      } as never,
+      step as never,
+    );
+
+    expect(binding.input).not.toHaveBeenCalled();
+    expect(put).not.toHaveBeenCalled();
+    expect(result.converted).toBe(true);
+    expect(result.storedContentType).toBe("image/webp");
+  });
+
+  it("binding failure falls back to the original format — the upload still succeeds", async () => {
+    const binding = makeImageTransform(WEBP_10x10, { fail: "throw" });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { workflow, put } = makeWorkflow({ IMAGE_TRANSFORM: binding });
+      const step = makeFakeStep();
+
+      const result = await workflow.run(
+        { payload: urlPayload(), instanceId: "lpimg-t" } as never,
+        step as never,
+      );
+
+      expect(put).toHaveBeenCalledWith(
+        R2_KEY,
+        expect.any(Uint8Array),
+        expect.objectContaining({
+          httpMetadata: { contentType: "image/png", cacheControl: expect.any(String) },
+        }),
+      );
+      expect(result.converted).toBe(false);
+      expect(result.storedContentType).toBe("image/png");
+      expect(result.imageId).toBe("img-row-1");
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("binding HTTP error falls back to the original format", async () => {
+    const binding = makeImageTransform(WEBP_10x10, { fail: "http" });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { workflow } = makeWorkflow({ IMAGE_TRANSFORM: binding });
+      const step = makeFakeStep();
+
+      const result = await workflow.run(
+        { payload: urlPayload(), instanceId: "lpimg-t" } as never,
+        step as never,
+      );
+
+      expect(result.converted).toBe(false);
+      expect(result.storedContentType).toBe("image/png");
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("binding empty-body response falls back to the original format", async () => {
+    const binding = makeImageTransform(WEBP_10x10, { fail: "empty" });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { workflow } = makeWorkflow({ IMAGE_TRANSFORM: binding });
+      const step = makeFakeStep();
+
+      const result = await workflow.run(
+        { payload: urlPayload(), instanceId: "lpimg-t" } as never,
+        step as never,
+      );
+
+      expect(result.converted).toBe(false);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("audit row records the stored format and conversion outcome", async () => {
+    const binding = makeImageTransform(WEBP_10x10);
+    const { workflow } = makeWorkflow({ IMAGE_TRANSFORM: binding });
+    const step = makeFakeStep();
+
+    await workflow.run({ payload: urlPayload(), instanceId: "lpimg-t" } as never, step as never);
+
+    expect(activity.logActivity).toHaveBeenCalledWith(
+      expect.anything(),
+      { id: "user-1", name: "Ada", role: "staff" },
+      "landing_page.updated",
+      { type: "landing_page", id: UUID, label: "Zinc page" },
+      expect.objectContaining({ storedContentType: "image/webp", convertedToWebp: true }),
+    );
   });
 });

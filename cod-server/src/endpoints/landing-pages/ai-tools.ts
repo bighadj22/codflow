@@ -288,6 +288,8 @@ export const LANDING_PAGE_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
         width: z.number().int().nullable(),
         height: z.number().int().nullable(),
         altText: z.string().nullable(),
+        converted: z.boolean().optional().describe("True when the stored object is WebP (transcoded, or the source already was)"),
+        storedContentType: z.string().optional().describe("Content type of the stored object — image/webp, or the source type when conversion was unavailable"),
       })
       .nullable()
       .optional()
@@ -725,6 +727,7 @@ export const getLandingPageTools = (
       "• imageUrl — any directly-fetchable public http(s) URL (e.g. a re-hosted image). Login-protected or expired links fail with 'not publicly fetchable' — re-host and retry.\n" +
       "• imageBase64 — programmatic clients only. NEVER from a chat client: inline image data is blocked by client safety checks before the call is sent.\n" +
       "contentType must match the actual bytes (ChatGPT image generation outputs image/png) — verified server-side by magic-byte sniffing. " +
+      "Images are STORED as WebP (server-side conversion for fast page loads; if conversion is unavailable the original format is kept). " +
       "New images append to the end of the stack; set position to place one (1 = top of the page), or reorder the whole stack later with reorderLandingPageImages. " +
       "A failed job is safe to retry: every attempt gets a fresh uploadJobId.",
     inputSchema: z.object({}).passthrough(), // Layer 1: Permissive input
@@ -761,7 +764,7 @@ export const getLandingPageTools = (
           return { success: false, error: `Landing page ${data.landingPageId} not found` };
         }
 
-        const { r2Key, instanceId } = mintLandingImageUploadIds(data.contentType);
+        const { r2Key, instanceId } = mintLandingImageUploadIds();
 
         // Resolve the three input shapes to the workflow's two entry kinds.
         let kind: "url" | "bytes";

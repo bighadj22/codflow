@@ -32,6 +32,7 @@ import {
   IMAGE_CONTENT_TYPES,
   LANDING_IMAGE_R2_KEY_PATTERN,
   MAX_IMAGE_BYTES,
+  WEBP_QUALITY,
 } from "@/lib/landing-image-upload";
 import {
   addLandingPageImage,
@@ -83,12 +84,18 @@ export type CodLandingPageImageUploadOutput = {
   width: number | null;
   height: number | null;
   altText: string | null;
+  /** True when the stored object is WebP (transcoded now, or the source already was). */
+  converted: boolean;
+  /** Content type of the stored object — image/webp, or the source type on fallback. */
+  storedContentType: string;
 };
 
 interface StoredImageMeta {
   size: number;
   width: number | null;
   height: number | null;
+  storedContentType: string;
+  converted: boolean;
 }
 
 function formatIssues(error: z.ZodError): string {
@@ -138,9 +145,53 @@ async function readBodyWithCap(response: Response, capBytes: number): Promise<Ui
 }
 
 /**
- * Download the image URL, validate it, and write the object to R2 — all inside
- * one step because step results are capped at 1 MiB and image bytes must not
- * cross a step boundary. Only small metadata is returned.
+ * Transcode source bytes to WebP via the Cloudflare Images binding so landing
+ * page images are STORED in the fast format (not converted per-request).
+ * Billed as unique transformations — 5,000/month free, one per upload.
+ *
+ * Fail-open by design: an absent binding, a plan/quota error, or any encode
+ * failure returns null and the caller stores the original bytes under the
+ * final key with the source content type — the upload never breaks because
+ * of the optimization step, it just degrades to the original format.
+ */
+async function transcodeToWebp(
+  env: Env,
+  bytes: Uint8Array,
+): Promise<Uint8Array | null> {
+  if (!env.IMAGE_TRANSFORM) {
+    console.error("[lp-image-upload] IMAGE_TRANSFORM binding not provisioned — storing original format");
+    return null;
+  }
+  try {
+    const transformed = await env.IMAGE_TRANSFORM.input(new Blob([bytes]).stream()).output({
+      format: "image/webp",
+      quality: WEBP_QUALITY,
+    });
+    const result = transformed.response();
+    if (!result.ok) {
+      console.error(
+        `[lp-image-upload] WebP transcode failed (HTTP ${result.status}) — storing original format`,
+      );
+      return null;
+    }
+    const webp = new Uint8Array(await result.arrayBuffer());
+    if (webp.byteLength === 0) {
+      console.error("[lp-image-upload] WebP transcode returned empty body — storing original format");
+      return null;
+    }
+    return webp;
+  } catch (error) {
+    console.error(
+      `[lp-image-upload] WebP transcode error: ${error instanceof Error ? error.message : String(error)} — storing original format`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Download the image URL, validate it, transcode to WebP, and write the object
+ * to R2 — all inside one step because step results are capped at 1 MiB and
+ * image bytes must not cross a step boundary. Only small metadata is returned.
  */
 async function fetchAndStoreImage(
   env: Env,
@@ -182,11 +233,27 @@ async function fetchAndStoreImage(
     );
   }
 
-  const dimensions = parseImageDimensions(bytes);
+  // Source already WebP → store as-is (no billed transformation).
+  // Otherwise transcode; on failure keep the original bytes.
+  let storedBytes = bytes;
+  let storedContentType = claimed;
+  let converted = false;
+  if (sniffed !== "image/webp") {
+    const webp = await transcodeToWebp(env, bytes);
+    if (webp) {
+      storedBytes = webp;
+      storedContentType = "image/webp";
+      converted = true;
+    }
+  } else {
+    converted = true;
+  }
+
+  const dimensions = parseImageDimensions(storedBytes);
   try {
-    await env.IMAGES.put(params.r2Key, bytes, {
+    await env.IMAGES.put(params.r2Key, storedBytes, {
       httpMetadata: {
-        contentType: claimed,
+        contentType: storedContentType,
         cacheControl: "public, max-age=31536000, immutable",
       },
       customMetadata: {
@@ -201,14 +268,21 @@ async function fetchAndStoreImage(
   }
 
   return {
-    size: bytes.byteLength,
+    size: storedBytes.byteLength,
     width: dimensions?.width ?? null,
     height: dimensions?.height ?? null,
+    storedContentType,
+    converted,
   };
 }
 
-/** Verify the tool's direct R2 write landed and measure the stored bytes. */
-async function readAndMeasureObject(
+/**
+ * Verify the tool's direct R2 write landed, transcode the stored original to
+ * WebP in place (same key — the .webp object replaces the source bytes), and
+ * measure the final object. Idempotent: a re-run after a successful transcode
+ * finds WebP at the key and skips the transformation.
+ */
+async function readTranscodeAndMeasureObject(
   env: Env,
   params: Extract<CodLandingPageImageUploadParams, { kind: "bytes" }>,
 ): Promise<StoredImageMeta> {
@@ -236,11 +310,54 @@ async function readAndMeasureObject(
       `Content mismatch: stored bytes are ${sniffed} but contentType claimed ${params.contentType}.`,
     );
   }
-  const dimensions = parseImageDimensions(buffer);
+
+  // Already WebP (source was WebP, or a prior run transcoded) — measure only.
+  if (sniffed === "image/webp") {
+    const dimensions = parseImageDimensions(buffer);
+    return {
+      size: buffer.byteLength,
+      width: dimensions?.width ?? null,
+      height: dimensions?.height ?? null,
+      storedContentType: "image/webp",
+      converted: true,
+    };
+  }
+
+  const webp = await transcodeToWebp(env, buffer);
+  if (!webp) {
+    const dimensions = parseImageDimensions(buffer);
+    return {
+      size: buffer.byteLength,
+      width: dimensions?.width ?? null,
+      height: dimensions?.height ?? null,
+      storedContentType: claimed,
+      converted: false,
+    };
+  }
+
+  const dimensions = parseImageDimensions(webp);
+  try {
+    await env.IMAGES.put(params.r2Key, webp, {
+      httpMetadata: {
+        contentType: "image/webp",
+        cacheControl: "public, max-age=31536000, immutable",
+      },
+      customMetadata: {
+        source: "ai",
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    throw new Error(
+      `R2 write failed for key ${params.r2Key}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
   return {
-    size: buffer.byteLength,
+    size: webp.byteLength,
     width: dimensions?.width ?? null,
     height: dimensions?.height ?? null,
+    storedContentType: "image/webp",
+    converted: true,
   };
 }
 
@@ -261,21 +378,21 @@ export class CodLandingPageImageUploadWorkflow extends WorkflowEntrypoint<
     }
     const params = parsed.data;
 
-    // Step 1 — acquire the bytes (durable, retried).
-    // URL path: fetch + validate + R2 put in one step — image bytes must not
-    // cross a step boundary (1 MiB non-stream step-result cap).
+    // Step 1 — acquire the bytes (durable, retried), transcode to WebP, store.
+    // One step per path: image bytes must not cross a step boundary
+    // (1 MiB non-stream step-result cap).
     const stored: StoredImageMeta =
       params.kind === "url"
         ? await step.do(
-            "fetch-and-store-image",
+            "fetch-transcode-store-image",
             {
               retries: { limit: 3, delay: "5 seconds", backoff: "exponential" },
               timeout: "2 minutes",
             },
             async () => fetchAndStoreImage(this.env, params),
           )
-        : await step.do("read-and-measure-object", async () =>
-            readAndMeasureObject(this.env, params),
+        : await step.do("transcode-stored-object", async () =>
+            readTranscodeAndMeasureObject(this.env, params),
           );
 
     // Step 2 — insert the landing_page_images row (idempotent on r2Key: an
@@ -354,6 +471,8 @@ export class CodLandingPageImageUploadWorkflow extends WorkflowEntrypoint<
           uploadKind: params.kind,
           uploadJobId: event.instanceId,
           byteSize: stored.size,
+          storedContentType: stored.storedContentType,
+          convertedToWebp: stored.converted,
         },
       );
     });
@@ -366,6 +485,8 @@ export class CodLandingPageImageUploadWorkflow extends WorkflowEntrypoint<
       width: record.width,
       height: record.height,
       altText: record.altText,
+      converted: stored.converted,
+      storedContentType: stored.storedContentType,
     };
   }
 }

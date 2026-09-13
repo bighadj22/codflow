@@ -4,8 +4,11 @@
  * Seeds the local D1 database with:
  *   - Store record + matching store API key
  *   - 4 product categories
- *   - 6 products (mix of simple + variants, some featured)
- *   - Product images (picsum.photos placeholders)
+ *   - 6 products (mix of simple + variants, some featured) — real UUID ids
+ *   - Product images served from the store's own R2 media domain (seed/ folder)
+ *
+ * Product ids are REAL UUIDs (crypto.randomUUID) — the same format production
+ * queries generate — so MCP tools and API clients see one consistent id shape.
  *
  * Usage:
  *   node scripts/seed-local.mjs            # local D1 (.wrangler-shared)
@@ -55,114 +58,83 @@ const storeId = "store-local-dev";
 const keyId   = "key-local-dev";
 
 // ── 3. Seed data ──────────────────────────────────────────────────────────────
+// Real UUIDs — deterministic per run is unnecessary; readability comes from
+// names/handles, ids match what production queries generate.
+const uuid = () => crypto.randomUUID();
 
 const categories = [
-  { id: "cat-1", name: "ملابس",       slug: "malabes",     position: 1 },
-  { id: "cat-2", name: "إكسسوارات",  slug: "aksswarat",   position: 2 },
-  { id: "cat-3", name: "أحذية",       slug: "ahdhiya",     position: 3 },
-  { id: "cat-4", name: "إلكترونيات", slug: "elektroniyat", position: 4 },
+  { id: "cat-accessories", name: "إكسسوارات",  slug: "aksswarat",   position: 1 },
+  { id: "cat-electronics", name: "إلكترونيات", slug: "elektroniyat", position: 2 },
 ];
 
-// 8 products across 4 categories. 4 featured.
+// 6 products across 2 categories. 3 featured. Images are the store's own
+// media-domain objects (seed/ folder in R2) — no third-party placeholders.
+const MEDIA = "https://media.codflow.store/seed";
+
 const products = [
-  // ── cat-1: ملابس (Clothing) ──
+  // ── cat-accessories: إكسسوارات ──
   {
-    id: "prod-1", name: "قميص كلاسيكي", handle: "qamis-classiki",
-    description: "قميص أنيق بقصة كلاسيكية مريحة، متوفر بألوان متعددة.",
-    price: 2800, compareAtPrice: 3500, categoryId: "cat-1",
+    id: uuid(), name: "حقيبة يد بيج", handle: "haqiba-yad-beige",
+    description: "حقيبة يد بيج أنيقة وعملية، مناسبة لجميع المناسبات.",
+    price: 3800, compareAtPrice: 4500, categoryId: "cat-accessories",
     hasVariants: 1, inventory: 0, trackInventory: 0,
-    storeFeatured: 1, tags: '["ملابس","قميص"]',
+    storeFeatured: 1, tags: '["حقيبة","إكسسوار"]',
     variantOptions: JSON.stringify([
-      { name: "اللون", values: [{ value: "أبيض", hexColor: "#ffffff" }, { value: "أسود", hexColor: "#000000" }, { value: "أزرق", hexColor: "#3b82f6" }] },
-      { name: "المقاس", values: [{ value: "S" }, { value: "M" }, { value: "L" }, { value: "XL" }] },
+      { name: "الخيار", values: [{ value: "الخيار الأول" }, { value: "الخيار الثاني" }] },
     ]),
+    images: [`${MEDIA}/beige_crossbody_bag_option_1.webp`, `${MEDIA}/beige_crossbody_bag_option_2.webp`],
   },
   {
-    id: "prod-2", name: "بنطال جينز", handle: "bantalon-jeans",
-    description: "بنطال جينز عالي الجودة بقصة مستقيمة مريحة.",
-    price: 3500, compareAtPrice: null, categoryId: "cat-1",
-    hasVariants: 0, inventory: 25, trackInventory: 1,
-    storeFeatured: 1, tags: '["جينز","بنطال"]',
+    id: uuid(), name: "قارورة حرارية بيضاء", handle: "qarorra-harariya-baida",
+    description: "قارورة حرارية بيضاء تحفظ حرارة المشروبات لساعات طويلة.",
+    price: 2200, compareAtPrice: null, categoryId: "cat-accessories",
+    hasVariants: 0, inventory: 30, trackInventory: 1,
+    storeFeatured: 0, tags: '["قارورة","إكسسوار"]',
     variantOptions: null,
+    images: [`${MEDIA}/White-Insulated-Bottle.webp`],
   },
-  // ── cat-2: إكسسوارات (Accessories) ──
+  // ── cat-electronics: إلكترونيات ──
   {
-    id: "prod-3", name: "حقيبة يد", handle: "haqiba-yad",
-    description: "حقيبة يد عملية وأنيقة مناسبة لجميع المناسبات.",
-    price: 3800, compareAtPrice: null, categoryId: "cat-2",
-    hasVariants: 0, inventory: 15, trackInventory: 1,
-    storeFeatured: 0, tags: '["حقيبة","إكسسوار"]',
-    variantOptions: null,
-  },
-  {
-    id: "prod-4", name: "حزام جلد", handle: "hizam-jild",
-    description: "حزام جلد أصلي بإبزيم معدني متين.",
-    price: 1500, compareAtPrice: 1800, categoryId: "cat-2",
-    hasVariants: 0, inventory: 3, trackInventory: 1,
-    storeFeatured: 0, tags: '["حزام","إكسسوار"]',
-    variantOptions: null,
-  },
-  // ── cat-3: أحذية (Shoes) ──
-  {
-    id: "prod-5", name: "حذاء رياضي", handle: "hidha-riyadi",
-    description: "حذاء رياضي خفيف ومريح للاستخدام اليومي.",
-    price: 4500, compareAtPrice: 5500, categoryId: "cat-3",
+    id: uuid(), name: "ساعة أنيقة", handle: "saaa-aniqa",
+    description: "ساعة أنيقة بتصميم عصري تناسب الإطلالات اليومية والرسمية.",
+    price: 7500, compareAtPrice: 9000, categoryId: "cat-electronics",
     hasVariants: 1, inventory: 0, trackInventory: 0,
-    storeFeatured: 1, tags: '["أحذية","رياضي"]',
-    variantOptions: JSON.stringify([
-      { name: "اللون", values: [{ value: "أبيض", hexColor: "#ffffff" }, { value: "أسود", hexColor: "#000000" }] },
-      { name: "المقاس", values: [{ value: "40" }, { value: "41" }, { value: "42" }, { value: "43" }] },
-    ]),
-  },
-  {
-    id: "prod-6", name: "صندل صيفي", handle: "sandal-sayfi",
-    description: "صندل مريح وعصري مناسب لفصل الصيف.",
-    price: 2200, compareAtPrice: null, categoryId: "cat-3",
-    hasVariants: 0, inventory: 20, trackInventory: 1,
-    storeFeatured: 0, tags: '["أحذية","صندل"]',
-    variantOptions: null,
-  },
-  // ── cat-4: إلكترونيات (Electronics) ──
-  {
-    id: "prod-7", name: "ساعة ذكية", handle: "saaa-dhakiya",
-    description: "ساعة ذكية بشاشة لمس وميزات صحية متقدمة.",
-    price: 7500, compareAtPrice: 9000, categoryId: "cat-4",
-    hasVariants: 0, inventory: 8, trackInventory: 1,
     storeFeatured: 1, tags: '["إلكترونيات","ساعة"]',
-    variantOptions: null,
+    variantOptions: JSON.stringify([
+      { name: "الخيار", values: [{ value: "الخيار الأول" }, { value: "الخيار الثاني" }] },
+    ]),
+    images: [`${MEDIA}/watch_product_option_2.webp`, `${MEDIA}/watch_product_option_2%20(1).webp`],
   },
   {
-    id: "prod-8", name: "سماعات بلوتوث", handle: "samaat-bluetooth",
-    description: "سماعات لاسلكية بجودة صوت عالية وبطارية طويلة.",
-    price: 3200, compareAtPrice: 4000, categoryId: "cat-4",
+    id: uuid(), name: "سماعات أنيقة", handle: "samaat-aniqa",
+    description: "سماعات لاسلكية بتصميم أنيق وجودة صوت عالية وبطارية طويلة.",
+    price: 3200, compareAtPrice: 4000, categoryId: "cat-electronics",
     hasVariants: 0, inventory: 12, trackInventory: 1,
-    storeFeatured: 0, tags: '["إلكترونيات","سماعات"]',
+    storeFeatured: 1, tags: '["إلكترونيات","سماعات"]',
     variantOptions: null,
+    images: [`${MEDIA}/sleek-headphones.webp`],
   },
 ];
 
-// Variants for products with hasVariants=1
-// prod-1: قميص — representative colour/size combos
+// Variants for products with hasVariants=1 — one variant per option image.
+// product references resolved by index in the products array.
 const variants = [
-  { id: "var-1-1", productId: "prod-1", variations: JSON.stringify({ "اللون": "أبيض", "المقاس": "M" }), price: 2800, compareAtPrice: 3500, inventory: 10, isDefault: 1 },
-  { id: "var-1-2", productId: "prod-1", variations: JSON.stringify({ "اللون": "أسود", "المقاس": "M" }), price: 2800, compareAtPrice: 3500, inventory: 8,  isDefault: 0 },
-  { id: "var-1-3", productId: "prod-1", variations: JSON.stringify({ "اللون": "أزرق", "المقاس": "L" }), price: 2800, compareAtPrice: 3500, inventory: 5,  isDefault: 0 },
-  // prod-5: حذاء رياضي — colour/size combos
-  { id: "var-5-1", productId: "prod-5", variations: JSON.stringify({ "اللون": "أبيض", "المقاس": "42" }), price: 4500, compareAtPrice: 5500, inventory: 6, isDefault: 1 },
-  { id: "var-5-2", productId: "prod-5", variations: JSON.stringify({ "اللون": "أسود", "المقاس": "43" }), price: 4500, compareAtPrice: 5500, inventory: 4, isDefault: 0 },
+  { productIndex: 0, optionIndex: 0, variations: { "الخيار": "الخيار الأول" }, price: 3800, compareAtPrice: 4500, inventory: 10, isDefault: 1, imageIndex: 0 },
+  { productIndex: 0, optionIndex: 1, variations: { "الخيار": "الخيار الثاني" }, price: 3800, compareAtPrice: 4500, inventory: 7,  isDefault: 0, imageIndex: 1 },
+  { productIndex: 2, optionIndex: 0, variations: { "الخيار": "الخيار الأول" }, price: 7500, compareAtPrice: 9000, inventory: 6,  isDefault: 1, imageIndex: 0 },
+  { productIndex: 2, optionIndex: 1, variations: { "الخيار": "الخيار الثاني" }, price: 7500, compareAtPrice: 9000, inventory: 4,  isDefault: 0, imageIndex: 1 },
 ];
 
-// One cover image per product (picsum — consistent per seed number)
-const images = [
-  { id: "img-1", productId: "prod-1", src: "https://picsum.photos/seed/prod1/600/600", position: 0 },
-  { id: "img-2", productId: "prod-2", src: "https://picsum.photos/seed/prod2/600/600", position: 0 },
-  { id: "img-3", productId: "prod-3", src: "https://picsum.photos/seed/prod3/600/600", position: 0 },
-  { id: "img-4", productId: "prod-4", src: "https://picsum.photos/seed/prod4/600/600", position: 0 },
-  { id: "img-5", productId: "prod-5", src: "https://picsum.photos/seed/prod5/600/600", position: 0 },
-  { id: "img-6", productId: "prod-6", src: "https://picsum.photos/seed/prod6/600/600", position: 0 },
-  { id: "img-7", productId: "prod-7", src: "https://picsum.photos/seed/prod7/600/600", position: 0 },
-  { id: "img-8", productId: "prod-8", src: "https://picsum.photos/seed/prod8/600/600", position: 0 },
-];
+// Images resolved from product definitions; positions follow array order.
+const images = products.flatMap((p) =>
+  p.images.map((src, index) => ({
+    id: uuid(),
+    productId: p.id,
+    src,
+    position: index,
+  })),
+);
+const imageIdByProductAndSrc = new Map(images.map((img) => [`${img.productId}:${img.src}`, img.id]));
 
 // ── 4. Build all SQL statements ───────────────────────────────────────────────
 const statements = [];
@@ -188,13 +160,16 @@ for (const p of products) {
   );
 }
 
-// Variants
+// Variants — linked to their product's option image when one exists.
 for (const v of variants) {
-  const variations = v.variations.replace(/'/g, "''");
+  const product = products[v.productIndex];
+  const variations = JSON.stringify(v.variations).replace(/'/g, "''");
   const compAt = v.compareAtPrice !== null ? v.compareAtPrice : "NULL";
-  const sku = `${v.productId}-${v.id}`;
+  const variantId = uuid();
+  const variantSku = `${product.handle}-${v.optionIndex + 1}`;
+  const imgId = imageIdByProductAndSrc.get(`${product.id}:${product.images[v.imageIndex]}`) ?? null;
   statements.push(
-    `INSERT OR REPLACE INTO product_variants (id, product_id, variations, currency, price, compare_at_price, sku, inventory, is_default, active, position, image_id, created_at, updated_at) VALUES ('${v.id}', '${v.productId}', '${variations}', 'DZD', ${v.price}, ${compAt}, '${sku}', ${v.inventory}, ${v.isDefault}, 1, 0, NULL, '${ts}', '${ts}')`
+    `INSERT OR REPLACE INTO product_variants (id, product_id, variations, currency, price, compare_at_price, sku, inventory, is_default, active, position, image_id, created_at, updated_at) VALUES ('${variantId}', '${product.id}', '${variations}', 'DZD', ${v.price}, ${compAt}, '${variantSku}', ${v.inventory}, ${v.isDefault}, 1, ${v.optionIndex}, ${imgId !== null ? `'${imgId}'` : "NULL"}, '${ts}', '${ts}')`
   );
 }
 
