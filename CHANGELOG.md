@@ -66,9 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unaffected** (live-proven: real events arrive, are HMAC-verified,
   deduplicated, and mapped). **Workarounds:** (1) request an allowlist from
   Yalidine (developer@yalidine.com — evidence email drafted in
-  report-md/YALIDINE_EGRESS_BLOCK_EMAIL.md, gitignored), or (2) deploy the
-  ready-made egress relay `cod-server/scripts/yalidine-egress-proxy.ts`
-  (Deno Deploy or any non-Cloudflare host) and set `proxy_base_url` +
+  report-md/YALIDINE_EGRESS_BLOCK_EMAIL.md, gitignored), or (2) deploy your
+  own egress relay on a non-Cloudflare host and set `proxy_base_url` +
   `proxy_secret` in the Yalidine company's notes JSON — the adapter routes
   all carrier calls through it while the keys are present.
 
