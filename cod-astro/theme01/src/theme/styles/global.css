@@ -112,7 +112,12 @@ body {
   min-height: -webkit-fill-available;
   line-height: 1.5;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
+
+/* ── Sticky footer — main grows so short pages still push the footer down ── */
+body > main { flex: 1 0 auto; }
 
 /* ── View transition animations — more app-like ─────────────────────────── */
 @keyframes slide-up {
