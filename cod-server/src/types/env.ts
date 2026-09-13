@@ -9,6 +9,12 @@ export interface Env {
   DB: D1Database;
   /** R2 bucket for product images */
   IMAGES: R2Bucket;
+  /**
+   * Cloudflare Images binding (write-time transcode to WebP for landing page
+   * uploads). Optional: when absent, uploads fall back to the original
+   * format — the optimization never blocks an upload.
+   */
+  IMAGE_TRANSFORM?: ImagesBinding;
   /** Deployment environment: "development" | "production" */
   ENVIRONMENT: string;
   /** Worker URL for API documentation (e.g., "http://localhost:8787" or "https://api.yourdomain.com") */

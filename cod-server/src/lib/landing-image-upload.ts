@@ -10,6 +10,13 @@
 /** Decoded-byte cap — matches the browser proxy-upload cap (images endpoint). */
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
+/**
+ * WebP encode quality for stored landing page images (Cloudflare Images
+ * default; visually lossless for marketing creatives while cutting file size
+ * ~25-35% vs JPEG/PNG). Tunable in one place — the tool and workflow share it.
+ */
+export const WEBP_QUALITY = 85;
+
 /** Platform image whitelist — identical to images/presign.ts ALLOWED_TYPES. */
 export const IMAGE_CONTENT_TYPES = [
   "image/jpeg",
@@ -21,21 +28,9 @@ export const IMAGE_CONTENT_TYPES = [
 
 export type ImageContentType = (typeof IMAGE_CONTENT_TYPES)[number];
 
-const MIME_TO_EXT: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/jpg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/gif": "gif",
-};
-
 /** Canonicalize the "image/jpg" alias so it compares equal to "image/jpeg". */
 export function canonicalImageContentType(contentType: string): string {
   return contentType === "image/jpg" ? "image/jpeg" : contentType;
-}
-
-export function extFromImageContentType(contentType: string): string {
-  return MIME_TO_EXT[contentType] ?? "jpg";
 }
 
 /** Server-generated key shape: landing/<uuid-no-dashes>.<ext> — traversal-proof by construction. */
@@ -44,10 +39,12 @@ export const LANDING_IMAGE_R2_KEY_PATTERN = /^landing\/[a-f0-9]{32}\.(jpg|png|we
 /**
  * Mint the R2 key and the workflow instance ID from ONE uuid so the job,
  * its storage object, and its audit rows share a traceable identity:
- *   r2Key     = landing/<hex>.<ext>
+ *   r2Key     = landing/<hex>.webp — the stored format is always WebP (the
+ *               upload workflow transcodes; on transcode failure the original
+ *               bytes stay at this key under their source content type)
  *   instanceId = lpimg-<hex>   (matches the Workflows ID charset, ≤ 100 chars)
  */
-export function mintLandingImageUploadIds(contentType: string): {
+export function mintLandingImageUploadIds(): {
   hex: string;
   r2Key: string;
   instanceId: string;
@@ -55,7 +52,7 @@ export function mintLandingImageUploadIds(contentType: string): {
   const hex = crypto.randomUUID().replace(/-/g, "");
   return {
     hex,
-    r2Key: `landing/${hex}.${extFromImageContentType(contentType)}`,
+    r2Key: `landing/${hex}.webp`,
     instanceId: `lpimg-${hex}`,
   };
 }

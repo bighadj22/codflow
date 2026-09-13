@@ -376,7 +376,7 @@ describe("uploadLandingPageImage", () => {
     expect(res.success).toBe(true);
     expect(res.status).toBe("processing");
     expect(res.uploadJobId).toMatch(/^lpimg-[a-f0-9]{32}$/);
-    expect(res.r2Key).toMatch(/^landing\/[a-f0-9]{32}\.png$/);
+    expect(res.r2Key).toMatch(/^landing\/[a-f0-9]{32}\.webp$/);
     expect(res.src).toBe(`https://media.example.com/${res.r2Key}`);
     expect(res.note).toContain("getLandingPageImageUploadStatus");
 
