@@ -46,20 +46,20 @@ const { config, content } = Astro.props;
 
     {/* Nav links — center (desktop only) */}
     <nav
-      class="hidden md:flex items-center gap-4 text-[0.9375rem] font-bold flex-1 justify-center"
+      class="hidden md:flex items-center gap-1 lg:gap-2 text-[0.9375rem] font-bold flex-1 justify-center"
       aria-label={content?.ariaMainNavigation}
     >
-      <a href="/#new-arrivals" class="px-5 py-2 transition-all hover:text-primary active:scale-95" style="color: var(--clr-text)">
-        {content?.navNewArrivals}
+      <a href="/" class="px-4 py-2 rounded-xl transition-all hover:text-primary active:scale-95" style="color: var(--clr-text)">
+        {content?.navHome}
       </a>
-      <a href="/#best-sellers" class="px-5 py-2 transition-all hover:text-primary active:scale-95" style="color: var(--clr-text)">
-        {content?.navBestSellers}
-      </a>
-      <a href="/products" class="px-5 py-2 transition-all hover:text-primary active:scale-95" style="color: var(--clr-text)">
+      <a href="/products" class="px-4 py-2 rounded-xl transition-all hover:text-primary active:scale-95" style="color: var(--clr-text)">
         {content?.navProducts}
       </a>
-      <a href="/#how-it-works" class="px-5 py-2 transition-all hover:text-primary active:scale-95" style="color: var(--clr-text)">
-        {content?.navContact}
+      <a href="/#best-sellers" class="px-4 py-2 rounded-xl transition-all hover:text-primary active:scale-95" style="color: var(--clr-text)">
+        {content?.navBestSellers}
+      </a>
+      <a href="/#new-arrivals" class="px-4 py-2 rounded-xl transition-all hover:text-primary active:scale-95" style="color: var(--clr-text)">
+        {content?.navNewArrivals}
       </a>
     </nav>
 

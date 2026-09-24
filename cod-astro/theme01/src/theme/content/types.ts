@@ -235,7 +235,6 @@ export interface StoreFrontContent {
   ariaBrowseCategoryProducts: string;
   ariaProductCard: string;
   ariaStarRating: string;
-  navContact: string;
   thankYouPageTitle: string;
   defaultMetaDescription: string;
 
