@@ -26,7 +26,8 @@
     "landing_pages": "Landing Pages",
     "stock_management": "Stock Management",
     "api_reference": "API Reference",
-    "mcp": "AI Agents"
+    "mcp": "AI Agents",
+    "store_pages": "Pages"
   },
   "navbar": {
     "search_placeholder": "Search for orders, customers...",

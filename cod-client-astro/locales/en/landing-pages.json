@@ -79,5 +79,29 @@
     "slug_apply": "Apply",
     "slug_invalid": "3-60 chars: lowercase letters, digits, hyphens",
     "gap_hint": "Space between the stacked images"
+  },
+  "tracking": {
+    "card_title": "Tracking",
+    "card_store_hint": "This page reports to the store pixel, like every other page.",
+    "card_pixel": "Pixel",
+    "card_event": "Conversion",
+    "card_add": "Give this page its own pixel",
+    "card_edit": "Edit tracking",
+    "badge_store": "Store pixel",
+    "badge_own": "Own pixel",
+    "badge_own_test": "Own pixel · test",
+    "badge_inactive": "Not in force",
+    "inactive_tracking_off": "Meta tracking is switched off for the whole store, so nothing is being sent.",
+    "inactive_master_switch": "Turn on per-landing-page pixels in Settings → Tracking before this page can use its own.",
+    "inactive_switched_off": "This page's own pixel is switched off, so it reports to the store pixel.",
+    "dialog_title": "This page's Meta pixel",
+    "dialog_description": "Visitors, checkouts and sales on this page report to the pixel below instead of the store pixel — never to both.",
+    "pixel_id_hint": "The Meta Pixel ID for the ad account running this page.",
+    "token_hint": "A Conversions API token from the same ad account. Stored once and never shown again.",
+    "event_description": "Which moment counts as a conversion for this page's campaigns. It can differ from the store's.",
+    "use_store_pixel": "Use the store pixel",
+    "required": "is required",
+    "last_event_sent": "Last event reported",
+    "last_event_failed": "Last event was rejected by Meta"
   }
 }

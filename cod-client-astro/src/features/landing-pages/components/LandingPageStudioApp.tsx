@@ -10,6 +10,7 @@ import {
   GripVertical,
   Loader2,
   Pencil,
+  Settings2,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -21,18 +22,35 @@ import { SCOPES } from "../../../../../cod-shared/rbac/scopes";
 import {
   deleteLandingPageImage,
   getLandingPage,
-  getPresignedLandingUploadUrl,
+  getLandingPageTracking,
   publishLandingPage,
   reorderLandingPageImages,
   saveLandingPageImage,
   unpublishLandingPage,
   updateLandingPage,
 } from "@/features/landing-pages/api";
-import { landingPageErrorMessage, landingPagePublicUrl } from "@/features/landing-pages/model";
-import type { LandingPage, LandingPageImage } from "@/features/landing-pages/types";
+import {
+  landingPageErrorMessage,
+  landingPagePublicUrl,
+  trackingView,
+} from "@/features/landing-pages/model";
+import { getPixelConfig } from "@/features/settings/api";
+import { LandingPageTrackingDialog } from "@/features/landing-pages/components/LandingPageTrackingDialog";
+import {
+  TrackingBadge,
+  inactiveReason,
+} from "@/features/landing-pages/components/TrackingBadge";
+import { useConversionEventLabel } from "@/components/tracking/ConversionEventPicker";
+import { partitionUploadFiles, ACCEPTED_IMAGE_TYPES } from "@/features/uploads/api";
+import { useImageUpload } from "@/features/uploads/useImageUpload";
+import type {
+  LandingPage,
+  LandingPageImage,
+  LandingPageTracking,
+  LandingPageTrackingActivity,
+} from "@/features/landing-pages/types";
+import type { StoreTrackingSwitches } from "../../../../../cod-shared/queries/tracking-config";
 
-const ACCEPTED = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
-const MAX_MB = 10;
 const AUTOSAVE_DELAY_MS = 800;
 const SLUG_PATTERN = /^[a-z0-9-]{3,60}$/;
 
@@ -40,25 +58,6 @@ function swapAt<T>(arr: T[], i: number, j: number): T[] {
   const next = [...arr];
   [next[i], next[j]] = [next[j], next[i]];
   return next;
-}
-
-/** Intrinsic pixel size of a file, measured locally before upload. Resolves
- *  null on decode failure — dimension capture is fail-open, never blocks an
- *  upload; the storefront just renders that image without reserved space. */
-function measureImage(file: File): Promise<{ width: number; height: number } | null> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img.naturalWidth > 0 && img.naturalHeight > 0 ? { width: img.naturalWidth, height: img.naturalHeight } : null);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve(null);
-    };
-    img.src = url;
-  });
 }
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -143,7 +142,8 @@ function Gated({ landingPageId }: { landingPageId: string }) {
   const [lp, setLp] = useState<LandingPage | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const { upload, progress: uploadProgress } = useImageUpload("landing");
+  const uploading = uploadProgress !== null;
   const [publishing, setPublishing] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [name, setName] = useState("");
@@ -154,9 +154,20 @@ function Gated({ landingPageId }: { landingPageId: string }) {
   const [slugSaving, setSlugSaving] = useState(false);
   const slugInputRef = useRef<HTMLInputElement>(null);
 
+  const [tracking, setTracking] = useState<LandingPageTracking | null>(null);
+  const [lastEvent, setLastEvent] = useState<LandingPageTrackingActivity | null>(null);
+  const [storeSwitches, setStoreSwitches] = useState<StoreTrackingSwitches | null>(null);
+  const [trackingOpen, setTrackingOpen] = useState(false);
+
   const [publishOpen, setPublishOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<number | null>(null);
+
+  const trackingState = trackingView(storeSwitches, tracking);
+  // Editing is only offered once the store has asked for per-page pixels —
+  // otherwise the merchant would configure something the server ignores.
+  const perPageAvailable = storeSwitches?.enabled === true && storeSwitches.perPageTrackingEnabled;
+  const conversionEventLabel = useConversionEventLabel();
 
   const canManage = canScope(identity, SCOPES.LANDING_PAGES_MANAGE);
   const canRead = canScope(identity, SCOPES.LANDING_PAGES_READ);
@@ -178,6 +189,36 @@ function Gated({ landingPageId }: { landingPageId: string }) {
   useEffect(() => {
     if (canRead) void load();
   }, [canRead, load, identity?.role, identity?.scopes.join(",")]);
+
+  // The page's own pixel, and the store switches that decide whether it is in
+  // force. Both are needed to tell the merchant the truth rather than just
+  // what they typed. Tracking is never load-bearing for the Studio itself, so
+  // a failure here leaves the card absent instead of breaking the editor.
+  useEffect(() => {
+    if (!canRead) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const [page, store] = await Promise.all([
+          getLandingPageTracking(landingPageId),
+          getPixelConfig(),
+        ]);
+        if (!alive) return;
+        setTracking(page.config);
+        setLastEvent(page.lastEvent);
+        setStoreSwitches(
+          store
+            ? { enabled: store.enabled, perPageTrackingEnabled: store.perPageTrackingEnabled }
+            : null,
+        );
+      } catch {
+        // Non-critical — the Studio must still open.
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [canRead, landingPageId]);
 
   // Debounced autosave: name + gap persist 800ms after the last edit.
   useEffect(() => {
@@ -211,30 +252,18 @@ function Gated({ landingPageId }: { landingPageId: string }) {
   const handleFiles = useCallback(
     async (files: FileList | File[]) => {
       if (!canManage) return;
-      const selected = Array.from(files);
-      if (selected.some((file) => !ACCEPTED.includes(file.type)))
-        notify.error(common("feedback.unsupported_file"));
-      const accepted = selected.filter((file) => ACCEPTED.includes(file.type));
-      if (accepted.some((file) => file.size > MAX_MB * 1024 * 1024))
-        notify.error(common("feedback.file_too_large"));
-      const arr = accepted.filter((file) => file.size <= MAX_MB * 1024 * 1024);
-      if (!arr.length) return;
+      const { accepted, unsupportedCount, tooLargeCount } = partitionUploadFiles(Array.from(files));
+      if (unsupportedCount > 0) notify.error(common("feedback.unsupported_file"));
+      if (tooLargeCount > 0) notify.error(common("feedback.file_too_large"));
+      if (!accepted.length) return;
 
-      setUploading(true);
       try {
-        for (const file of arr) {
-          const { presignedUrl, key, publicUrl } = await getPresignedLandingUploadUrl(file.type);
-          const putRes = await fetch(presignedUrl, {
-            method: "PUT",
-            headers: { "Content-Type": file.type },
-            body: file,
-          });
-          if (!putRes.ok) throw new Error(`R2 upload failed: ${putRes.status}`);
-          const dims = await measureImage(file);
+        for (const file of accepted) {
+          const { key, url, width, height } = await upload(file);
           const images = await saveLandingPageImage(landingPageId, {
             key,
-            src: publicUrl,
-            ...(dims ?? {}),
+            src: url,
+            ...(width !== null && height !== null ? { width, height } : {}),
           });
           setLp((prev) => (prev ? { ...prev, images } : prev));
         }
@@ -242,11 +271,9 @@ function Gated({ landingPageId }: { landingPageId: string }) {
       } catch (cause) {
         setActionError(landingPageErrorMessage(cause, t));
         notify.error(landingPageErrorMessage(cause, t));
-      } finally {
-        setUploading(false);
       }
     },
-    [canManage, landingPageId, common, t],
+    [canManage, landingPageId, common, t, upload],
   );
 
   const onDrop = useCallback(
@@ -586,7 +613,7 @@ function Gated({ landingPageId }: { landingPageId: string }) {
           <input
             ref={inputRef}
             type="file"
-            accept={ACCEPTED.join(",")}
+            accept={ACCEPTED_IMAGE_TYPES.join(",")}
             multiple
             className="hidden"
             onChange={(event) => {
@@ -658,9 +685,17 @@ function Gated({ landingPageId }: { landingPageId: string }) {
         </div>
       </aside>
 
-      {/* CENTER — Live phone-width preview */}
+      {/* CENTER — live preview of the page a shopper lands on.
+          Fluid rather than pinned to one phone width: on a wide monitor the
+          old 390px frame left most of this pane empty while the merchant was
+          trying to judge a creative, and on a laptop it overflowed. It now
+          fills the pane up to a comfortable reading width and shrinks below
+          that, so the frame is wider where there is room and still fits where
+          there is not. The cap keeps it honest — a landing page is a
+          mobile-first surface, and a preview stretched to desktop width would
+          flatter creatives that will never be seen that way. */}
       <section className="flex min-h-0 items-start justify-center overflow-y-auto bg-muted/40 p-4 sm:p-6">
-        <div className="w-[390px] max-w-full shrink-0 overflow-hidden rounded-[2rem] border-8 border-foreground/10 bg-background shadow-lg">
+        <div className="w-full max-w-[30rem] overflow-hidden rounded-[2rem] border-8 border-foreground/10 bg-background shadow-lg">
           <div className="flex h-6 items-center justify-center border-b border-border/40">
             <span className="h-1.5 w-16 rounded-full bg-foreground/15" />
           </div>
@@ -715,6 +750,81 @@ function Gated({ landingPageId }: { landingPageId: string }) {
             />
           </label>
         </div>
+        {/* Where this page's conversions go. A summary plus an Edit button
+            rather than a form: a pixel id, a credential and a four-option
+            conversion picker do not belong in a 240px column, and the three
+            panes stay about how the page looks. */}
+        <div className="mt-6 rounded-xl border border-border p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
+              {t("tracking.card_title")}
+            </p>
+            <TrackingBadge view={trackingState} />
+          </div>
+
+          {trackingState.kind === "store" ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {perPageAvailable
+                ? t("tracking.card_store_hint")
+                : t("tracking.inactive_master_switch")}
+            </p>
+          ) : (
+            <dl className="mt-2 space-y-1 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-muted-foreground">{t("tracking.card_pixel")}</dt>
+                <dd className="truncate font-bold tabular-nums" dir="ltr">
+                  {trackingState.pixelId}
+                </dd>
+              </div>
+              {trackingState.kind === "own" && (
+                <div className="flex items-center justify-between gap-2">
+                  <dt className="text-muted-foreground">{t("tracking.card_event")}</dt>
+                  <dd className="truncate font-bold">
+                    {conversionEventLabel(trackingState.conversionEvent)}
+                  </dd>
+                </div>
+              )}
+              {trackingState.kind === "inactive" && (
+                <p className="pt-1 text-[11px] leading-relaxed text-amber-600">
+                  {inactiveReason(trackingState.reason, t)}
+                </p>
+              )}
+            </dl>
+          )}
+
+          {/* Proof, not just configuration: a merchant who has just pointed a
+              campaign at a new pixel wants to see an event land. A failure
+              carries Meta's own message — a silent "nothing yet" when the
+              token was rejected leaves them waiting instead of fixing it. */}
+          {lastEvent && (
+            <p
+              className={`mt-2 text-[11px] leading-relaxed ${
+                lastEvent.status === "failed" ? "text-destructive" : "text-muted-foreground"
+              }`}
+            >
+              {lastEvent.status === "failed"
+                ? `${t("tracking.last_event_failed")} — ${lastEvent.error ?? ""}`
+                : t("tracking.last_event_sent")}
+              <span className="block tabular-nums opacity-80" dir="ltr">
+                {lastEvent.eventName} · {new Date(lastEvent.sentAt).toLocaleString()}
+                {lastEvent.pixelId ? ` · ••••${lastEvent.pixelId.slice(-4)}` : ""}
+              </span>
+            </p>
+          )}
+
+          {canManage && perPageAvailable && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3 w-full"
+              onClick={() => setTrackingOpen(true)}
+            >
+              <Settings2 size={13} aria-hidden="true" />
+              {tracking ? t("tracking.card_edit") : t("tracking.card_add")}
+            </Button>
+          )}
+        </div>
+
         <div className="mt-auto pt-4">
           <div className="rounded-xl border border-border p-3">
             <p className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
@@ -737,6 +847,14 @@ function Gated({ landingPageId }: { landingPageId: string }) {
           </div>
         </div>
       </aside>
+
+      <LandingPageTrackingDialog
+        landingPageId={landingPageId}
+        existing={tracking}
+        open={trackingOpen}
+        onClose={() => setTrackingOpen(false)}
+        onSaved={setTracking}
+      />
     </StudioShell>
   );
 }

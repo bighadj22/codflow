@@ -12,20 +12,6 @@
     "copy": "Copy",
     "copied": "Copied"
   },
-  "snippet": {
-    "heading": "Quick setup",
-    "description": "Pick your AI app to get the ready-to-paste configuration.",
-    "tab_claude_desktop": "Claude Desktop",
-    "tab_claude_web": "Claude.ai",
-    "tab_chatgpt": "ChatGPT",
-    "tab_other": "Other",
-    "copy_snippet": "Copy snippet",
-    "claude_desktop_instructions": "In Claude Desktop, go to Settings → Connectors → Add custom connector, then paste this URL and sign in with CodFlow:",
-    "claude_desktop_alt": "Or connect locally via mcp-remote — paste this into Settings → Developer → Edit Config:",
-    "claude_web_instructions": "In Claude.ai, go to Customize → Connectors → “+” → Add custom connector, then paste this URL:",
-    "chatgpt_instructions": "In ChatGPT, enable Developer Mode (Settings → Connectors → Advanced settings), then create a connector and paste this URL:",
-    "other_instructions": "Any MCP-compatible client can connect via mcp-remote:"
-  },
   "my_connections": {
     "title": "Your connections",
     "empty_title": "No AI agents connected yet",

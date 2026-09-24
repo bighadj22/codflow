@@ -11,7 +11,7 @@ const NAMESPACES = [
   "orders", "auth", "common", "navigation", "dashboard", "customers",
   "customer-groups", "customer-tags", "reviews", "products", "product-groups",
   "offers", "landing-pages", "delivery", "delivery_companies", "settings",
-  "team", "mcp", "profile",
+  "team", "mcp", "profile", "store-pages",
 ] as const;
 const EXTENSIONS = new Set([".astro", ".js", ".jsx", ".ts", ".tsx"]);
 

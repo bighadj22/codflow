@@ -1,0 +1,11 @@
+/*
+ * Tiptap UI Components — shared styles.
+ *
+ * The Tiptap CLI would inject these two imports into the app's global
+ * stylesheet; our global stylesheet is Tailwind v4 (`globals.css`), so they get
+ * their own entry here and are imported once from BaseLayout instead. Both
+ * files are plain CSS (custom properties + keyframes) — the `.scss` extension is
+ * what the template ships, and the component styles are compiled by Vite/sass.
+ */
+@use "./variables";
+@use "./keyframe-animations";

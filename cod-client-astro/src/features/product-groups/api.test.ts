@@ -7,7 +7,6 @@ import {
   createProductGroup,
   deleteProductGroup,
   getProductGroup,
-  getPresignedUploadUrl,
   listProductGroups,
   updateProductGroup,
 } from "./api";
@@ -36,12 +35,9 @@ describe("product group API adapters", () => {
     expect(seam.apiFetch).toHaveBeenLastCalledWith("/api/product-groups/cat%2F1", { method: "DELETE" });
   });
 
-  it("unwraps detail and presign envelopes", async () => {
+  it("unwraps detail envelopes", async () => {
     seam.apiFetch.mockResolvedValueOnce({ success: true, data: { id: "cat/1" } });
     await expect(getProductGroup("cat/1")).resolves.toEqual({ id: "cat/1" });
     expect(seam.apiFetch.mock.calls[0]?.[0]).toBe("/api/product-groups/cat%2F1");
-    seam.apiFetch.mockResolvedValueOnce({ success: true, data: { presignedUrl: "https://example.com/x", key: "k", publicUrl: "https://cdn/x" } });
-    await expect(getPresignedUploadUrl("image/jpeg")).resolves.toEqual({ presignedUrl: "https://example.com/x", key: "k", publicUrl: "https://cdn/x" });
-    expect(seam.apiFetch.mock.calls[1]?.[0]).toBe("/api/images/presign");
   });
 });

@@ -25,6 +25,7 @@ import {
   updateAbandonedStatus,
 } from "@/features/orders/api";
 import {
+  abandonedBasketView,
   abandonedStatusOptions,
   filterAbandonedOrders,
   formatMoney,
@@ -142,6 +143,64 @@ function RecoveredLink({ row }: { row: AbandonedOrder }) {
   );
 }
 
+/**
+ * What the shopper was buying.
+ *
+ * The whole basket is listed, not a summary: this list exists so a merchant
+ * can pick up the phone and say what the customer had, and "Hoodie and 2 more"
+ * makes them open a row before they can have that conversation.
+ *
+ * A single-product record has no basket and renders exactly as it always did —
+ * the flat product columns are still filled for basket rows too, so nothing
+ * here depends on which shape a record is.
+ */
+function AbandonedBasket({ row }: { row: AbandonedOrder }) {
+  const locale = useLocale();
+  const view = abandonedBasketView(row);
+
+  if (view.kind === "unknown") {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  if (view.kind === "product") {
+    return (
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-foreground">{view.productName}</p>
+        {view.variantLabel && (
+          <p className="truncate text-xs text-muted-foreground">{view.variantLabel}</p>
+        )}
+        <RecoveredLink row={row} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-0 space-y-1.5">
+      {view.lines.map((item) => (
+        <div key={item.key} className="flex min-w-0 items-baseline gap-2">
+          <span className="shrink-0 text-xs font-bold tabular-nums text-muted-foreground">
+            {item.quantity}×
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium text-foreground">
+              {item.productName}
+            </span>
+            {item.variantLabel && (
+              <span className="block truncate text-xs text-muted-foreground">
+                {item.variantLabel}
+              </span>
+            )}
+          </span>
+          <span className="ms-auto shrink-0 text-xs tabular-nums text-muted-foreground">
+            {formatMoney(item.lineTotal, locale)}
+          </span>
+        </div>
+      ))}
+      <RecoveredLink row={row} />
+    </div>
+  );
+}
+
 function AbandonedDesktopRow({
   row,
   busy,
@@ -176,22 +235,8 @@ function AbandonedDesktopRow({
           <span dir="ltr">{row.phone}</span>
         </span>
       </TableCell>
-      <TableCell>
-        {row.productName ? (
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">
-              {row.productName}
-            </p>
-            {row.variantLabel && (
-              <p className="truncate text-xs text-muted-foreground">
-                {row.variantLabel}
-              </p>
-            )}
-            <RecoveredLink row={row} />
-          </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
+      <TableCell className="max-w-[22rem]">
+        <AbandonedBasket row={row} />
       </TableCell>
       <TableCell className="text-end font-bold tabular-nums text-foreground">
         {formatMoney(row.price, locale)}
@@ -265,23 +310,7 @@ function AbandonedMobileCard({
       </div>
 
       <div className="mt-3 flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          {row.productName ? (
-            <>
-              <p className="truncate text-sm font-medium text-foreground">
-                {row.productName}
-              </p>
-              {row.variantLabel && (
-                <p className="truncate text-xs text-muted-foreground">
-                  {row.variantLabel}
-                </p>
-              )}
-            </>
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          )}
-          <RecoveredLink row={row} />
-        </div>
+        <AbandonedBasket row={row} />
         <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
           {formatMoney(row.price, locale)}
         </span>

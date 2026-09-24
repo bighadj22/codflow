@@ -74,6 +74,7 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [categoryId, setCategoryId] = useState("");
   const [shippingProfileId, setShippingProfileId] = useState("");
   const [description, setDescription] = useState("");
+  const [descriptionFormat, setDescriptionFormat] = useState<"text" | "html">("html");
   const [price, setPrice] = useState("");
   const priceRef = useRef("");
   priceRef.current = price;
@@ -162,6 +163,7 @@ export function ProductForm({ productId }: { productId?: string }) {
         setCategoryId(product.categoryId ?? "");
         setShippingProfileId(product.shippingProfileId ?? "");
         setDescription(product.description ?? "");
+        setDescriptionFormat(product.descriptionFormat ?? "text");
         setPrice(String(product.price));
         setCompareAtPrice(
           product.compareAtPrice ? String(product.compareAtPrice) : "",
@@ -299,6 +301,7 @@ export function ProductForm({ productId }: { productId?: string }) {
         categoryId: categoryId || undefined,
         shippingProfileId: shippingProfileId || undefined,
         description: description || undefined,
+      descriptionFormat,
         price: Math.round(Number(price)),
         compareAtPrice: compareAtPrice
           ? Math.round(Number(compareAtPrice))
@@ -444,6 +447,7 @@ export function ProductForm({ productId }: { productId?: string }) {
           setShippingProfileId={setShippingProfileId}
           description={description}
           setDescription={setDescription}
+          setDescriptionFormat={setDescriptionFormat}
           groups={groups}
           shippingProfiles={shippingProfiles}
           errors={errors}

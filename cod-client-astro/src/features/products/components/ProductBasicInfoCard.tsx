@@ -1,7 +1,13 @@
+import { lazy, Suspense } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { Card, Field, Input, Select, Textarea } from "@/components/ui";
+import { Card, Field, Input, Select } from "@/components/ui";
 import { useT } from "@/i18n/react";
 import type { ShippingProfile } from "@/features/products/types";
+
+// The repo's first lazily-mounted island: the description editor (TipTap +
+// ProseMirror) loads as an async chunk, never in the static import graph of
+// the root gate chunk. Plain textarea fallback while it hydrates.
+const RichTextDescriptionEditor = lazy(() => import("./RichTextDescriptionEditor"));
 
 interface ProductBasicInfoCardProps {
   name: string;
@@ -16,6 +22,7 @@ interface ProductBasicInfoCardProps {
   setShippingProfileId: (val: string) => void;
   description: string;
   setDescription: (val: string) => void;
+  setDescriptionFormat: (format: "text" | "html") => void;
   groups: Array<{ id: string; name: string }>;
   shippingProfiles: ShippingProfile[];
   errors: Record<string, string>;
@@ -37,6 +44,7 @@ export function ProductBasicInfoCard({
   setShippingProfileId,
   description,
   setDescription,
+  setDescriptionFormat,
   groups,
   shippingProfiles,
   errors,
@@ -121,13 +129,27 @@ export function ProductBasicInfoCard({
             </Field>
           )}
         </div>
-        <Field label={t("form.description_label")}>
-          <Textarea
-            value={description}
-            onChange={(event) => setDescription(event.currentTarget.value)}
-            rows={3}
-            disabled={busy}
-          />
+        <Field label={t("form.description_label")} as="div">
+          <Suspense
+            fallback={
+              <textarea
+                value={description}
+                onChange={(event) => setDescription(event.currentTarget.value)}
+                rows={3}
+                disabled={busy}
+                className="w-full rounded-md border border-border/60 bg-card p-3 text-sm"
+              />
+            }
+          >
+            <RichTextDescriptionEditor
+              value={description}
+              onChange={(value: string) => {
+                setDescription(value);
+                setDescriptionFormat("html");
+              }}
+              busy={busy}
+            />
+          </Suspense>
         </Field>
       </div>
     </Card>

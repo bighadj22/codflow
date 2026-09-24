@@ -26,7 +26,8 @@
     "landing_pages": "Pages d'atterrissage",
     "stock_management": "Gestion de stock",
     "api_reference": "Référence API",
-    "mcp": "Agents IA"
+    "mcp": "Agents IA",
+    "store_pages": "Pages"
   },
   "navbar": {
     "search_placeholder": "Rechercher des commandes, clients...",

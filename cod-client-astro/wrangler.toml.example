@@ -65,4 +65,10 @@ port = 8788
 # wrangler secret put MCP_LOGIN_TICKET_SECRET   # must MATCH cod-server's
 #
 # Local development: copy .dev.vars.example → .dev.vars and set both there.
-# Build-time client env: copy .env.example → .env (PUBLIC_API_URL only).
+#
+# PUBLIC_API_URL above is the value the production browser bundle is built with.
+# Local development overrides it from .dev.vars, which outranks every .env file
+# because the Cloudflare adapter pushes it into process.env and Astro reads env
+# with an empty prefix. Do not also set it in .env — it would be ignored there.
+# `npm run deploy` parks .dev.vars for the build and refuses to upload a bundle
+# that still contains a loopback URL.

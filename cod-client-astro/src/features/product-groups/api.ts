@@ -50,13 +50,3 @@ export function updateProductGroup(id: string, body: Partial<ProductCategory>) {
 export function deleteProductGroup(id: string) {
   return apiFetch<DataEnvelope<null>>(`/api/product-groups/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
-
-export interface PresignedUpload {
-  presignedUrl: string;
-  key: string;
-  publicUrl: string;
-}
-
-export async function getPresignedUploadUrl(contentType: string) {
-  return (await apiFetch<DataEnvelope<PresignedUpload>>("/api/images/presign", json({ method: "POST", body: JSON.stringify({ contentType }) }))).data;
-}

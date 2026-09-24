@@ -1,0 +1,45 @@
+/*
+ * Simple editor template — scoped to the dashboard.
+ *
+ * Upstream this file styles a standalone demo page: global `body`/`html` rules,
+ * a 100vw/100vh wrapper, Google-hosted DM Sans + Inter, and global scrollbar
+ * styling. None of that belongs in a dashboard island, so only the
+ * editor-scoped rules survive here. Typography follows the app's own font
+ * variable, and light/dark come from the `.dark` class that `styles/_variables.scss`
+ * already handles.
+ */
+
+.tiptap.ProseMirror {
+  font-family: var(--font-active);
+}
+
+.simple-editor-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.simple-editor-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.simple-editor-content .tiptap.ProseMirror.simple-editor {
+  min-height: 12rem;
+  padding: 0.875rem 1rem;
+  outline: none;
+}
+
+@media screen and (max-width: 480px) {
+  .simple-editor-content .tiptap.ProseMirror.simple-editor {
+    padding: 0.75rem;
+  }
+}
+
+/* The highlight palette is light, in both editor themes, because the stored
+   colour has to read on the storefront too. In dark mode the editor's own text
+   colour would be light as well, so marks get the dark text token instead. */
+.dark .tiptap mark {
+  color: var(--tt-gray-light-900);
+}

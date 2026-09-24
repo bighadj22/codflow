@@ -215,11 +215,6 @@ export function ProductDetail({ productId }: { productId: string }) {
               </span>
             )}
           </div>
-          {product.description && (
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {product.description}
-            </p>
-          )}
         </div>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">

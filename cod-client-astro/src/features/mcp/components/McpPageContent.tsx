@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Bot, Plug, Users, X, type LucideIcon } from "lucide-react";
-import { PUBLIC_API_URL } from "astro:env/client";
+import { publicApiUrl } from "@/lib/api";
 import { canScope, useIdentity } from "@/features/auth/components/RequireAuth";
 import { useT } from "@/i18n/react";
 import { notify } from "@/lib/notify";
@@ -100,7 +100,7 @@ export function McpPageContent() {
   const [pendingRevoke, setPendingRevoke] = useState<string | null>(null);
 
   const isAdmin = identity?.role === "admin";
-  const mcpUrl = mcpApiUrl(PUBLIC_API_URL);
+  const mcpUrl = mcpApiUrl(publicApiUrl());
 
   async function load() {
     setLoadError(null);

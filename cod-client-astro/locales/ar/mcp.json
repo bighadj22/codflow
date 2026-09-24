@@ -12,20 +12,6 @@
     "copy": "نسخ",
     "copied": "تم النسخ"
   },
-  "snippet": {
-    "heading": "إعداد سريع",
-    "description": "اختر تطبيق الذكاء الاصطناعي الذي تستخدمه للحصول على الإعداد الجاهز للنسخ.",
-    "tab_claude_desktop": "Claude Desktop",
-    "tab_claude_web": "Claude.ai",
-    "tab_chatgpt": "ChatGPT",
-    "tab_other": "أخرى",
-    "copy_snippet": "نسخ المقتطف",
-    "claude_desktop_instructions": "في Claude Desktop، افتح الإعدادات ← الموصّلات ← إضافة موصّل مخصص، ثم الصق هذا الرابط وسجّل الدخول بحساب CodFlow:",
-    "claude_desktop_alt": "أو الاتصال محليًا عبر mcp-remote — الصق ما يلي في الإعدادات ← المطوّر ← تعديل الإعدادات:",
-    "claude_web_instructions": "في Claude.ai، افتح تخصيص ← الموصّلات ← + ← إضافة موصّل مخصص، ثم الصق هذا الرابط:",
-    "chatgpt_instructions": "في ChatGPT، فعّل وضع المطوّر (الإعدادات ← الموصّلات ← إعدادات متقدمة)، ثم أنشئ موصّلًا والصق هذا الرابط:",
-    "other_instructions": "يمكن لأي عميل متوافق مع MCP الاتصال عبر mcp-remote:"
-  },
   "my_connections": {
     "title": "اتصالاتك",
     "empty_title": "لم تربط أي وكيل ذكاء اصطناعي بعد",

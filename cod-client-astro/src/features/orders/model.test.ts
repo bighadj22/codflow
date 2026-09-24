@@ -15,6 +15,7 @@ import {
   shipmentCapabilities,
   shipmentUpdateFieldSupport,
   sortOrders,
+  abandonedBasketView,
 } from "./model";
 import type { OrderListItem } from "./types";
 
@@ -273,5 +274,104 @@ describe("orders model", () => {
       "2",
     ]);
     expect(paginateOrders(rows, 2, 2).map((item) => item.id)).toEqual(["3"]);
+  });
+});
+
+/**
+ * The "what they were buying" column on the abandoned-checkout list.
+ *
+ * This list is the merchant's callback queue, so the column has to be good
+ * enough to hold the conversation from — which is why a basket lists every
+ * line rather than summarising, and why a single-product record refuses to
+ * invent a quantity it never stored.
+ */
+describe("abandonedBasketView", () => {
+  const hoodie = {
+    productId: "p1",
+    productName: "Hoodie Classic",
+    variantId: "v-black-l",
+    variantLabel: "Noir / L",
+    quantity: 2,
+    unitPrice: 2400,
+  };
+  const tshirt = {
+    productId: "p2",
+    productName: "Street Fighter 45",
+    variantId: null,
+    variantLabel: null,
+    quantity: 1,
+    unitPrice: 1000,
+  };
+
+  it("lists every line of a basket", () => {
+    const view = abandonedBasketView({
+      items: [hoodie, tshirt],
+      productName: "Hoodie Classic",
+      variantLabel: "Noir / L",
+    });
+
+    expect(view.kind).toBe("basket");
+    if (view.kind !== "basket") return;
+    expect(view.lines).toHaveLength(2);
+    expect(view.lines[0]).toMatchObject({
+      productName: "Hoodie Classic",
+      variantLabel: "Noir / L",
+      quantity: 2,
+      lineTotal: 4800,
+    });
+    expect(view.lines[1]).toMatchObject({ productName: "Street Fighter 45", quantity: 1 });
+  });
+
+  it("gives every line a stable key, even for the same product twice", () => {
+    // Same product, two variants, is two lines — React needs distinct keys.
+    const view = abandonedBasketView({
+      items: [hoodie, { ...hoodie, variantId: "v-black-m", variantLabel: "Noir / M" }],
+      productName: null,
+      variantLabel: null,
+    });
+
+    if (view.kind !== "basket") throw new Error("expected a basket");
+    expect(new Set(view.lines.map((l) => l.key)).size).toBe(2);
+  });
+
+  it("prefers the basket over the flat fields stored beside it", () => {
+    // Basket rows carry BOTH — the flat columns hold the first line so older
+    // readers keep working. The basket is the fuller truth.
+    const view = abandonedBasketView({
+      items: [tshirt],
+      productName: "Hoodie Classic",
+      variantLabel: "Noir / L",
+    });
+
+    if (view.kind !== "basket") throw new Error("expected a basket");
+    expect(view.lines[0].productName).toBe("Street Fighter 45");
+  });
+
+  it("shows a single-product record without inventing a quantity", () => {
+    // The record never stored one. "1×" would be a guess, and the shopper may
+    // well have been ordering three.
+    const view = abandonedBasketView({
+      items: null,
+      productName: "Hoodie Classic",
+      variantLabel: "Noir / L",
+    });
+
+    expect(view).toEqual({
+      kind: "product",
+      productName: "Hoodie Classic",
+      variantLabel: "Noir / L",
+    });
+  });
+
+  it("treats an empty basket as no basket", () => {
+    const view = abandonedBasketView({ items: [], productName: "Hoodie", variantLabel: null });
+
+    expect(view.kind).toBe("product");
+  });
+
+  it("says nothing is known when the shopper only left contact details", () => {
+    expect(abandonedBasketView({ items: null, productName: null, variantLabel: null })).toEqual({
+      kind: "unknown",
+    });
   });
 });

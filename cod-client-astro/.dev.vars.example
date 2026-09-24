@@ -13,3 +13,12 @@
 # MCP_LOGIN_TICKET_SECRET=
 
 # In production both values are set with `wrangler secret put`, never in code.
+
+# ── Build-time client value (not a secret) ────────────────────────────────────
+
+# The cod-server origin the browser bundle calls. It lives here rather than in
+# .env because the Cloudflare adapter pushes .dev.vars into process.env, and
+# Astro reads env with an empty prefix — so this outranks .env and even an
+# inline variable. Production takes its value from wrangler.toml [vars], and
+# `npm run deploy` parks this file for the build so it cannot leak into it.
+# PUBLIC_API_URL=http://localhost:8787

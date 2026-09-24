@@ -104,16 +104,6 @@ export function deleteProductImage(productId: string, imageId: string) {
   return apiFetch<DataEnvelope<null>>(`/api/products/${encodeURIComponent(productId)}/images/${encodeURIComponent(imageId)}`, { method: "DELETE" });
 }
 
-export interface PresignedUpload {
-  presignedUrl: string;
-  key: string;
-  publicUrl: string;
-}
-
-export async function getPresignedUploadUrl(contentType: string) {
-  return (await apiFetch<DataEnvelope<PresignedUpload>>("/api/images/presign", json({ method: "POST", body: JSON.stringify({ contentType }) }))).data;
-}
-
 export async function getStockOverview() {
   return (await apiFetch<DataEnvelope<StockOverview>>("/api/stock/overview")).data;
 }

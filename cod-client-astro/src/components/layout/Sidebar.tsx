@@ -57,9 +57,6 @@ export function SidebarWorkspaceCard({
             <Store size={16} strokeWidth={2.2} />
           </div>
           <div className="min-w-0 flex-1 text-start">
-            <div className="truncate text-[11px] font-medium leading-tight text-muted-foreground">
-              {identity?.user.email || "store@codflow.com"}
-            </div>
             <div className="truncate text-[13px] font-semibold leading-snug text-foreground">
               {identity?.user.name || tN("sidebar.store")}
             </div>

@@ -9,16 +9,31 @@ describe("settings model", () => {
       "general",
       "branding",
       "seo",
+      "cart",
+      "delivery",
       "reviews",
       "analytics",
       "verification",
+      "bot_protection",
       "email",
       "api",
     ]);
-    expect(SETTINGS_CATEGORIES[0].labelKey).toBe("general_title");
-    expect(SETTINGS_CATEGORIES[5].labelKey).toBe("otp_title");
-    expect(SETTINGS_CATEGORIES[6].labelKey).toBe("email_title");
-    expect(SETTINGS_CATEGORIES[7].labelKey).toBe("api_key_title");
+
+    // Keyed by id rather than by index: inserting a category should require
+    // updating the order above and nothing else, instead of renumbering every
+    // assertion underneath it.
+    const labelById = Object.fromEntries(
+      SETTINGS_CATEGORIES.map((category) => [category.id, category.labelKey]),
+    );
+    expect(labelById).toMatchObject({
+      general: "general_title",
+      cart: "cart_title",
+      delivery: "delivery_pricing_title",
+      verification: "otp_title",
+      bot_protection: "bot_protection_title",
+      email: "email_title",
+      api: "api_key_title",
+    });
   });
 
   it("maps every save failure to the store save error", () => {

@@ -1,11 +1,13 @@
 import { apiFetch } from "@/lib/api";
-import type { PresignedUpload } from "@/features/products/api";
 import type {
   CreateLandingPageInput,
   LandingPage,
   LandingPageImage,
   LandingPageListItem,
+  LandingPageTracking,
+  LandingPageTrackingState,
   SaveLandingPageImageInput,
+  SaveLandingPageTrackingInput,
   UpdateLandingPageInput,
 } from "./types";
 
@@ -106,11 +108,31 @@ export function deleteLandingPageImage(lpId: string, imageId: string) {
   );
 }
 
-export async function getPresignedLandingUploadUrl(contentType: string) {
+// ─── Tracking override ────────────────────────────────────────────────────────
+
+export async function getLandingPageTracking(landingPageId: string) {
   return (
-    await apiFetch<DataEnvelope<PresignedUpload>>(
-      "/api/images/presign",
-      json({ method: "POST", body: JSON.stringify({ contentType, folder: "landing" }) }),
+    await apiFetch<DataEnvelope<LandingPageTrackingState>>(
+      `/api/landing-pages/${id(landingPageId)}/tracking`,
     )
   ).data;
+}
+
+export async function saveLandingPageTracking(
+  landingPageId: string,
+  input: SaveLandingPageTrackingInput,
+) {
+  return (
+    await apiFetch<DataEnvelope<LandingPageTracking>>(
+      `/api/landing-pages/${id(landingPageId)}/tracking`,
+      json({ method: "PUT", body: JSON.stringify(input) }),
+    )
+  ).data;
+}
+
+/** Return the page to the store pixel. */
+export async function deleteLandingPageTracking(landingPageId: string) {
+  await apiFetch<DataEnvelope<unknown>>(`/api/landing-pages/${id(landingPageId)}/tracking`, {
+    method: "DELETE",
+  });
 }

@@ -8,9 +8,11 @@ import { MobileChrome } from "@/components/layout/MobileChrome";
 export function DashboardChrome({
   currentPath,
   children,
+  wide,
 }: {
   currentPath: string;
   children: ReactNode;
+  wide?: boolean;
 }) {
   const tN = useT("navigation");
   return (
@@ -35,7 +37,7 @@ export function DashboardChrome({
             tabIndex={-1}
             className="min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-10 pt-6 outline-none sm:px-6 md:px-8 md:pt-8"
           >
-            <div className="mx-auto max-w-[1120px]">{children}</div>
+            <div className={`mx-auto ${wide ? "max-w-[1600px]" : "max-w-[1120px]"}`}>{children}</div>
           </div>
         </div>
       </div>

@@ -58,6 +58,7 @@ export function GeneralSettings({
         >
           <option value="ar">{t("store.lang_ar")}</option>
           <option value="en">{t("store.lang_en")}</option>
+          <option value="fr">{t("store.lang_fr")}</option>
         </Select>
       </FieldRow>
       <FieldRow label={t("store.status_label")}>

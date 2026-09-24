@@ -12,6 +12,7 @@ import {
 } from "@/components/ui";
 import { useT } from "@/i18n/react";
 import { ProductOptionsManager } from "@/features/products/components/ProductOptionsManager";
+import { VariantImagePicker } from "@/features/products/components/VariantImagePicker";
 import type {
   ProductImage,
   VariantOptionFormState,
@@ -62,9 +63,6 @@ export function ProductVariantsCard({
   const [bulkPrice, setBulkPrice] = useState("");
   const [bulkSkuPrefix, setBulkSkuPrefix] = useState("");
   const [bulkStock, setBulkStock] = useState("");
-  const [openImagePickerRow, setOpenImagePickerRow] = useState<number | null>(
-    null,
-  );
 
   function updateVariantRow(
     index: number,
@@ -353,74 +351,14 @@ export function ProductVariantsCard({
                         </TableCell>
                         {showImageCol && (
                           <TableCell className="text-center">
-                            {row.imageId ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  updateVariantImageId(i, null);
-                                  setOpenImagePickerRow(null);
-                                }}
-                                className="grid size-10 place-items-center overflow-hidden rounded-lg border-2 border-primary"
-                              >
-                                <img
-                                  src={
-                                    existingImages.find(
-                                      (img) => img.id === row.imageId,
-                                    )?.src ?? ""
-                                  }
-                                  alt=""
-                                  className="size-full object-cover"
-                                />
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setOpenImagePickerRow(
-                                    openImagePickerRow === i ? null : i,
-                                  )
-                                }
-                                className="mx-auto grid size-10 place-items-center rounded-lg border-2 border-dashed border-border bg-muted/20 text-muted-foreground hover:border-primary/40"
-                                aria-label={t("form.variant_image_select")}
-                              >
-                                +
-                              </button>
-                            )}
-                            {openImagePickerRow === i && (
-                              <div className="absolute z-10 mt-2 space-y-2 rounded-lg border border-border bg-card p-2 shadow-lg">
-                                <p className="px-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                                  {t("form.variant_image_select")}
-                                </p>
-                                <div className="grid grid-cols-4 gap-1.5">
-                                  {existingImages.map((img) => (
-                                    <button
-                                      key={img.id}
-                                      type="button"
-                                      onClick={() => {
-                                        updateVariantImageId(
-                                          i,
-                                          row.imageId === img.id
-                                            ? null
-                                            : img.id,
-                                        );
-                                        setOpenImagePickerRow(null);
-                                      }}
-                                      className={`size-14 overflow-hidden rounded-lg border-2 ${
-                                        row.imageId === img.id
-                                          ? "border-primary shadow-md"
-                                          : "border-transparent opacity-70 hover:opacity-100"
-                                      }`}
-                                    >
-                                      <img
-                                        src={img.src}
-                                        alt=""
-                                        className="size-full object-cover"
-                                      />
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+                            <VariantImagePicker
+                              images={existingImages}
+                              value={row.imageId ?? null}
+                              onChange={(imageId) =>
+                                updateVariantImageId(i, imageId)
+                              }
+                              disabled={busy}
+                            />
                           </TableCell>
                         )}
                       </TableRow>
