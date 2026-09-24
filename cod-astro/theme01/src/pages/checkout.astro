@@ -1,0 +1,172 @@
+---
+// ── CUSTOMIZE HERE ────────────────────────────────────────────────────────────
+// Basket checkout. Reached from the cart drawer; a shopper who never opens the
+// cart never comes here and keeps the one-step product form untouched.
+//
+// The basket lives in the shopper's browser, so the line items CANNOT be
+// server-rendered. This page ships the shell and the checkout script fills it
+// from localStorage, then re-prices everything through the validate endpoint.
+// That is why the loading and empty states are real states here, not polish.
+// ─────────────────────────────────────────────────────────────────────────────
+import StoreLayout from "@/theme/layouts/StoreLayout.astro";
+import CheckoutSummary from "@/theme/components/cart/CheckoutSummary.astro";
+import CustomerFields from "@/theme/components/order/CustomerFields.astro";
+import OtpStep from "@/theme/components/order/OtpStep.astro";
+import TurnstileField from "@/theme/components/order/TurnstileField.astro";
+import ShippingIsland from "@/theme/components/product/ShippingIsland.astro";
+import { getStoreContext } from "@/theme/config/store";
+import { actions, isInputError } from "astro:actions";
+import { Icon } from "astro-icon/components";
+
+const { config, content, isRTL } = await getStoreContext();
+
+// A merchant with the cart switched off has no basket to check out.
+if (!config.cartEnabled) return Astro.redirect("/", 302);
+
+// Same single PRG redirect the product form uses: the browser follows the 303
+// straight to the thank-you page, so this page never re-renders behind it and
+// the abandonment-conversion signal fires there.
+const result = Astro.getActionResult(actions.placeOrder);
+if (result?.data?.orderNumber) {
+  return Astro.redirect(
+    `/thank-you?order=${encodeURIComponent(result.data.orderNumber)}&total=${result.data.total}&oid=${encodeURIComponent(result.data.orderId ?? "")}`,
+    303,
+  );
+}
+const fieldErrors = isInputError(result?.error) ? result.error.fields : {};
+const serverError = result?.error && !isInputError(result.error) ? result.error.message : null;
+
+const otpEnabled = config.otpEnabled === true;
+const turnstileEnabled = config.turnstileEnabled === true && Boolean(config.turnstileSiteKey);
+---
+
+{/* noindex: transactional and basket-dependent. There is nothing here to
+    index, and a crawler would only ever see the empty state — same reasoning
+    as the thank-you page. */}
+<StoreLayout
+  config={config}
+  content={content}
+  title={`${content.checkoutTitle} — ${config.name}`}
+  hideMobileNav={true}
+  noindex={true}
+>
+  <div
+    id="checkout-root"
+    class="mx-auto w-full max-w-2xl px-4 pb-16 pt-6 sm:px-6"
+    data-currency={config.currencySymbol}
+    data-copy-items={content.cartItemsLabel}
+    data-copy-out-of-stock={content.cartLineOutOfStock}
+    data-copy-unavailable={content.cartLineUnavailable}
+    data-copy-free-earned={content.cartFreeDeliveryEarned}
+    data-copy-free-remaining={content.cartFreeDeliveryRemaining}
+    data-copy-shipping-calculated={content.shippingCalculated}
+    data-copy-shipping-free={content.shippingFree}
+    data-copy-commune-loading={content.formCommuneLoading}
+    data-copy-commune-placeholder={content.formCommunePlaceholder}
+    data-copy-commune-disabled={content.formCommuneDisabled}
+  >
+    <h1 class="mb-5 text-[1.375rem] font-black" style="color: var(--clr-text)">
+      {content.checkoutTitle}
+    </h1>
+
+    {serverError && (
+      <div
+        class="mb-5 flex items-start gap-3 rounded-[var(--radius-card)] px-4 py-3 text-[0.875rem] font-bold"
+        style="background: var(--clr-error-bg); color: var(--clr-error)"
+        role="alert"
+      >
+        <Icon name="heroicons:exclamation-triangle" class="h-5 w-5 shrink-0" />
+        <p>{serverError}</p>
+      </div>
+    )}
+
+    {/* Hydrating. Replaced by one of the two states below within a frame. */}
+    <p
+      id="checkout-loading"
+      class="py-10 text-center text-[0.875rem] font-bold"
+      style="color: var(--clr-text-2)"
+    >
+      {content.checkoutLoading}
+    </p>
+
+    {/* Arrived with nothing in the basket, or emptied the last line here. */}
+    <div
+      id="checkout-empty"
+      class="flex flex-col items-center justify-center gap-3 py-12 text-center"
+      hidden
+    >
+      <div
+        class="flex h-16 w-16 items-center justify-center rounded-full"
+        style="background: var(--clr-surface-alt); color: var(--clr-text-2)"
+      >
+        <Icon name="heroicons:shopping-bag" class="h-7 w-7" />
+      </div>
+      <p class="text-[0.9375rem] font-black" style="color: var(--clr-text)">
+        {content.cartEmptyTitle}
+      </p>
+      <p class="text-[0.8125rem] font-medium" style="color: var(--clr-text-2)">
+        {content.cartEmptyHint}
+      </p>
+      <a
+        href="/"
+        class="mt-2 text-[0.8125rem] font-black underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2"
+        style="color: var(--clr-primary); --tw-ring-color: var(--clr-primary)"
+      >
+        {content.cartContinueShopping}
+      </a>
+    </div>
+
+    <div id="checkout-main" class="space-y-5" hidden>
+      <CheckoutSummary content={content} />
+
+      <form method="POST" action={actions.placeOrder} id="checkout-form" class="space-y-5">
+        {/* The basket, serialised at submit time so it always matches what the
+            summary above is showing. */}
+        <input type="hidden" name="items" value="" id="cart-items-input" />
+        {/* Meta Pixel tracking (populated by JS at submit time) */}
+        <input type="hidden" name="fbc" id="fbc-input" value="" />
+        <input type="hidden" name="fbp" id="fbp-input" value="" />
+        {/* WhatsApp OTP proof — set by the OTP step script after verification */}
+        <input type="hidden" name="otpToken" id="otp-token-input" value="" />
+
+        <div
+          class="rounded-[var(--radius-card)] border px-4 py-5 sm:px-5"
+          style="border-color: var(--clr-border); background: var(--clr-surface)"
+        >
+          <CustomerFields content={content} fieldErrors={fieldErrors} isRTL={isRTL} />
+
+          {otpEnabled && <OtpStep content={content} isRTL={isRTL} />}
+
+          {turnstileEnabled && (
+            <TurnstileField siteKey={config.turnstileSiteKey!} content={content} />
+          )}
+        </div>
+
+        <button
+          type="submit"
+          id="submit-btn"
+          class="btn-primary !h-[3.75rem] w-full !text-[1.0625rem] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {content.formSubmit}
+        </button>
+
+        <p
+          class="px-4 text-center text-[0.8125rem] font-bold"
+          style="color: var(--clr-text-2)"
+        >
+          {content.formConfirmNote}
+        </p>
+      </form>
+    </div>
+  </div>
+
+  {/* Delivery rates bridge, read by delivery-fields.ts. */}
+  <ShippingIsland />
+</StoreLayout>
+
+<script src="../theme/scripts/checkout.ts"></script>
+<script src="../theme/scripts/otp-step.ts"></script>
+<script src="../theme/scripts/turnstile-field.ts"></script>
+{/* Without this the basket path — the higher-value one — would capture no
+    abandoners at all, while product pages kept capturing them. */}
+<script src="../theme/scripts/track-abandonment.ts"></script>

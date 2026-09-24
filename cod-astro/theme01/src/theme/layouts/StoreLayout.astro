@@ -3,6 +3,7 @@ import "@/theme/styles/global.css";
 import BaseHead from "@/theme/components/layout/BaseHead.astro";
 import Header from "@/theme/components/layout/Header.astro";
 import Footer from "@/theme/components/layout/Footer.astro";
+import CartDrawer from "@/theme/components/cart/CartDrawer.astro";
 import MobileNav from "@/theme/components/layout/MobileNav.astro";
 import type { StoreConfig } from "@/core/api/types";
 import type { StoreFrontContent } from "@/theme/config/content";
@@ -77,6 +78,21 @@ const fontHref = config.fontUrl?.replace(/["<>]/g, "")
     </main>
 
     {!marketing && <Footer config={config} content={content} />}
+
+    {/* One drawer per page, outside the main flow so its fixed positioning is
+        never trapped by a transformed ancestor. Rendered only when the cart is
+        on: a merchant who never enabled it ships none of this markup. */}
+    {config.cartEnabled && content && (
+      <>
+        <CartDrawer content={content} currency={config.currencySymbol} />
+        {/* Imported for its side effect: the module self-initialises on
+            DOMContentLoaded, the same pattern product.ts uses. Calling
+            initCart() here as well used to bind every handler twice. */}
+        <script>
+          import "@/theme/scripts/cart-ui";
+        </script>
+      </>
+    )}
 
     {!hideMobileNav && <MobileNav config={config} content={content} />}
   </body>

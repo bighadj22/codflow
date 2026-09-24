@@ -76,8 +76,6 @@ export const ar: StoreFrontContent = {
   footerAbout: "متجرك الموثوق عبر الإنترنت في الجزائر مع الدفع عند الاستلام",
   footerQuickLinks: "روابط سريعة",
   footerSupport: "خدمة العملاء",
-  footerShipping: "معلومات الشحن",
-  footerReturns: "الإرجاع والاستبدال",
   footerRights: "جميع الحقوق محفوظة",
 
   // ── Order form ────────────────────────────────────────────────────────────
@@ -106,6 +104,7 @@ export const ar: StoreFrontContent = {
   formSubmit: "تأكيد الطلب",
   formConfirmNote: "سيتصل بك فريقنا لتأكيد طلبك خلال 24 ساعة",
 
+  checkoutConsentText: "بإتمامك لهذا الطلب، فإنك توافق على {terms} وعلى {refund}.",
   // ── WhatsApp OTP verification ─────────────────────────────────────────────
   otpTitle: "تأكيد رقم الهاتف",
   otpSubtitle: "أرسلنا رمزاً من 6 أرقام إلى واتساب",
@@ -224,4 +223,35 @@ export const ar: StoreFrontContent = {
   notFoundCtaHome: "العودة للمتجر",
   notFoundCtaProducts: "تصفح المنتجات",
   notFoundPageTitle: "الصفحة غير موجودة",
+
+  // ── Shopping cart ─────────────────────────────────────────────────────────
+  cartTitle: "سلتك",
+  cartItemsLabel: "{n} منتجات",
+  cartEmptyTitle: "سلتك فارغة",
+  cartEmptyHint: "أضف منتجاً وسيظهر هنا.",
+  cartAddToCart: "أضف إلى السلة",
+  cartAdded: "تمت الإضافة إلى السلة",
+  cartOpenLabel: "فتح السلة",
+  cartCloseLabel: "إغلاق السلة",
+  cartSubtotalLabel: "المجموع",
+  cartCheckoutCta: "اطلب الآن",
+  cartRemoveLabel: "حذف",
+  cartIncreaseLabel: "زيادة الكمية",
+  cartDecreaseLabel: "إنقاص الكمية",
+  cartFreeDeliveryEarned: "حصلت على توصيل مجاني",
+  cartFreeDeliveryRemaining: "أضف {amount} {currency} للحصول على توصيل مجاني",
+  cartLineUnavailable: "لم يعد متوفراً",
+  cartLineOutOfStock: "بقي {n} فقط",
+  cartGiftLabel: "هدية مجانية",
+  cartFixBeforeCheckout: "احذف المنتجات غير المتوفرة للمتابعة.",
+  cartDeliveryNote: "يُحتسب التوصيل عند إتمام الطلب.",
+  cartUnavailableNotice: "متصفحك يمنع التخزين، لذلك السلة غير متاحة. يمكنك طلب هذا المنتج مباشرة.",
+  cartContinueShopping: "مواصلة التسوق",
+
+  checkoutTitle: "إتمام الطلب",
+  checkoutSummaryTitle: "طلبك",
+  checkoutLoading: "جارٍ تحضير سلتك…",
+
+  relatedTitle: "قد يعجبك أيضاً",
+  relatedSub: "منتجات أخرى من نفس الفئة",
 };

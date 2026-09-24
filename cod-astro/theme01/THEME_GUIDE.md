@@ -337,8 +337,10 @@ from `@/core/api/client`. Your job is to render what they pass to your
 components. Don't fetch in components — pass props.
 
 Key shapes (from `src/core/api/types.ts` + `src/core/api/validation.ts`):
-- `Product` has `id, name, description, price, compareAtPrice,
-  images[], variants[], offers[], inventory, trackInventory, …`
+- `Product` has `id, name, description, descriptionFormat ("text" | "html"),
+  descriptionPlain, price, compareAtPrice, images[], variants[], offers[],
+  inventory, trackInventory, …` — see "Rich descriptions" below for what the
+  two description fields mean for rendering.
 - `ProductVariant` has `id, price, compareAtPrice, inventory,
   variations: Record<string, string>` (e.g. `{"Size": "M",
   "Color": "Red"}`).
@@ -348,6 +350,54 @@ Key shapes (from `src/core/api/types.ts` + `src/core/api/validation.ts`):
   accentColor, lang ("ar" | "en"), reviewsEnabled, …`
 - `StoreFrontContent` (from `src/theme/content/types.ts`) — the
   resolved language pack passed to every component as `content`.
+
+## Rich descriptions — render, never parse
+
+A description arrives in one of two formats, and the format is part of the
+payload:
+
+- `descriptionFormat: "text"` (or absent — every product that predates rich
+  descriptions) → render it as **escaped text**, exactly as before. Never as
+  markup, whatever it contains.
+- `descriptionFormat: "html"` → the platform already sanitised it at the write
+  chokepoint. Render it with `set:html` and do **not** re-sanitise, re-parse or
+  escape it.
+
+That trust is the contract: sanitising happens once, on the write path, in the
+platform (`cod-shared/lib/rich-text.ts`) — so this theme, which is swappable and
+imports nothing from the platform, never parses HTML. For `<meta>` and JSON-LD
+use the product's `descriptionPlain` (tags stripped, entities decoded);
+`getProductJsonLd` in `src/theme/utils/seo.ts` already does.
+
+`src/theme/components/product/ProductDescription.astro` is the one place that
+branch lives. Every tag the allow-list permits is styled under
+`.rich-description` in `global.css`, and `rich-description.test.ts` fails when a
+permitted tag has no style — add the style when the platform widens the list.
+
+The allow-list (a mirror of `RICH_TEXT_TAGS` in `cod-shared/lib/rich-text.ts`;
+a test compares the two, so keep the shape):
+
+```
+Text      p br hr strong b em i u s strike sub sup code pre
+Headings  h2 h3 h4 h5 h6
+Lists     ul ol li blockquote
+Links     a
+Media     img figure figcaption
+Highlight mark
+Tables    table thead tbody tfoot tr th td
+```
+
+Attributes are per tag, never global: `a` keeps `href`/`title` (`https`, `http`,
+`mailto`, `tel` only — `rel` and `target` are forced by the platform), `img`
+keeps `src`/`alt`/`width`/`height` (`src` must be `https:`), `td`/`th` keep
+`colspan`/`rowspan`/`scope`/`headers`.
+
+Three features survive as attributes, each narrowly: text alignment (an inline
+`text-align` on `p`/headings, the only `style` a description may keep), the
+highlight colour (`mark` with a hex or `rgb()` `background-color`), and checklists
+(`ul[data-type="taskList"]` with `li[data-type="taskItem"]` +
+`data-checked`). Every other `on*` handler, `style`, `class`, `id` and
+`data-*` is dropped, and HTML comments are removed.
 
 ## TECHNICAL GOTCHAS — already paid for in production
 

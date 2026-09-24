@@ -3,6 +3,15 @@
   "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-04-22",
   "compatibility_flags": ["nodejs_compat"],
+  "keep_vars": true,
+  "routes": [
+    {
+      "pattern": "demo.codflow.store/*",
+      "zone_name": "codflow.store"
+    }
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
@@ -11,10 +20,4 @@
   "observability": {
     "enabled": true
   }
-  // COD_SERVER_URL is injected at deploy time from the unified root .env
-  // by `npm run deploy` → scripts/deploy.mjs — never hardcode it here.
-  // Local dev reads it from this package's own .dev.vars via astro:env;
-  // cod-server/scripts/cloud-env.mjs only reads the root .env, not .dev.vars.
-  // STORE_API_KEY is a secret — set it via `wrangler secret put STORE_API_KEY`
-  // (do NOT put the real key here).
 }

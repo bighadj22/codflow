@@ -1,0 +1,197 @@
+---
+/**
+ * Checkout order summary.
+ *
+ * The basket lives in the shopper's browser, so none of these rows can be
+ * server-rendered — this is the shell the checkout controller fills, and every
+ * state it can be in is already here so there is no flash of a wrong one.
+ *
+ * Lines stay editable. A shopper who spots the wrong size at the last step
+ * should fix it here, not navigate back and lose the rest of the basket.
+ *
+ * Money is `tabular-nums` throughout so the column does not jitter as totals
+ * change under the shopper's fingers.
+ */
+import type { StoreFrontContent } from "@/theme/content";
+import { Icon } from "astro-icon/components";
+import FreeDeliveryBar from "@/theme/components/cart/FreeDeliveryBar.astro";
+
+interface Props {
+  content: StoreFrontContent;
+}
+
+const { content } = Astro.props;
+---
+
+<section
+  class="rounded-[var(--radius-card)] border"
+  style="border-color: var(--clr-border); background: var(--clr-surface)"
+  aria-labelledby="checkout-summary-title"
+>
+  <div
+    class="flex items-baseline justify-between gap-3 border-b px-4 py-4 sm:px-5"
+    style="border-color: var(--clr-border)"
+  >
+    <h2
+      id="checkout-summary-title"
+      class="text-[0.9375rem] font-black"
+      style="color: var(--clr-text)"
+    >
+      {content.checkoutSummaryTitle}
+    </h2>
+    <p
+      id="checkout-items-label"
+      class="text-[0.75rem] font-bold tabular-nums"
+      style="color: var(--clr-text-2)"
+    >
+    </p>
+  </div>
+
+  <!-- Free-delivery progress, above the lines for the same reason it is at the
+       top of the drawer: it is a reason to add something, not a footnote. -->
+  <div class="px-4 pt-4 sm:px-5">
+    <FreeDeliveryBar idPrefix="checkout" />
+  </div>
+
+  <ul id="checkout-line-list" class="divide-y" style="border-color: var(--clr-border)"></ul>
+
+  <div class="border-t px-4 py-4 sm:px-5" style="border-color: var(--clr-border)">
+    <!-- Anything unorderable stops the order here, and says so before submit. -->
+    <p
+      id="checkout-blocked-note"
+      class="mb-3 rounded-[var(--radius-input)] px-3 py-2 text-[0.75rem] font-bold"
+      style="background: var(--clr-error-bg); color: var(--clr-error)"
+      hidden
+    >
+      {content.cartFixBeforeCheckout}
+    </p>
+
+    <dl class="space-y-2">
+      <div class="flex items-baseline justify-between gap-3">
+        <dt class="text-[0.875rem] font-bold" style="color: var(--clr-text-2)">
+          {content.cartSubtotalLabel}
+        </dt>
+        <dd
+          id="checkout-subtotal"
+          class="text-[0.9375rem] font-black tabular-nums"
+          style="color: var(--clr-text)"
+        >
+        </dd>
+      </div>
+
+      <div class="flex items-baseline justify-between gap-3">
+        <dt class="text-[0.875rem] font-bold" style="color: var(--clr-text-2)">
+          {content.shippingLabel}
+        </dt>
+        <dd
+          id="checkout-delivery"
+          class="text-[0.9375rem] font-black tabular-nums"
+          style="color: var(--clr-text)"
+        >
+        </dd>
+      </div>
+
+      <div
+        class="flex items-baseline justify-between gap-3 border-t pt-3"
+        style="border-color: var(--clr-border)"
+      >
+        <dt class="text-[0.9375rem] font-black" style="color: var(--clr-text)">
+          {content.totalLabel}
+        </dt>
+        <dd
+          id="checkout-total"
+          class="text-[1.25rem] font-black tabular-nums"
+          style="color: var(--clr-primary)"
+        >
+        </dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<!-- Row template. Kept in markup so every string stays in the content pack. -->
+<template id="checkout-line-template">
+  <li class="flex gap-3 px-4 py-4 sm:px-5" data-cart-line>
+    <div
+      class="h-16 w-16 shrink-0 overflow-hidden rounded-[var(--radius-input)]"
+      style="background: var(--clr-surface-alt)"
+    >
+      <img
+        data-cart-image
+        alt=""
+        loading="lazy"
+        decoding="async"
+        class="h-full w-full object-cover"
+        hidden
+      />
+    </div>
+
+    <div class="min-w-0 flex-1">
+      <p data-cart-name class="truncate text-[0.875rem] font-black" style="color: var(--clr-text)">
+      </p>
+      <p
+        data-cart-variant
+        class="truncate text-[0.75rem] font-bold"
+        style="color: var(--clr-text-2)"
+        hidden
+      >
+      </p>
+      <p
+        data-cart-warning
+        class="mt-0.5 text-[0.75rem] font-black"
+        style="color: var(--clr-error)"
+        hidden
+      >
+      </p>
+
+      <div class="mt-2 flex items-center justify-between gap-2">
+        <div
+          class="inline-flex items-center rounded-full border"
+          style="border-color: var(--clr-border)"
+        >
+          <button
+            type="button"
+            data-cart-decrease
+            aria-label={content.cartDecreaseLabel}
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-150 active:scale-[0.9] focus-visible:outline-none focus-visible:ring-2"
+            style="color: var(--clr-text); --tw-ring-color: var(--clr-primary)"
+          >
+            <Icon name="heroicons:minus" class="h-3.5 w-3.5" />
+          </button>
+          <span
+            data-cart-qty
+            class="min-w-[2rem] text-center text-[0.8125rem] font-black tabular-nums"
+            style="color: var(--clr-text)"
+          >
+          </span>
+          <button
+            type="button"
+            data-cart-increase
+            aria-label={content.cartIncreaseLabel}
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-150 active:scale-[0.9] focus-visible:outline-none focus-visible:ring-2 disabled:opacity-40"
+            style="color: var(--clr-text); --tw-ring-color: var(--clr-primary)"
+          >
+            <Icon name="heroicons:plus" class="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <span
+          data-cart-total
+          class="text-[0.875rem] font-black tabular-nums"
+          style="color: var(--clr-text)"
+        >
+        </span>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      data-cart-remove
+      aria-label={content.cartRemoveLabel}
+      class="inline-flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-full transition-transform duration-150 active:scale-[0.9] focus-visible:outline-none focus-visible:ring-2"
+      style="color: var(--clr-text-2); --tw-ring-color: var(--clr-primary)"
+    >
+      <Icon name="heroicons:trash" class="h-4 w-4" />
+    </button>
+  </li>
+</template>

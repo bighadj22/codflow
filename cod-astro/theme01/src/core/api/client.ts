@@ -5,7 +5,7 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 import { STORE_API_KEY, COD_SERVER_URL as _COD_SERVER_URL } from "astro:env/server";
 const COD_SERVER_URL = _COD_SERVER_URL ?? "http://localhost:8787";
-import type { StoreConfig, Commune, Review } from "./types";
+import type { StoreConfig, Commune, Review, StorePagePublic } from "./types";
 
 function storeHeaders() {
   return {
@@ -91,6 +91,58 @@ export async function fetchLandingPageBySlug(slug: string): Promise<any | null> 
     });
     if (!res.ok) return null;
     const json = (await res.json()) as { data: any };
+    return json.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A published store page (Terms/Privacy/Refund/Shipping/custom), resolved to
+ * the store's own language server-side. Draft/archived/unknown slugs resolve
+ * to null — the page (`src/pages/pages/[slug].astro`) 404s on null, never a
+ * soft 200 with empty content.
+ */
+export async function fetchStorePage(slug: string): Promise<StorePagePublic | null> {
+  try {
+    const res = await fetch(`${COD_SERVER_URL}/store/pages/${encodeURIComponent(slug)}`, {
+      headers: storeHeaders(),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { data: StorePagePublic };
+    return json.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Which Meta pixel an order belongs to, and which browser event to fire.
+ *
+ * The thank-you page knows the order id and nothing about which landing page
+ * the shopper came from. It must not guess: landing-page attribution is
+ * best-effort server-side, so a slug read from the URL can name a pixel the
+ * server never recorded against this order — and Meta deduplicates per pixel,
+ * so a browser and a server that disagree produce two conversions in two ad
+ * accounts rather than one.
+ *
+ * Returns null on any failure, which fires no conversion event at all. Losing
+ * one browser event is recoverable; reporting it to the wrong ad account is
+ * not — the server mirror still arrives either way.
+ */
+export async function fetchOrderTracking(
+  orderId: string,
+): Promise<{ pixelId: string | null; event: "Purchase" | "Lead" | null } | null> {
+  if (!orderId) return null;
+  try {
+    const res = await fetch(
+      `${COD_SERVER_URL}/store/orders/${encodeURIComponent(orderId)}/tracking`,
+      { headers: storeHeaders() },
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      data: { pixelId: string | null; event: "Purchase" | "Lead" | null };
+    };
     return json.data ?? null;
   } catch {
     return null;
@@ -250,6 +302,30 @@ export async function verifyOtp(
  * `forwardedHeaders` carries the shopper's User-Agent / forwarding headers so
  * attribution captured by cod-server reflects the visitor, not this worker.
  */
+/**
+ * Re-price and re-check a basket against the live catalog.
+ *
+ * Read-only upstream: nothing is written and no stock is reserved, so a
+ * failure here is safe to swallow. The cart drawer keeps showing its
+ * optimistic view and checkout re-validates everything regardless.
+ */
+export async function validateCart(
+  body: { items: Array<Record<string, unknown>> }
+): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+  try {
+    const res = await fetch(`${COD_SERVER_URL}/store/cart/validate`, {
+      method: "POST",
+      headers: storeHeaders(),
+      body: JSON.stringify(body),
+    });
+    const json = (await res.json()) as any;
+    if (!res.ok) return { success: false, error: json.error ?? "Cart validation failed" };
+    return { success: true, data: json.data };
+  } catch (e: any) {
+    return { success: false, error: e.message ?? "Network error" };
+  }
+}
+
 export async function upsertAbandonedOrder(
   body: Record<string, unknown>,
   forwardedHeaders?: Record<string, string>

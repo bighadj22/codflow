@@ -1,8 +1,9 @@
 ---
 import { actions } from "astro:actions";
-import type { Product, ProductVariant, Offer } from "@/core/api/types";
+import type { Product, ProductVariant, Offer, StorePageLink } from "@/core/api/types";
 import type { StoreFrontContent } from "@/theme/config/content";
 import { Icon } from "astro-icon/components";
+import { resolveCheckoutConsent } from "@/theme/utils/checkout-consent";
 
 import VariantSelector from "./VariantSelector.astro";
 import OfferTiers from "./OfferTiers.astro";
@@ -28,9 +29,16 @@ interface Props {
   turnstileSiteKey?: string | null;
   /** Landing page attribution — rides the form like fbc/fbp (best-effort). */
   landingPageSlug?: string | null;
+  /** For the pre-order consent line — resolved by kind, never a hardcoded slug. */
+  pages?: StorePageLink[];
 }
 
-const { product, content, fieldErrors, serverError, basePrice, defaultVariant, cur, isRTL, offers, defaultVariantId, isOutOfStock = false, otpEnabled = false, turnstileEnabled = false, turnstileSiteKey = null, landingPageSlug = null } = Astro.props;
+const { product, content, fieldErrors, serverError, basePrice, defaultVariant, cur, isRTL, offers, defaultVariantId, isOutOfStock = false, otpEnabled = false, turnstileEnabled = false, turnstileSiteKey = null, landingPageSlug = null, pages = [] } = Astro.props;
+
+// Skipped entirely when either page is missing — never a dangling sentence
+// or a link to nowhere. See checkout-consent.ts for the split logic and its
+// own unit tests.
+const consentParts = resolveCheckoutConsent(content.checkoutConsentText, pages);
 
 const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ?? null;
 ---
@@ -39,7 +47,7 @@ const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ??
 <div class="card !border-none !shadow-lg sm:!border sm:!shadow-md" id="order-section">
   <!-- Card header -->
   <div
-    class="px-6 py-5 border-b border-black/[.03]"
+    class="px-4 sm:px-6 py-5 border-b border-black/[.03]"
     style="background: color-mix(in srgb, var(--clr-primary) 4%, white)"
   >
     <div class="flex items-center gap-3">
@@ -56,13 +64,16 @@ const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ??
   </div>
 
   {serverError && (
-    <div class="mx-6 mt-6 p-4 bg-red-50 border border-red-100 rounded-[1.25rem] text-[0.875rem] font-bold text-red-600 flex items-start gap-3">
+    <div class="mx-4 sm:mx-6 mt-6 p-4 bg-red-50 border border-red-100 rounded-[1.25rem] text-[0.875rem] font-bold text-red-600 flex items-start gap-3">
       <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 shrink-0" />
       <p>{serverError}</p>
     </div>
   )}
 
-  <form method="POST" action={actions.placeOrder} class="p-6 space-y-6">
+  <!-- Tighter gutter on phones: the product column already pads the page, so a
+       full 1.5rem here was indenting the fields twice and narrowing every input
+       by the width of a whole option label. -->
+  <form method="POST" action={actions.placeOrder} class="p-4 sm:p-6 space-y-6">
     <!-- Hidden product fields -->
     <input type="hidden" name="productId"          value={product.id} />
     <!-- Meta Pixel tracking (populated by JS at submit time) -->
@@ -74,6 +85,9 @@ const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ??
     <input type="hidden" name="variantLabel"       value="" id="variant-label-input" />
     <input type="hidden" name="offerId"            value="" id="offer-id-input" />
     <input type="hidden" name="variantSelections"  value="[]" id="variant-selections-input" />
+    {/* No `items` field here on purpose. This form orders the ONE product it
+        was rendered for; a basket checks out on /checkout, where the summary
+        the shopper is reading matches what gets submitted. */}
     {/* WhatsApp OTP proof — set by the OTP step script after verification */}
     <input type="hidden" name="otpToken" id="otp-token-input" value="" />
     {/* Landing page attribution — present only on landing pages */}
@@ -126,8 +140,30 @@ const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice ??
       {isOutOfStock ? content.outOfStock : content.formSubmit}
     </button>
 
+    {/* Add to cart, when the merchant has the cart on. Directly under the
+        confirm button and inside the card, so the two order actions read as
+        one decision instead of the secondary one floating loose below the
+        form. `-mt-2` closes the space-y-6 gap to a deliberate pairing. */}
+    <div class="-mt-2 empty:hidden">
+      <slot name="secondary-action" />
+    </div>
+
     <p class="text-center text-[0.8125rem] font-bold px-4" style="color: var(--clr-text-2)">
       {content.formConfirmNote}
     </p>
+
+    {consentParts && (
+      <p class="text-center text-[0.75rem] font-medium px-4" style="color: var(--clr-text-2)">
+        {consentParts.beforeTerms}
+        <a href={`/pages/${consentParts.termsPage.slug}`} class="underline underline-offset-2 hover:text-primary">
+          {consentParts.termsPage.title}
+        </a>
+        {consentParts.betweenLinks}
+        <a href={`/pages/${consentParts.refundPage.slug}`} class="underline underline-offset-2 hover:text-primary">
+          {consentParts.refundPage.title}
+        </a>
+        {consentParts.afterRefund}
+      </p>
+    )}
   </form>
 </div>

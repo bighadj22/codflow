@@ -74,8 +74,6 @@ export interface StoreFrontContent {
   footerAbout: string;
   footerQuickLinks: string;
   footerSupport: string;
-  footerShipping: string;
-  footerReturns: string;
   footerRights: string;
 
   // ── Order form ────────────────────────────────────────────────────────────
@@ -103,6 +101,17 @@ export interface StoreFrontContent {
   formNotesPlaceholder: string;
   formSubmit: string;
   formConfirmNote: string;
+  /**
+   * The pre-order consent line. Contains exactly two tokens, `{terms}` and
+   * `{refund}`, which OrderForm.astro replaces with real links to the
+   * store's Terms and Refund pages (resolved by kind, from `config.pages` —
+   * never a hardcoded slug). The whole sentence — word order included — is
+   * this key's job, because "I agree to X" then "and Y" bolted on afterward
+   * does not read naturally in every language this pack supports. The line
+   * is skipped entirely when either page is not configured, never rendered
+   * with a dead or missing link.
+   */
+  checkoutConsentText: string;
 
   // ── WhatsApp OTP verification ─────────────────────────────────────────────
   otpTitle: string;
@@ -229,6 +238,39 @@ export interface StoreFrontContent {
   navContact: string;
   thankYouPageTitle: string;
   defaultMetaDescription: string;
+
+  // ── Shopping cart ─────────────────────────────────────────────────────────
+  cartTitle: string;
+  cartItemsLabel: string;
+  cartEmptyTitle: string;
+  cartEmptyHint: string;
+  cartAddToCart: string;
+  cartAdded: string;
+  cartOpenLabel: string;
+  cartCloseLabel: string;
+  cartSubtotalLabel: string;
+  cartCheckoutCta: string;
+  cartRemoveLabel: string;
+  cartIncreaseLabel: string;
+  cartDecreaseLabel: string;
+  cartFreeDeliveryEarned: string;
+  cartFreeDeliveryRemaining: string;
+  cartLineUnavailable: string;
+  cartLineOutOfStock: string;
+  cartGiftLabel: string;
+  cartFixBeforeCheckout: string;
+  cartDeliveryNote: string;
+  cartUnavailableNotice: string;
+  cartContinueShopping: string;
+
+  // ── Checkout page ─────────────────────────────────────────────────────────
+  checkoutTitle: string;
+  checkoutSummaryTitle: string;
+  checkoutLoading: string;
+
+  // ── Related products ──────────────────────────────────────────────────────
+  relatedTitle: string;
+  relatedSub: string;
 
   // ── 404 page ──────────────────────────────────────────────────────────────
   notFoundTitle: string;

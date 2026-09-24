@@ -97,9 +97,10 @@ inventory.
 
 ```bash
 cd cod-astro/theme01
-npm run build && npm run deploy
+# COD_SERVER_URL comes from the repo-root .env; `deploy` builds, then injects it
+# as a Worker var and refuses a loopback value unless --force-local is passed.
+npm run deploy
 wrangler secret put STORE_API_KEY     # the key your backend issues
-wrangler secret put COD_SERVER_URL    # your deployed backend URL
 # optional:
 wrangler secret put MEDIA_DOMAIN      # media.yourdomain.com
 ```

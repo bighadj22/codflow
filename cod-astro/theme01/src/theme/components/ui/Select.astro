@@ -10,21 +10,32 @@ interface Props {
   noResultsText?: string;
   options: { value: string | number; label: string }[];
   required?: boolean;
+  /**
+   * Hides the label visually while leaving it for assistive tech. The trigger
+   * carries the name instead, which is what keeps the checkout short — the
+   * label still has to exist, because the trigger's text is replaced by the
+   * chosen option the moment one is picked.
+   */
+  hideLabel?: boolean;
   error?: string;
   /** When true: starts disabled with no options; populated later via window.__selectPopulate() */
   dynamic?: boolean;
 }
-const { id, name, label, placeholder, searchPlaceholder = "Search...", noResultsText = "No results found", options, required, error, dynamic } = Astro.props;
+const { id, name, label, placeholder, searchPlaceholder = "Search...", noResultsText = "No results found", options, required, error, dynamic, hideLabel } = Astro.props;
 ---
 
-<div class="custom-select-container relative w-full mb-4" data-id={id}>
-  <label for={id} class="form-label">{label} {required && <span class="text-red-400">*</span>}</label>
+<div class:list={["custom-select-container relative w-full", !hideLabel && "mb-4"]} data-id={id}>
+  <label for={id} class:list={[hideLabel ? "sr-only" : "form-label"]}>
+    {label} {required && <span class="text-red-400">*</span>}
+  </label>
 
   <div class="relative">
     <button
       type="button"
       id={`${id}-trigger`}
       disabled={dynamic || undefined}
+      aria-label={label}
+      aria-haspopup="listbox"
       class:list={[
         "w-full h-14 px-4 flex items-center justify-between text-start rounded-2xl border-2 active:scale-[0.99] transition-all focus:border-[var(--clr-primary)] outline-none",
         error && "border-red-200 bg-red-50",

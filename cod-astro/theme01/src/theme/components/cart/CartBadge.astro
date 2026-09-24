@@ -1,0 +1,43 @@
+---
+/**
+ * Header cart trigger.
+ *
+ * Ships hidden and is revealed by the controller, so a browser without JS or
+ * with storage blocked shows no control that cannot work. Once the cart is
+ * available the trigger stays put whether or not the basket has anything in
+ * it — an icon that materialises only after the first add reads as a glitch,
+ * and a cart nobody can see is a cart nobody uses.
+ *
+ * Only the count bubble comes and goes. The count is filled in by the client,
+ * so this markup is safe to serve from the edge cache. `aria-live` announces
+ * changes for screen readers without stealing focus.
+ */
+import type { StoreFrontContent } from "@/theme/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  content: StoreFrontContent;
+}
+
+const { content } = Astro.props;
+---
+
+<button
+  type="button"
+  id="cart-badge"
+  hidden
+  aria-label={content.cartOpenLabel}
+  aria-controls="cart-drawer"
+  aria-expanded="false"
+  class="relative inline-flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-150 active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2"
+  style="color: var(--clr-text); --tw-ring-color: var(--clr-primary)"
+>
+  <Icon name="heroicons:shopping-bag" class="h-6 w-6" />
+  <span
+    id="cart-badge-count"
+    hidden
+    aria-live="polite"
+    class="absolute -top-0.5 -end-0.5 min-w-[1.25rem] rounded-full px-1 text-[0.6875rem] font-black leading-5 text-white"
+    style="background: var(--clr-primary)">0</span
+  >
+</button>

@@ -1,12 +1,29 @@
 ---
 import StoreLayout from "@/theme/layouts/StoreLayout.astro";
 import { getStoreContext } from "@/theme/config/store";
+import { fetchOrderTracking } from "@/core/api/client";
 import { Icon } from "astro-icon/components";
-
-const { config, content, isRTL } = await getStoreContext();
 
 const orderNumber = Astro.url.searchParams.get("order") ?? "";
 const orderId = Astro.url.searchParams.get("oid") ?? "";
+
+// Which pixel this ORDER belongs to, and whether a browser event fires for it.
+//
+// This page knows the order id and nothing about which landing page the
+// shopper came from. It must not guess: attribution is best-effort server-side
+// (an unknown, draft or archived slug leaves an order unattributed), so a slug
+// read from the URL could name a pixel the server never recorded — and Meta
+// deduplicates per pixel, so a browser and a server that disagree write two
+// conversions into two ad accounts instead of merging them into one.
+//
+// Asked in parallel with the store config: this page is reached after the
+// money is banked, but there is no reason to make it serial.
+const [storeCtx, tracking] = await Promise.all([
+  getStoreContext(),
+  fetchOrderTracking(orderId),
+]);
+const { config, content, isRTL } = storeCtx;
+
 const total = Astro.url.searchParams.get("total");
 const totalFormatted = total
   ? parseInt(total).toLocaleString("ar-DZ")
@@ -16,17 +33,19 @@ if (!orderNumber) {
   return Astro.redirect("/");
 }
 
-const pixelId = config.pixelId ?? null;
-// At checkout stage, only "Purchase" (instant mode) and "Lead" (lead mode) fire on the thank-you page.
-// "Purchase_Confirmed" and "Purchase_Delivered" deliberately fire downstream via server CAPI only.
-const rawMode = config.conversionEvent ?? "Purchase";
-const checkoutEvent =
-  rawMode === "Purchase"
-    ? "Purchase"
-    : rawMode === "Lead"
-      ? "Lead"
-      : null;
+// The server returns the DECISION, not the configuration — `event` is already
+// null when the merchant's conversion fires further down the funnel. Nothing
+// here re-derives that rule.
+const pixelId = tracking?.pixelId ?? null;
+const checkoutEvent = tracking?.event ?? null;
 const totalNum = total ? parseInt(total) : null;
+
+// The head must load the pixel the sale is fired at, not the store's:
+// trackSingle at a pixel that was never fbq('init')-ed does nothing at all.
+// When the lookup failed, pixelId is null and no pixel loads here — a stray
+// PageView in the wrong ad account is the exact mixing this feature removes,
+// and the server mirror arrives either way.
+const pageConfig = { ...config, pixelId };
 
 const steps = [
   { icon: "heroicons:phone", title: content.step1Title, sub: content.step1Sub },
@@ -36,7 +55,7 @@ const steps = [
 ---
 
 <StoreLayout
-  config={config}
+  config={pageConfig}
   content={content}
   title={`${content.thankYouPageTitle} — ${config.name}`}
   noindex={true}
@@ -127,7 +146,11 @@ const steps = [
   if (!eventId) return;
   var total   = ${JSON.stringify(totalNum)};
   var eventName = ${JSON.stringify(checkoutEvent)};
-  fbq('track', eventName, total ? { value: total, currency: 'DZD' } : {}, { eventID: eventId });
+  // trackSingle, not track: this sale belongs to one pixel — the one the
+  // Conversions API will mirror it to. 'track' sends to every pixel on the
+  // page, so a second one initialised here later would silently report the
+  // same sale twice, into an ad account that has no server mirror behind it.
+  fbq('trackSingle', ${JSON.stringify(pixelId)}, eventName, total ? { value: total, currency: 'DZD' } : {}, { eventID: eventId });
 })();
   `} />
 )}
@@ -159,4 +182,12 @@ const steps = [
       // Non-critical — conversion tracking must never break the thank-you page
     }
   })();
+</script>
+
+<!-- The order is placed, so the basket that produced it is done. Cleared here
+     rather than at submit time: this page is only reached after the server
+     accepted the order, so a failed submission never loses the shopper's cart. -->
+<script>
+  import { clearCart } from "@/theme/scripts/cart";
+  clearCart();
 </script>

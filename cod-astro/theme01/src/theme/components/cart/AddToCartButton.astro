@@ -1,0 +1,66 @@
+---
+/**
+ * Add to cart.
+ *
+ * Deliberately SECONDARY styling. The direct order form stays the primary
+ * action, because the one step from ad click to submitted form is what
+ * converts for a merchant selling a single product. This button serves the
+ * shopper who wants more than one thing; it never competes with the form.
+ *
+ * The product data rides on the element as attributes so the client controller
+ * needs no inline script per product, which keeps the page CSP-friendly and
+ * the markup cacheable. These are the server-rendered DEFAULTS: on a product
+ * page the controller prefers the order form's hidden inputs, which `product.ts`
+ * rewrites as the shopper picks a variant, a tier and a quantity. They are what
+ * a listing or landing page — which has no order form — adds from.
+ */
+import type { Product, ProductVariant } from "@/core/api/types";
+import type { StoreFrontContent } from "@/theme/content";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  product: Product;
+  content: StoreFrontContent;
+  basePrice: number;
+  defaultVariant?: ProductVariant | null;
+  /** Thumbnail for the drawer row. */
+  image?: string | null;
+  class?: string;
+}
+
+const {
+  product,
+  content,
+  basePrice,
+  defaultVariant = null,
+  image = null,
+  class: className = "",
+} = Astro.props;
+
+// Same shape `product.ts` writes into `#variant-label-input`, so a line added
+// from a listing and the same line added from a product page read identically
+// in the drawer.
+const defaultVariantLabel = defaultVariant?.variations
+  ? Object.values(defaultVariant.variations as Record<string, string>).join(" / ")
+  : "";
+---
+
+<button
+  type="button"
+  data-add-to-cart
+  data-product-id={product.id}
+  data-product-name={product.name}
+  data-product-href={`/products/${product.handle}`}
+  data-unit-price={basePrice}
+  data-variant-id={defaultVariant?.id ?? ""}
+  data-variant-label={defaultVariantLabel}
+  data-image={image ?? ""}
+  class:list={[
+    "inline-flex h-[3.25rem] w-full items-center justify-center gap-2 rounded-[var(--radius-btn)] border-2 text-[0.9375rem] font-black transition-transform duration-150 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2",
+    className,
+  ]}
+  style="border-color: var(--clr-primary); color: var(--clr-primary); background: var(--clr-surface); --tw-ring-color: var(--clr-primary)"
+>
+  <Icon name="heroicons:shopping-bag" class="h-[1.125rem] w-[1.125rem]" />
+  <span>{content.cartAddToCart}</span>
+</button>

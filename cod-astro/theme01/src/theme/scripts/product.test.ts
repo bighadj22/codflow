@@ -424,7 +424,8 @@ describe("Commune loading race protection", () => {
       <select id="f-wilaya">
         <option value="">Select wilaya</option>
         <option value="16">Alger</option>
-        <option value="31">Oran</option>
+        <option value="98">Custom 98</option>
+        <option value="99">Custom 99</option>
       </select>
     `;
     document.body.appendChild(container);
@@ -473,48 +474,199 @@ describe("Commune loading race protection", () => {
     return { requests, populateCalls, selectWilaya };
   }
 
-  it("ignores a stale successful response", async () => {
+  it("resolves bundled wilaya communes synchronously without network request", () => {
     const { requests, populateCalls, selectWilaya } = startCommuneRequests();
 
     selectWilaya("16");
-    selectWilaya("31");
-    requests[1].deferred.resolve(communeResponse("Oran"));
-    await flushCommuneUpdates();
-    requests[0].deferred.resolve(communeResponse("Alger"));
-    await flushCommuneUpdates();
 
+    expect(requests).toHaveLength(0);
     expect(populateCalls).toHaveLength(1);
-    expect(populateCalls[0].map((option) => option.value)).toEqual(["Oran"]);
+    expect(populateCalls[0][0].value).toBe("c-16-001");
   });
 
-  it("ignores a stale error after the latest request succeeds", async () => {
+  it("ignores a stale successful response for unbundled wilayas", async () => {
     const { requests, populateCalls, selectWilaya } = startCommuneRequests();
 
-    selectWilaya("16");
-    selectWilaya("31");
-    requests[1].deferred.resolve(communeResponse("Oran"));
+    selectWilaya("98");
+    selectWilaya("99");
+    requests[1].deferred.resolve(communeResponse("Custom99"));
     await flushCommuneUpdates();
-    requests[0].deferred.reject(new Error("Alger request failed"));
+    requests[0].deferred.resolve(communeResponse("Custom98"));
     await flushCommuneUpdates();
 
     expect(populateCalls).toHaveLength(1);
-    expect(populateCalls[0].map((option) => option.value)).toEqual(["Oran"]);
+    expect(populateCalls[0].map((option) => option.value)).toEqual(["Custom99"]);
   });
 
-  it("accepts only the latest request in Alger to Oran to Alger", async () => {
+  it("ignores a stale error after the latest request succeeds for unbundled wilayas", async () => {
     const { requests, populateCalls, selectWilaya } = startCommuneRequests();
 
-    selectWilaya("16");
-    selectWilaya("31");
-    selectWilaya("16");
-    requests[2].deferred.resolve(communeResponse("latest-Alger"));
+    selectWilaya("98");
+    selectWilaya("99");
+    requests[1].deferred.resolve(communeResponse("Custom99"));
     await flushCommuneUpdates();
-    requests[0].deferred.resolve(communeResponse("stale-Alger"));
-    await flushCommuneUpdates();
-    requests[1].deferred.resolve(communeResponse("stale-Oran"));
+    requests[0].deferred.reject(new Error("Custom98 request failed"));
     await flushCommuneUpdates();
 
     expect(populateCalls).toHaveLength(1);
-    expect(populateCalls[0].map((option) => option.value)).toEqual(["latest-Alger"]);
+    expect(populateCalls[0].map((option) => option.value)).toEqual(["Custom99"]);
+  });
+
+  it("accepts only the latest request in Wilaya 98 to 99 to 98", async () => {
+    const { requests, populateCalls, selectWilaya } = startCommuneRequests();
+
+    selectWilaya("98");
+    selectWilaya("99");
+    selectWilaya("98");
+    requests[2].deferred.resolve(communeResponse("latest-98"));
+    await flushCommuneUpdates();
+    requests[0].deferred.resolve(communeResponse("stale-98"));
+    await flushCommuneUpdates();
+    requests[1].deferred.resolve(communeResponse("stale-99"));
+    await flushCommuneUpdates();
+
+    expect(populateCalls).toHaveLength(1);
+    expect(populateCalls[0].map((option) => option.value)).toEqual(["latest-98"]);
+  });
+});
+
+/**
+ * Gallery — dots, thumbnails and the scroll they drive.
+ *
+ * happy-dom has no layout engine, so the track's width and `scrollTo` are
+ * stubbed: what is under test is the arithmetic and the wiring, not the
+ * browser's scrolling.
+ */
+describe("Gallery", () => {
+  const TRACK_WIDTH = 400;
+  let container: HTMLElement;
+  let scrolls: Array<{ left: number; behavior?: string }>;
+
+  function mountGallery(options: { images?: number; rtl?: boolean } = {}) {
+    const images = options.images ?? 3;
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    container.innerHTML = `
+      <div id="page-data" data-variants="[]" data-base-price="1000" data-cur="DA"
+           data-is-rtl="${options.rtl ? 1 : 0}" data-offers="[]"></div>
+      <div id="gallery">
+        ${Array.from({ length: images }, (_, i) => `<div class="gallery-slide" data-image-id="img-${i}"></div>`).join("")}
+      </div>
+      <div id="gallery-dots">
+        ${Array.from({ length: images }, (_, i) => `<button class="gallery-dot" data-index="${i}"><span></span></button>`).join("")}
+      </div>
+      ${Array.from({ length: images }, (_, i) => `<button class="gallery-thumb" data-index="${i}"></button>`).join("")}
+    `;
+
+    const track = document.getElementById("gallery") as HTMLElement;
+    Object.defineProperty(track, "clientWidth", { value: TRACK_WIDTH, configurable: true });
+    scrolls = [];
+    track.scrollTo = ((opts: ScrollToOptions) => {
+      scrolls.push({ left: opts.left as number, behavior: opts.behavior });
+      Object.defineProperty(track, "scrollLeft", { value: opts.left, configurable: true });
+    }) as HTMLElement["scrollTo"];
+    if (options.rtl) track.style.direction = "rtl";
+
+    initProductPage();
+    return track;
+  }
+
+  afterEach(() => {
+    container?.parentNode?.removeChild(container);
+  });
+
+  const dots = () => [...document.querySelectorAll<HTMLButtonElement>(".gallery-dot")];
+  const thumbs = () => [...document.querySelectorAll<HTMLButtonElement>(".gallery-thumb")];
+  const pip = (i: number) => dots()[i].firstElementChild as HTMLElement;
+
+  it("scrolls to an image when its dot is tapped", () => {
+    mountGallery();
+    dots()[2].click();
+    expect(scrolls).toEqual([{ left: 2 * TRACK_WIDTH, behavior: "smooth" }]);
+  });
+
+  it("scrolls to an image when its thumbnail is clicked", () => {
+    mountGallery();
+    thumbs()[1].click();
+    expect(scrolls).toEqual([{ left: 1 * TRACK_WIDTH, behavior: "smooth" }]);
+  });
+
+  it("marks the dot the shopper sees, not its tap target", () => {
+    mountGallery();
+    dots()[1].click();
+
+    expect(pip(1).style.width).toBe("1.25rem");
+    expect(pip(1).style.opacity).toBe("1");
+    expect(pip(0).style.width).toBe("0.5rem");
+    expect(pip(0).style.opacity).toBe("0.3");
+    // The 44px tap target keeps its size.
+    expect(dots()[1].style.width).toBe("");
+  });
+
+  it("marks the matching thumbnail active", () => {
+    mountGallery();
+    dots()[2].click();
+
+    expect(thumbs()[2].style.borderColor).toBe("var(--clr-primary)");
+    expect(thumbs()[0].style.borderColor).toBe("transparent");
+  });
+
+  it("scrolls the other way when the track is right-to-left", () => {
+    mountGallery({ rtl: true });
+    dots()[2].click();
+    expect(scrolls).toEqual([{ left: -2 * TRACK_WIDTH, behavior: "smooth" }]);
+  });
+});
+
+/**
+ * Regression: the shipping-rates bridge used to be delivered synchronously
+ * during initProductPage, while `allOffers` and the other later `const`
+ * bindings were still in the temporal dead zone. The resulting
+ * ReferenceError killed the whole init — the wilaya change listener in
+ * bindDeliveryFields was never attached, so communes never loaded.
+ */
+describe("Shipping rates bridge", () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    container?.parentNode?.removeChild(container);
+  });
+
+  it("initializes cleanly when rates are already on the page", async () => {
+    container.innerHTML = `
+      <div id="page-data"
+        data-variants="[]"
+        data-base-price="2500"
+        data-cur="DA"
+        data-is-rtl="0"
+        data-shipping-calc="Calculated at checkout"
+        data-shipping-free="Free"
+        data-commune-placeholder="Commune"
+        data-commune-loading="Loading"
+        data-commune-disabled="Pick a wilaya"
+        data-offers="[]"></div>
+      <div id="shipping-rates-data" data-rates='{"16":{"home":400,"stopDesk":250}}'></div>
+      <div id="summary-shipping"></div>
+      <div id="summary-total"></div>
+      <input id="f-wilaya" value="16" />
+    `;
+
+    let initError: unknown = null;
+    try {
+      initProductPage();
+    } catch (e) {
+      initError = e;
+    }
+    expect(initError).toBeNull();
+
+    // The deferred first delivery re-prices against the bridge's rates for
+    // the pre-selected wilaya (16 → home 400).
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.getElementById("summary-shipping")!.textContent).toContain("400");
   });
 });

@@ -1,16 +1,36 @@
 import { defineConfig, envField, passthroughImageService } from "astro/config";
-import cloudflare from "@astrojs/cloudflare";
 import tailwindcss from "@tailwindcss/vite";
 import compress from "@playform/compress";
 import icon from "astro-icon";
+
+const isVercel = process.env.DEPLOY_TARGET === "vercel";
+const adapter = isVercel
+  ? (await import("@astrojs/vercel")).default()
+  : (await import("@astrojs/cloudflare")).default({
+      imageService: "passthrough",
+    });
+
+const cacheProvider = isVercel
+  ? (await import("@astrojs/vercel/cache")).cacheVercel()
+  : (await import("@astrojs/cloudflare/cache")).cacheCloudflare();
 
 export default defineConfig({
   output: "server",
   compressHTML: true,
   session: false,
-  adapter: cloudflare({
-    imageService: "passthrough",
-  }),
+  adapter,
+  cache: {
+    provider: cacheProvider,
+  },
+  routeRules: {
+    "/": { maxAge: 60, swr: 3600, tags: ["home"] },
+    "/products": { maxAge: 60, swr: 3600, tags: ["products"] },
+    "/products/[slug]": { maxAge: 60, swr: 86400, tags: ["products"] },
+    "/category/[slug]": { maxAge: 60, swr: 86400, tags: ["categories"] },
+    "/lp/[slug]": { maxAge: 60, swr: 86400, tags: ["landing-pages"] },
+    "/pages/[slug]": { maxAge: 3600, swr: 604800, tags: ["legal-pages"] },
+    "/api/communes/[wilayaId]": { maxAge: 31536000, swr: 31536000, tags: ["communes"] },
+  },
   env: {
     schema: {
       STORE_API_KEY: envField.string({
@@ -69,6 +89,10 @@ export default defineConfig({
           "chat-bubble-left-ellipsis", // OTP step
           "star",              // reviews header
           "home-modern",       // delivery: home
+          "x-mark",            // cart drawer close button
+          "minus",             // cart line quantity decrease
+          "plus",              // cart line quantity increase
+          "trash",             // cart line remove button
         ],
       },
     }),

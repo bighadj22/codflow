@@ -33,12 +33,16 @@ export const DEFAULT_CONFIG: StoreConfig = {
   ogImage: null,
   announcementBar: null,
   reviewsEnabled: true,
+  cartEnabled: false,
+  freeShippingThreshold: null,
   otpEnabled: false,
   turnstileEnabled: false,
   turnstileSiteKey: null,
   status: "active",
   pixelId: null,
   conversionEvent: null,
+  pages: [],
+  legalContact: null,
 };
 
 export interface StoreContext {

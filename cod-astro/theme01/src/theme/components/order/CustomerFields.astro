@@ -10,89 +10,103 @@ interface Props {
 }
 
 const { content, fieldErrors, isRTL } = Astro.props;
+
+// A middle dot rather than an em dash: the option sits in a panel only as wide
+// as its trigger, and the dash cost enough room to wrap the longer wilaya names
+// onto a second line.
+const wilayaOptions = WILAYAS.map((w) => ({
+  value: w.id,
+  label: `${w.id.toString().padStart(2, "0")} · ${isRTL ? w.nameAr : w.name}`,
+}));
 ---
 
-<div class="space-y-5 pt-2">
+<div class="space-y-4 pt-2">
   <div class="flex items-center gap-3 py-2">
     <div class="h-px flex-1 bg-black/[.05]"></div>
     <span class="text-[0.6875rem] font-black uppercase tracking-[0.2em]" style="color: var(--clr-text)">{content.formDeliverySection}</span>
     <div class="h-px flex-1 bg-black/[.05]"></div>
   </div>
 
-  <!-- Name -->
-  <div>
-    <label for="f-name" class="form-label">
-      {content.formNameLabel} <span class="text-red-400">*</span>
-    </label>
-    <input
-      id="f-name" type="text" name="customerName"
-      required autocomplete="name"
-      placeholder={content.formNamePlaceholder}
-      class:list={["form-input", fieldErrors.customerName && "error"]}
-    />
-    {fieldErrors.customerName && (
-      <p class="text-[0.75rem] text-red-500 font-bold mt-2 ps-1">{fieldErrors.customerName[0]}</p>
-    )}
+  <!-- Name + Phone — paired so the two shortest answers cost one row, not two.
+       Each label is kept for assistive tech and shown inside the field, which is
+       what removes roughly a third of the scroll to the submit button. -->
+  <div class="grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">
+    <div>
+      <label for="f-name" class="sr-only">{content.formNameLabel}</label>
+      <input
+        id="f-name" type="text" name="customerName"
+        required autocomplete="name"
+        placeholder={`${content.formNameLabel} *`}
+        class:list={["form-input", fieldErrors.customerName && "error"]}
+      />
+      {fieldErrors.customerName && (
+        <p class="text-[0.75rem] text-red-500 font-bold mt-2 ps-1">{fieldErrors.customerName[0]}</p>
+      )}
+    </div>
+
+    <div>
+      <label for="f-phone" class="sr-only">{content.formPhoneLabel}</label>
+      <!-- No `dir="ltr"`: it would left-align the Arabic placeholder and break
+           the row. Digits are laid out left-to-right by the bidi algorithm on
+           their own, so the number still reads correctly as it is typed. -->
+      <input
+        id="f-phone" type="tel" name="phone"
+        required autocomplete="tel" inputmode="tel"
+        placeholder={`${content.formPhoneLabel} *`}
+        class:list={["form-input", fieldErrors.phone && "error"]}
+      />
+      {fieldErrors.phone && (
+        <p class="text-[0.75rem] text-red-500 font-bold mt-2 ps-1">{fieldErrors.phone[0]}</p>
+      )}
+    </div>
   </div>
 
-  <!-- Phone -->
-  <div>
-    <label for="f-phone" class="form-label">
-      {content.formPhoneLabel} <span class="text-red-400">*</span>
-    </label>
-    <input
-      id="f-phone" type="tel" name="phone"
-      required autocomplete="tel" inputmode="tel"
-      placeholder={content.formPhonePlaceholder}
-      dir="ltr"
-      class:list={["form-input", fieldErrors.phone && "error"]}
-    />
-    {fieldErrors.phone && (
-      <p class="text-[0.75rem] text-red-500 font-bold mt-2 ps-1">{fieldErrors.phone[0]}</p>
-    )}
+  <!-- Wilaya + Commune — paired only from `sm` up. Each opens a searchable list
+       whose panel is as wide as its trigger, and half a phone is not enough for
+       a wilaya name beside its code and the selected-check: the longer names
+       wrapped onto a second line. Name and phone above stay paired on phones
+       because their answers are short. -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+      <Select
+        id="f-wilaya"
+        name="wilayaId"
+        label={content.formWilayaLabel}
+        hideLabel={true}
+        placeholder={`${content.formWilayaLabel} *`}
+        searchPlaceholder={content.searchLabel}
+        noResultsText={content.noResultsLabel}
+        required={true}
+        error={fieldErrors.wilayaId?.[0]}
+        options={wilayaOptions}
+      />
+      {fieldErrors.wilayaId && (
+        <p class="text-[0.75rem] text-red-500 font-bold mt-2 ps-1">{fieldErrors.wilayaId[0]}</p>
+      )}
+    </div>
+
+    <div>
+      <Select
+        id="f-commune"
+        name="communeId"
+        label={content.formCommuneLabel}
+        hideLabel={true}
+        placeholder={`${content.formCommuneLabel} *`}
+        searchPlaceholder={content.searchLabel}
+        noResultsText={content.noResultsLabel}
+        required={true}
+        error={fieldErrors.communeId?.[0]}
+        options={[]}
+        dynamic={true}
+      />
+      {fieldErrors.communeId && (
+        <p class="text-[0.75rem] text-red-500 font-bold mt-2 ps-1">{fieldErrors.communeId[0]}</p>
+      )}
+    </div>
   </div>
 
-  <!-- Wilaya - ALWAYS SHOWN -->
-  <div class="mb-1">
-    <Select
-      id="f-wilaya"
-      name="wilayaId"
-      label={content.formWilayaLabel}
-      placeholder={content.formWilayaPlaceholder}
-      searchPlaceholder={content.searchLabel}
-      noResultsText={content.noResultsLabel}
-      required={true}
-      error={fieldErrors.wilayaId?.[0]}
-      options={WILAYAS.map(w => ({
-        value: w.id,
-        label: `${w.id.toString().padStart(2, "0")} — ${isRTL ? w.nameAr : w.name}`
-      }))}
-    />
-    {fieldErrors.wilayaId && (
-      <p class="text-[0.75rem] text-red-500 font-bold mt-2 ps-1">{fieldErrors.wilayaId[0]}</p>
-    )}
-  </div>
-
-  <!-- Commune - ALWAYS SHOWN -->
-  <div class="mb-1">
-    <Select
-      id="f-commune"
-      name="communeId"
-      label={content.formCommuneLabel}
-      placeholder={content.formCommuneDisabled}
-      searchPlaceholder={content.searchLabel}
-      noResultsText={content.noResultsLabel}
-      required={true}
-      error={fieldErrors.communeId?.[0]}
-      options={[]}
-      dynamic={true}
-    />
-    {fieldErrors.communeId && (
-      <p class="text-[0.75rem] text-red-500 font-bold mt-2 ps-1">{fieldErrors.communeId[0]}</p>
-    )}
-  </div>
-
-  <!-- Delivery type -->
+  <!-- Delivery type — the one group that keeps a visible label, because the two
+       options are a choice the shopper has to notice, not a field to fill. -->
   <div>
     <fieldset>
       <legend class="form-label">{content.formDeliveryLabel}</legend>
@@ -122,7 +136,7 @@ const { content, fieldErrors, isRTL } = Astro.props;
 
   <!-- Address - CONDITIONAL: Only shown for home delivery -->
   <div id="address-field-container">
-    <label for="f-address" class="form-label">{content.formAddressLabel}</label>
+    <label for="f-address" class="sr-only">{content.formAddressLabel}</label>
     <input
       id="f-address" type="text" name="address"
       autocomplete="street-address"
@@ -133,7 +147,7 @@ const { content, fieldErrors, isRTL } = Astro.props;
 
   <!-- Notes -->
   <div>
-    <label for="f-notes" class="form-label">{content.formNotesLabel}</label>
+    <label for="f-notes" class="sr-only">{content.formNotesLabel}</label>
     <textarea
       id="f-notes" name="notes" rows="2"
       placeholder={content.formNotesPlaceholder}

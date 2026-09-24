@@ -50,6 +50,19 @@ export const ProductSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().nullable(),
+  /**
+   * Rich description contract (ADR 0002): states how `description` is stored.
+   * Absent = "text" (legacy parity). Descriptions with this value are sanitised before
+   * storage (cod-shared/lib/rich-text.ts) -- this theme renders sanitised HTML as-is via
+   * set:html and never re-parses or sanitises it.
+   */
+  descriptionFormat: z.enum(["text", "html"]).optional(),
+  /**
+   * Storefront-safe plain text for `description` (tags stripped, entities decoded),
+   * produced by cod-shared/queries/products.ts. For metadata/JSON-LD only; never
+   * render as HTML.
+   */
+  descriptionPlain: z.string().nullable().optional(),
   handle: z.string(),
   price: z.number(),
   compareAtPrice: z.number().nullable(),
