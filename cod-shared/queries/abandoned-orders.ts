@@ -7,6 +7,16 @@ import { abandonedOrders, wilayas, communes } from "../db/schema";
 import type { AppDb } from "../db/client";
 import { safeLikeTerm } from "./search";
 
+/** One line of an abandoned basket, as the storefront captured it. */
+export interface AbandonedItem {
+  productId: string;
+  productName: string;
+  variantId?: string | null;
+  variantLabel?: string | null;
+  quantity: number;
+  unitPrice: number;
+}
+
 export interface UpsertAbandonedOrderData {
   sessionId: string;
   customerName: string;
@@ -20,11 +30,103 @@ export interface UpsertAbandonedOrderData {
   variantId?: string;
   variantLabel?: string;
   price?: number;
+  /**
+   * The whole basket, when the shopper abandoned a cart checkout. Absent for a
+   * single-product checkout, which keeps using the flat fields above.
+   */
+  items?: AbandonedItem[];
   deliveryType?: (typeof abandonedOrders.$inferSelect)["deliveryType"];
   fbc?: string;
   fbp?: string;
   ipAddress?: string;
   userAgent?: string;
+}
+
+/** The columns a record stores for what was in the checkout. */
+export interface AbandonedProductColumns {
+  productId: string | null;
+  productName: string | null;
+  variantId: string | null;
+  variantLabel: string | null;
+  price: number | null;
+  itemsJson: string | null;
+  itemCount: number | null;
+}
+
+/**
+ * Flatten what the shopper was buying into the columns the record stores.
+ *
+ * Pure, and deliberately the only place the two shapes meet.
+ *
+ * With no basket this returns the caller's flat fields untouched, so a
+ * single-product checkout is stored exactly as it was before carts existed.
+ *
+ * With a basket, the flat columns are filled from the FIRST line. That is not
+ * cosmetic: the dashboard's product column, the customer search and the
+ * lost-revenue sum all read those columns, and filling them is what let this
+ * change ship without rewriting any of them. `price` follows its documented
+ * meaning — cart value at abandonment — so for a basket it is the subtotal,
+ * not one line's unit price.
+ */
+export function deriveAbandonedProductColumns(
+  data: Pick<
+    UpsertAbandonedOrderData,
+    "items" | "productId" | "productName" | "variantId" | "variantLabel" | "price"
+  >,
+): AbandonedProductColumns {
+  const items = data.items;
+
+  if (!items || items.length === 0) {
+    return {
+      productId: data.productId ?? null,
+      productName: data.productName ?? null,
+      variantId: data.variantId ?? null,
+      variantLabel: data.variantLabel ?? null,
+      price: data.price ?? null,
+      itemsJson: null,
+      itemCount: null,
+    };
+  }
+
+  const first = items[0];
+  const subtotal = items.reduce((total, item) => total + item.unitPrice * item.quantity, 0);
+
+  return {
+    productId: first.productId,
+    productName: first.productName,
+    variantId: first.variantId ?? null,
+    variantLabel: first.variantLabel ?? null,
+    price: subtotal,
+    itemsJson: JSON.stringify(items),
+    itemCount: items.length,
+  };
+}
+
+/**
+ * Read a stored basket back.
+ *
+ * Anything unreadable resolves to "no basket" rather than throwing: a record
+ * written by a future shape, or hand-edited, must still list in the dashboard
+ * with its flat product column intact.
+ */
+export function parseAbandonedItems(raw: string | null | undefined): AbandonedItem[] | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    const items = parsed.filter(
+      (entry): entry is AbandonedItem =>
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof (entry as AbandonedItem).productId === "string" &&
+        typeof (entry as AbandonedItem).productName === "string" &&
+        Number.isFinite((entry as AbandonedItem).quantity) &&
+        Number.isFinite((entry as AbandonedItem).unitPrice),
+    );
+    return items.length > 0 ? items : null;
+  } catch {
+    return null;
+  }
 }
 
 export interface AbandonedOrderFilters {
@@ -40,6 +142,7 @@ export async function upsertAbandonedOrder(
 ): Promise<string> {
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
+  const product = deriveAbandonedProductColumns(data);
 
   await db
     .insert(abandonedOrders)
@@ -52,11 +155,7 @@ export async function upsertAbandonedOrder(
       communeId: data.communeId ?? null,
       wilayaName: data.wilayaName ?? null,
       communeName: data.communeName ?? null,
-      productId: data.productId ?? null,
-      productName: data.productName ?? null,
-      variantId: data.variantId ?? null,
-      variantLabel: data.variantLabel ?? null,
-      price: data.price ?? null,
+      ...product,
       deliveryType: data.deliveryType ?? null,
       fbc: data.fbc ?? null,
       fbp: data.fbp ?? null,
@@ -75,11 +174,7 @@ export async function upsertAbandonedOrder(
         communeId: data.communeId ?? null,
         wilayaName: data.wilayaName ?? null,
         communeName: data.communeName ?? null,
-        productId: data.productId ?? null,
-        productName: data.productName ?? null,
-        variantId: data.variantId ?? null,
-        variantLabel: data.variantLabel ?? null,
-        price: data.price ?? null,
+        ...product,
         deliveryType: data.deliveryType ?? null,
         fbc: data.fbc ?? null,
         fbp: data.fbp ?? null,
@@ -177,7 +272,14 @@ export async function listAbandonedOrders(
     db.select({ count: sql<number>`count(*)` }).from(abandonedOrders).where(where),
   ]);
 
-  return { rows, total: countRows[0]?.count ?? 0 };
+  // The basket is parsed here rather than in the dashboard: the API's job is to
+  // hand back a basket, not a string the client has to know how to decode.
+  const withItems = rows.map(({ itemsJson, ...row }) => ({
+    ...row,
+    items: parseAbandonedItems(itemsJson),
+  }));
+
+  return { rows: withItems, total: countRows[0]?.count ?? 0 };
 }
 
 export async function getAbandonedOrderStats(db: AppDb) {

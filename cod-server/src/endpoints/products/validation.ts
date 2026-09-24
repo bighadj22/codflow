@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RICH_TEXT_MAX_CHARS } from "../../../../cod-shared/lib/rich-text";
 
 const variantOptionSchema = z.object({
   name: z.string().min(1),
@@ -8,9 +9,13 @@ const variantOptionSchema = z.object({
   })).min(1),
 });
 
+// Same value the editor counts against — see RICH_TEXT_MAX_CHARS.
+const DESCRIPTION_MAX_CHARS = RICH_TEXT_MAX_CHARS;
+
 export const createProductSchema = z.object({
   name: z.string().min(1),
-  description: z.string().optional(),
+  description: z.string().max(DESCRIPTION_MAX_CHARS, "Description must be at most 100,000 characters").optional(),
+  descriptionFormat: z.enum(["text", "html"]).optional(),
   handle: z.string().optional(), // auto-generated if not provided
   price: z.number().int().min(0),
   compareAtPrice: z.number().int().min(0).optional(),
@@ -42,7 +47,8 @@ export const createProductSchema = z.object({
 
 export const updateProductSchema = z.object({
   name: z.string().min(1).optional(),
-  description: z.string().optional(),
+  description: z.string().max(DESCRIPTION_MAX_CHARS, "Description must be at most 100,000 characters").optional(),
+  descriptionFormat: z.enum(["text", "html"]).optional(),
   handle: z.string().optional(),
   price: z.number().int().min(0).optional(),
   compareAtPrice: z.number().int().min(0).optional().nullable(),

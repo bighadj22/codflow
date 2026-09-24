@@ -45,6 +45,11 @@ function storeRow(overrides: Record<string, any> = {}) {
     ogImage: "https://cdn.example.com/og.png",
     announcementBar: "Free delivery on orders above 3000 دج",
     reviewsEnabled: true,
+    cartEnabled: false,
+    // Delivery pricing settings default to today's behaviour: no free-delivery
+    // threshold, and a mixed basket pays the highest applicable rate.
+    freeShippingThreshold: null,
+    cartShippingMode: "highest" as const,
     status: "active" as const,
     storeApiKey: "sk_store_abc123",
     createdAt: NOW,
@@ -64,6 +69,7 @@ function pixelConfigRow(overrides: Record<string, any> = {}) {
     conversionEvent: "Purchase" as const,
     testMode: false,
     enabled: true,
+    perPageTrackingEnabled: false,
     createdAt: NOW,
     updatedAt: NOW,
     ...overrides,
@@ -137,6 +143,75 @@ describe("Stores routes (OpenAPIHono)", () => {
       expect(res.status).toBe(200);
       const body: any = await res.json();
       expect(body.data.name).toBe("Updated Shop");
+    });
+
+    it("passes cartEnabled through the route's own validation into the query layer", async () => {
+      // Regression: the PATCH route validates the request body against its own
+      // `body` schema BEFORE the handler runs (OpenAPIHono). A schema here that
+      // has drifted from validation.ts silently drops any field it does not
+      // know — not a 400, just gone — so the save looks successful and does
+      // nothing. This asserts the field reaches queries.updateStore, not just
+      // that the response contains it.
+      vi.mocked(queries.getStore).mockResolvedValue(storeRow());
+      vi.mocked(queries.updateStore).mockResolvedValue(storeRow({ cartEnabled: true }));
+
+      const res = await app.request("/api/stores/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cartEnabled: true }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(queries.updateStore).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ cartEnabled: true }),
+      );
+    });
+
+    it("passes freeShippingThreshold and cartShippingMode through to the query layer", async () => {
+      vi.mocked(queries.getStore).mockResolvedValue(storeRow());
+      vi.mocked(queries.updateStore).mockResolvedValue(
+        storeRow({ freeShippingThreshold: 5000, cartShippingMode: "default_profile" }),
+      );
+
+      const res = await app.request("/api/stores/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ freeShippingThreshold: 5000, cartShippingMode: "default_profile" }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(queries.updateStore).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({
+          freeShippingThreshold: 5000,
+          cartShippingMode: "default_profile",
+        }),
+      );
+    });
+
+    it("passes domain through to the query layer", async () => {
+      // Same class of bug, pre-existing: domain was writable per
+      // validation.ts but absent from the route's own copy.
+      vi.mocked(queries.getStore).mockResolvedValue(storeRow());
+      vi.mocked(queries.updateStore).mockResolvedValue(
+        storeRow({ domain: "shop.example.com" }),
+      );
+
+      const res = await app.request("/api/stores/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: "shop.example.com" }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(queries.updateStore).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ domain: "shop.example.com" }),
+      );
     });
 
     it("returns 400 for invalid hex color", async () => {

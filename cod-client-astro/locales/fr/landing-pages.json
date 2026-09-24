@@ -79,5 +79,29 @@
     "slug_apply": "Appliquer",
     "slug_invalid": "3-60 caractères : minuscules, chiffres, tirets",
     "gap_hint": "Espace entre les images empilées"
+  },
+  "tracking": {
+    "card_title": "Suivi",
+    "card_store_hint": "Cette page envoie ses données au pixel de la boutique, comme toutes les autres.",
+    "card_pixel": "Pixel",
+    "card_event": "Conversion",
+    "card_add": "Donner un pixel à cette page",
+    "card_edit": "Modifier le suivi",
+    "badge_store": "Pixel boutique",
+    "badge_own": "Pixel propre",
+    "badge_own_test": "Pixel propre · test",
+    "badge_inactive": "Inactif",
+    "inactive_tracking_off": "Le suivi Meta est désactivé pour toute la boutique, rien n'est envoyé.",
+    "inactive_master_switch": "Activez les pixels par page de destination dans Paramètres → Suivi pour que cette page utilise le sien.",
+    "inactive_switched_off": "Le pixel propre à cette page est désactivé, elle envoie donc au pixel de la boutique.",
+    "dialog_title": "Le pixel Meta de cette page",
+    "dialog_description": "Les visiteurs, les commandes et les ventes de cette page sont envoyés au pixel ci-dessous au lieu du pixel de la boutique — jamais aux deux.",
+    "pixel_id_hint": "L'identifiant du pixel Meta du compte publicitaire qui diffuse cette page.",
+    "token_hint": "Un jeton Conversions API du même compte publicitaire. Enregistré une fois et jamais réaffiché.",
+    "event_description": "Le moment qui compte comme conversion pour les campagnes de cette page. Il peut différer de celui de la boutique.",
+    "use_store_pixel": "Utiliser le pixel de la boutique",
+    "required": "est obligatoire",
+    "last_event_sent": "Dernier événement envoyé",
+    "last_event_failed": "Dernier événement refusé par Meta"
   }
 }

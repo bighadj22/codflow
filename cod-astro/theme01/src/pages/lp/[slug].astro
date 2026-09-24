@@ -66,12 +66,19 @@ const images: Array<{
   height: number | null;
 }> = lp.images ?? [];
 const firstImage = images[0]?.src ?? "";
+// Which pixel THIS page reports to — resolved by cod-server inside the batch
+// that loaded the page, so the head and the events below name the same pixel
+// the Conversions API will mirror to. The theme never works this out itself:
+// a browser that picks a different pixel from the server does not lose a
+// conversion, it creates a second wrong one in a second ad account.
+const pageConfig = lp.tracking ? { ...config, pixelId: lp.tracking.pixelId } : config;
+
 const metaTitle = lp.metaTitle || (product ? `${product.name} — ${config.name}` : config.name);
 const metaDescription = lp.metaDescription || config.metaDescription || undefined;
 ---
 
 <StoreLayout
-  config={config}
+  config={pageConfig}
   content={content}
   title={metaTitle}
   description={metaDescription}
@@ -108,7 +115,7 @@ const metaDescription = lp.metaDescription || config.metaDescription || undefine
         data-out-of-stock-label={content.outOfStock}
         data-qty-max-stock={content.qtyMaxStock}
         data-inventory={String(product.inventory)}
-        data-pixel-id={config.pixelId ?? ""}
+        data-pixel-id={pageConfig.pixelId ?? ""}
         data-phone-invalid={content.formPhoneInvalid}
         data-product-id={product.id}
         data-product-name={product.name}
@@ -157,6 +164,7 @@ const metaDescription = lp.metaDescription || config.metaDescription || undefine
             otpEnabled={config.otpEnabled === true}
             turnstileEnabled={config.turnstileEnabled === true}
             turnstileSiteKey={config.turnstileSiteKey ?? null}
+            pages={config.pages ?? []}
             landingPageSlug={lp.slug}
           />
         </div>

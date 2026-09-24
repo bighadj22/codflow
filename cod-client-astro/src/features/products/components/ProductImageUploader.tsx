@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2, UploadCloud, X } from "lucide-react";
-import { getPresignedUploadUrl, reorderProductImages } from "@/features/products/api";
+import { reorderProductImages } from "@/features/products/api";
+import { ACCEPTED_IMAGE_TYPES, MAX_UPLOAD_MB, partitionUploadFiles } from "@/features/uploads/api";
+import { useImageUpload } from "@/features/uploads/useImageUpload";
 import type { ProductImage } from "@/features/products/types";
 import { useT } from "@/i18n/react";
 import { notify } from "@/lib/notify";
@@ -10,9 +12,6 @@ export interface PendingImage {
   key: string;
   url: string;
 }
-
-const ACCEPTED = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
-const MAX_MB = 10;
 
 function swapAt<T>(arr: T[], i: number, j: number): T[] {
   const next = [...arr];
@@ -40,8 +39,9 @@ export function ProductImageUploader({ existingImages, pendingImages, productId,
   const common = useT("common");
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [reordering, setReordering] = useState(false);
+  const { upload, progress } = useImageUpload("products");
+  const uploading = progress !== null;
 
   const allImages: DisplayImage[] = [
     ...existingImages.map((img) => ({ id: img.id, url: img.src, isExisting: true as const })),
@@ -50,26 +50,18 @@ export function ProductImageUploader({ existingImages, pendingImages, productId,
 
   async function handleFiles(files: FileList | File[]) {
     const selected = Array.from(files);
-    if (selected.some((file) => !ACCEPTED.includes(file.type)))
-      notify.error(common("feedback.unsupported_file"));
-    const accepted = selected.filter((file) => ACCEPTED.includes(file.type));
-    if (accepted.some((file) => file.size > MAX_MB * 1024 * 1024))
-      notify.error(common("feedback.file_too_large"));
-    const arr = accepted.filter((file) => file.size <= MAX_MB * 1024 * 1024);
-    if (!arr.length) return;
-    setUploading(true);
+    const { accepted, unsupportedCount, tooLargeCount } = partitionUploadFiles(selected);
+    if (unsupportedCount > 0) notify.error(common("feedback.unsupported_file"));
+    if (tooLargeCount > 0) notify.error(common("feedback.file_too_large"));
+    if (!accepted.length) return;
     try {
-      for (const file of arr) {
-        const { presignedUrl, key, publicUrl } = await getPresignedUploadUrl(file.type);
-        const putRes = await fetch(presignedUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-        if (!putRes.ok) throw new Error(`R2 upload failed: ${putRes.status}`);
-        onPendingAdd({ clientId: crypto.randomUUID(), key, url: publicUrl });
+      for (const file of accepted) {
+        const { key, url } = await upload(file);
+        onPendingAdd({ clientId: crypto.randomUUID(), key, url });
       }
       notify.success(common("feedback.uploaded"));
     } catch {
       notify.error(common("feedback.upload_failed"));
-    } finally {
-      setUploading(false);
     }
   }
 
@@ -124,9 +116,9 @@ export function ProductImageUploader({ existingImages, pendingImages, productId,
       {uploading ? <Loader2 size={32} className="animate-spin text-primary" /> : <span className="grid size-12 place-items-center rounded-2xl bg-primary/10"><UploadCloud size={24} className="text-primary" /></span>}
       <div className="text-center">
         <p className="text-sm font-semibold text-foreground">{uploading ? "Uploading…" : dragging ? "Drop images here" : "Click or drag images here"}</p>
-        <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, WebP, GIF · max {MAX_MB} MB</p>
+        <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, WebP, GIF · max {MAX_UPLOAD_MB} MB</p>
       </div>
-      <input ref={inputRef} type="file" accept={ACCEPTED.join(",")} multiple className="hidden" onChange={(event) => event.currentTarget.files && void handleFiles(event.currentTarget.files)} disabled={disabled || uploading} />
+      <input ref={inputRef} type="file" accept={ACCEPTED_IMAGE_TYPES.join(",")} multiple className="hidden" onChange={(event) => event.currentTarget.files && void handleFiles(event.currentTarget.files)} disabled={disabled || uploading} />
     </div>
   </div>;
 }

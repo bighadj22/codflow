@@ -8,8 +8,8 @@
 import { Context } from "hono";
 import type { AppContext } from "@/types";
 import { getDb } from "@/db";
-import { wilayas, communes } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { wilayas, communes, productVariants } from "@/db/schema";
+import { eq, inArray } from "drizzle-orm";
 import * as queries from "./queries";
 import * as validation from "./validation";
 import { logActivity, ACTIONS } from "@/lib/activity";
@@ -19,12 +19,43 @@ import { createShipmentRecord, setShipmentValidated, getShipmentByOrder, logApiC
 import { NotFoundError, BusinessLogicError, ValidationError, ExternalApiError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 import { resolveCarrierWilayaName, resolveCarrierCommuneName } from "../../../../cod-shared/queries/carrier-geo";
+import {
+  limitsFor,
+  exceedsAmountCeiling,
+  buildProductDescription,
+  sumParcelWeight,
+} from "./carrier-limits";
 
 // Sentinel persisted in companyShipments.labelUrl when the carrier returns no
 // label URL at create time but exposes one via a separate API (ZR Express:
 // time-limited SAS). The UI treats labelUrl as a boolean "label available"
 // flag; proxyShipmentLabel re-resolves the real URL on each click.
 export const DEFERRED_LABEL_MARKER = "deferred";
+
+/**
+ * Parcel weight summed from the order's variants.
+ *
+ * Only consulted when neither the dispatch modal nor the order itself carries
+ * an explicit weight, and only queried when at least one line actually has a
+ * variant — a basket of simple products adds no read at all.
+ */
+async function resolveParcelWeight(
+  db: ReturnType<typeof getDb>,
+  lines: Array<{ variantId: string | null; quantity: number }>,
+): Promise<number | undefined> {
+  const variantIds = [
+    ...new Set(lines.map((l) => l.variantId).filter((id): id is string => !!id)),
+  ];
+  if (variantIds.length === 0) return undefined;
+
+  const rows = await db
+    .select({ id: productVariants.id, weightKg: productVariants.weightKg })
+    .from(productVariants)
+    .where(inArray(productVariants.id, variantIds))
+    .all();
+
+  return sumParcelWeight(lines, new Map(rows.map((r) => [r.id, r.weightKg])));
+}
 
 /**
  * POST /orders/:id/dispatch
@@ -147,13 +178,40 @@ export async function dispatchToCompany(c: Context<AppContext>) {
       ? body.stationCode?.trim() || order.stationCode || undefined
       : undefined;
   const remarks = body.remarks;
-  const weight   = body.weight   != null ? Number(body.weight)   : (order.weight   ?? undefined);
+  // Weight precedence: what the merchant typed in the dispatch modal, then what
+  // is stored on the order, then the sum of the variants' own weights. The last
+  // one matters for baskets — a ten-item parcel reporting one item's weight is
+  // priced and routed wrong by the carrier.
+  const explicitWeight =
+    body.weight != null ? Number(body.weight) : (order.weight ?? undefined);
+  const weight = explicitWeight ?? (await resolveParcelWeight(db, order.products ?? []));
   // body.fragile arrives as a JS boolean from c.req.json(); the surrounding
   // `as Record<string, string>` cast is a lie — read through unknown to compare safely.
   const fragileRaw = (body as Record<string, unknown>).fragile;
   const isFragile = fragileRaw != null
     ? fragileRaw === true || fragileRaw === "true" || fragileRaw === "1"
     : (order.isFragile ?? undefined);
+
+  // Carrier value ceiling, checked BEFORE the provider call so the merchant
+  // gets an actionable message instead of a raw carrier rejection. The order
+  // survives: they can split it into two parcels or dispatch it with another
+  // carrier, both of which CodFlow already supports. See plan Q3.
+  const carrierLimits = limitsFor(company.code);
+  const parcelAmount = order.price + (order.deliveryFee ?? 0);
+  if (exceedsAmountCeiling(parcelAmount, carrierLimits)) {
+    throw new BusinessLogicError(
+      `This order is ${parcelAmount} DZD. ${company.name} accepts a maximum of ` +
+        `${carrierLimits.maxAmount} DZD per parcel. Split it into two parcels, ` +
+        `or dispatch it with a different carrier.`,
+      ERROR_CODES.VALUE_OUT_OF_RANGE,
+      {
+        orderId,
+        amount: parcelAmount,
+        maxAmount: carrierLimits.maxAmount,
+        carrier: company.code,
+      }
+    );
+  }
 
   // Stop-desk dispatches must have a station code — required by all providers.
   // The EFFECTIVE type decides (an override to home lifts the requirement).
@@ -189,11 +247,14 @@ export async function dispatchToCompany(c: Context<AppContext>) {
 
   const startMs = Date.now();
   try {
-    // Build product description: unique product names joined, append order number
-    const uniqueProductNames = [...new Set((order.products ?? []).map((p) => p.productName).filter(Boolean))];
-    const productDescription = uniqueProductNames.length > 0
-      ? `${uniqueProductNames.join(", ")} — ${order.orderNumber}`
-      : order.orderNumber;
+    // Truncated to what this carrier accepts, always keeping the order number
+    // so support can still find the parcel. A basket of many products would
+    // otherwise produce a field the carrier silently cuts — or rejects.
+    const productDescription = buildProductDescription(
+      (order.products ?? []).map((p) => p.productName),
+      order.orderNumber,
+      carrierLimits.maxDescription,
+    );
 
     const result = await provider.createShipment({
       orderId: order.id,

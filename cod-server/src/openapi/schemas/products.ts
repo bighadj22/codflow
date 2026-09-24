@@ -143,6 +143,16 @@ export const ProductSchema = z
     description: z.string().nullable().openapi({
       example: "6.4-inch display, 5000mAh battery",
     }),
+    descriptionFormat: z.enum(["text", "html"]).openapi({
+      description:
+        "How `description` is stored. `text` renders as literal text (legacy rows and products created without a format); `html` was sanitised at write against the rich-text allow-list.",
+      example: "text",
+    }),
+    descriptionPlain: z.string().nullable().openapi({
+      description:
+        "Tag-free rendering of `description` for meta/JSON-LD (tags stripped, images dropped, entities decoded, whitespace collapsed). Identical to `description` for `text` rows; null when `description` is null.",
+      example: "6.4-inch display, 5000mAh battery",
+    }),
     handle: z.string().openapi({
       description: "URL slug — auto-generated from name if not provided",
       example: "samsung-galaxy-a54-1a2b3c4d",

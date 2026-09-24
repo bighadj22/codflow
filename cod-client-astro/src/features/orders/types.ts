@@ -199,6 +199,16 @@ export const ABANDONED_STATUSES = [
 
 export type AbandonedOrderStatus = (typeof ABANDONED_STATUSES)[number];
 
+/** One line of an abandoned basket, as the storefront captured it. */
+export interface AbandonedOrderItem {
+  productId: string;
+  productName: string;
+  variantId?: string | null;
+  variantLabel?: string | null;
+  quantity: number;
+  unitPrice: number;
+}
+
 export interface AbandonedOrder {
   id: string;
   sessionId: string;
@@ -208,11 +218,17 @@ export interface AbandonedOrder {
   communeId: string | null;
   wilayaName: string | null;
   communeName: string | null;
+  /** The only product, or the first line of the basket. Always set when known. */
   productId: string | null;
   productName: string | null;
   variantId: string | null;
   variantLabel: string | null;
+  /** Cart value at abandonment: the basket subtotal, or one unit's price. */
   price: number | null;
+  /** The whole basket. Null for a single-product checkout. */
+  items: AbandonedOrderItem[] | null;
+  /** Distinct lines in the basket. Null for a single-product checkout. */
+  itemCount: number | null;
   deliveryType: DeliveryType | null;
   status: AbandonedOrderStatus;
   convertedOrderId: string | null;

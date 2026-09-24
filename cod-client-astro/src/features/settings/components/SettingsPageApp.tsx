@@ -13,9 +13,11 @@ import { GeneralSettings } from "@/features/settings/components/GeneralSettings"
 import { BrandingSettings } from "@/features/settings/components/BrandingSettings";
 import { SeoSettings } from "@/features/settings/components/SeoSettings";
 import { ReviewsSettings } from "@/features/settings/components/ReviewsSettings";
+import { DeliveryPricingSettings } from "@/features/settings/components/DeliveryPricingSettings";
+import { CartSettings } from "@/features/settings/components/CartSettings";
 import { TrackingSettings } from "@/features/settings/components/TrackingSettings";
 import { VerificationSettings } from "@/features/settings/components/VerificationSettings";
-import { TurnstileSettings } from "@/features/settings/components/TurnstileSettings";
+import { BotProtectionSettings } from "@/features/settings/components/BotProtectionSettings";
 import { EmailSettings } from "@/features/settings/components/EmailSettings";
 import { ApiSettings } from "@/features/settings/components/ApiSettings";
 
@@ -93,17 +95,20 @@ function SettingsContent() {
         return <BrandingSettings storeConfig={storeConfig} onSave={handleSave} />;
       case "seo":
         return <SeoSettings storeConfig={storeConfig} onSave={handleSave} />;
+      case "cart":
+        return <CartSettings storeConfig={storeConfig} onSave={handleSave} />;
+      case "delivery":
+        return (
+          <DeliveryPricingSettings storeConfig={storeConfig} onSave={handleSave} />
+        );
       case "reviews":
         return <ReviewsSettings storeConfig={storeConfig} onSave={handleSave} />;
       case "analytics":
         return <TrackingSettings />;
       case "verification":
-        return (
-          <div className="space-y-6">
-            <VerificationSettings />
-            <TurnstileSettings />
-          </div>
-        );
+        return <VerificationSettings />;
+      case "bot_protection":
+        return <BotProtectionSettings />;
       case "email":
         return <EmailSettings />;
       case "api":

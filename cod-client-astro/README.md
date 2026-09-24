@@ -40,8 +40,8 @@ npm run db:setup:local
 # 2. This package: copy config templates
 cd ../cod-client-astro
 cp wrangler.toml.example wrangler.toml   # fill in YOUR D1 + KV ids
-cp .env.example .env                     # PUBLIC_API_URL (defaults to local cod-server)
-cp .dev.vars.example .dev.vars           # set BETTER_AUTH_SECRET
+cp .env.example .env                     # build-time client env
+cp .dev.vars.example .dev.vars           # BETTER_AUTH_SECRET + local PUBLIC_API_URL
 
 # 3. Create your admin (sign-up is disabled by design — admins are provisioned)
 npm run seed:admin
@@ -61,11 +61,22 @@ Sign in at `http://localhost:4321/sign-in` with the seeded credentials.
 
 | Where | Variable | Purpose |
 |---|---|---|
-| `.env` (build time, client) | `PUBLIC_API_URL` | backend origin used by `src/lib/api.ts` |
+| `wrangler.toml [vars]` (build time, client) | `PUBLIC_API_URL` | backend origin used by `src/lib/api.ts` — production value |
+| `.dev.vars` (build time, client) | `PUBLIC_API_URL` | the same value for local development |
 | `wrangler.toml [vars]` (runtime) | `PUBLIC_APP_URL` | better-auth base URL (JWT issuer) |
 | `wrangler.toml [vars]` | `PUBLIC_TRUSTED_ORIGINS` | extra origins allowed to POST to `/api/auth/*` |
 | `wrangler secret put` | `BETTER_AUTH_SECRET` | must be identical across every worker sharing the auth D1 |
 | `wrangler secret put` | `MCP_LOGIN_TICKET_SECRET` | MCP OAuth login relay — must match cod-server's |
+
+`PUBLIC_API_URL` is inlined into the browser bundle by `astro:env/client`, so
+changing it needs a rebuild. It is deliberately **not** in `.env`: the Cloudflare
+adapter pushes wrangler values and `.dev.vars` into `process.env`, and Astro
+loads env with an empty prefix, so Vite's final `process.env` pass outranks the
+`.env` files — `.dev.vars` > `wrangler.toml [vars]` > `process.env` > `.env`. A
+value in `.env` is silently ignored. Because `.dev.vars` is also read during a
+build, a bare `npm run build` on a developer machine bakes the local URL in;
+`npm run deploy` parks `.dev.vars` for the build and refuses to upload a bundle
+that still contains a loopback URL.
 
 The dashboard binds the **same D1 database as cod-server** (auth users/scopes
 live in cod-server's schema) plus one KV namespace. See

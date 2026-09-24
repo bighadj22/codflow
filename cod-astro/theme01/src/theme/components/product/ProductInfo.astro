@@ -1,6 +1,7 @@
 ---
 import type { Product } from "@/core/api/types";
 import { Icon } from "astro-icon/components";
+import ProductDescription from "@/theme/components/product/ProductDescription.astro";
 
 interface Props {
   product: Product;
@@ -25,12 +26,6 @@ function fmt(n: number) {
     {product.name}
   </h1>
   
-  {product.description && (
-    <p class:list={[isDesktop ? "text-[1.0625rem] mb-6" : "text-[0.9375rem] mb-4", "font-medium leading-relaxed"]} style="color: var(--clr-text-2)">
-      {product.description}
-    </p>
-  )}
-
   <div class="flex items-baseline gap-4">
     <span class:list={[isDesktop ? "text-4xl" : "text-3xl", "font-black"]} style="color: var(--clr-primary)" id={isDesktop ? "price-display-desktop" : "price-display-mobile"}>
       {fmt(basePrice)} <span class:list={[isDesktop ? "text-2xl" : "text-lg", "font-bold"]}>{cur}</span>
@@ -48,4 +43,12 @@ function fmt(n: number) {
       {lowStockText}
     </div>
   )}
+
+  <div class="mt-6">
+    <ProductDescription
+      description={product.description}
+      format={product.descriptionFormat}
+      isDesktop={isDesktop}
+    />
+  </div>
 </div>

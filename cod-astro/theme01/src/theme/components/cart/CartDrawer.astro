@@ -1,0 +1,342 @@
+---
+/**
+ * Cart drawer.
+ *
+ * A side sheet rather than a separate cart page: one less navigation, and the
+ * shopper stays on the product page where the buying intent is. It slides from
+ * the inline end, so it comes from the right in Arabic and the left in French
+ * and English without a second stylesheet.
+ *
+ * Every interactive state is rendered here and toggled by the client, so there
+ * is no flash of a wrong state on open: empty, populated, a line that can no
+ * longer be ordered, a re-check in progress, and storage being unavailable.
+ *
+ * Z-index: the sticky header is z-50, so the scrim sits at z-[60] and the sheet
+ * at z-[61]. Those are the only two values this component uses.
+ *
+ * Open/closed geometry lives in the style block below, not in utilities, and
+ * the controller only toggles `data-open`. See the comment there: driving it
+ * from JS inline styles is what made the drawer un-hide off-screen and never
+ * arrive.
+ */
+import type { StoreFrontContent } from "@/theme/content";
+import { Icon } from "astro-icon/components";
+import FreeDeliveryBar from "@/theme/components/cart/FreeDeliveryBar.astro";
+
+interface Props {
+  content: StoreFrontContent;
+  /** Currency symbol, from store config. Never hardcoded. */
+  currency: string;
+}
+
+const { content, currency } = Astro.props;
+---
+
+<!--
+  Interpolated copy travels as data attributes rather than being duplicated in
+  the controller: the content pack stays the single source of every string, and
+  the script stays free of hardcoded text the validators would reject.
+-->
+<div
+  id="cart-root"
+  data-currency={currency}
+  data-copy-items={content.cartItemsLabel}
+  data-copy-out-of-stock={content.cartLineOutOfStock}
+  data-copy-unavailable={content.cartLineUnavailable}
+  data-copy-free-earned={content.cartFreeDeliveryEarned}
+  data-copy-free-remaining={content.cartFreeDeliveryRemaining}
+  hidden
+>
+  <!-- Scrim. Clicking it closes, which is the gesture shoppers already expect. -->
+  <div
+    id="cart-scrim"
+    class="fixed inset-0 z-[60]"
+    style="background: var(--clr-overlay)"
+    hidden
+  >
+  </div>
+
+  <aside
+    id="cart-drawer"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="cart-drawer-title"
+    hidden
+    class="fixed inset-y-0 end-0 z-[61] flex w-full max-w-[26rem] flex-col shadow-2xl"
+    style="background: var(--clr-surface)"
+  >
+    <!-- Header -->
+    <div
+      class="flex items-center justify-between gap-3 border-b px-5 py-4"
+      style="border-color: var(--clr-border)"
+    >
+      <div class="min-w-0">
+        <h2
+          id="cart-drawer-title"
+          class="text-[1.0625rem] font-black leading-tight"
+          style="color: var(--clr-text)"
+        >
+          {content.cartTitle}
+        </h2>
+        <p
+          id="cart-items-label"
+          class="mt-0.5 text-[0.75rem] font-bold"
+          style="color: var(--clr-text-2)"
+        >
+        </p>
+      </div>
+      <button
+        type="button"
+        id="cart-close"
+        aria-label={content.cartCloseLabel}
+        class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-transform duration-150 active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2"
+        style="color: var(--clr-text-2); --tw-ring-color: var(--clr-primary)"
+      >
+        <Icon name="heroicons:x-mark" class="h-5 w-5" />
+      </button>
+    </div>
+
+    <!-- Free-delivery progress: the first thing in the sheet, and outside the
+         scrolling list so it stays in view as the shopper works down a long
+         basket. Renders nothing until the merchant sets a threshold. -->
+    <div class="px-5 pt-4" id="cart-free-delivery-slot">
+      <FreeDeliveryBar idPrefix="cart" />
+    </div>
+
+    <!-- Empty state. Composed, not an apology. -->
+    <div
+      id="cart-empty"
+      class="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center"
+      hidden
+    >
+      <div
+        class="flex h-16 w-16 items-center justify-center rounded-full"
+        style="background: var(--clr-surface-alt); color: var(--clr-text-2)"
+      >
+        <Icon name="heroicons:shopping-bag" class="h-7 w-7" />
+      </div>
+      <p class="text-[0.9375rem] font-black" style="color: var(--clr-text)">
+        {content.cartEmptyTitle}
+      </p>
+      <p class="text-[0.8125rem] font-medium" style="color: var(--clr-text-2)">
+        {content.cartEmptyHint}
+      </p>
+      <button
+        type="button"
+        id="cart-continue"
+        class="mt-2 text-[0.8125rem] font-black underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2"
+        style="color: var(--clr-primary); --tw-ring-color: var(--clr-primary)"
+      >
+        {content.cartContinueShopping}
+      </button>
+    </div>
+
+    <!-- Lines -->
+    <div id="cart-lines" class="flex-1 overflow-y-auto overscroll-contain px-5 py-4" hidden>
+      <ul id="cart-line-list" class="space-y-4"></ul>
+    </div>
+
+    <!-- Footer -->
+    <div
+      id="cart-footer"
+      class="border-t px-5 py-4"
+      style="border-color: var(--clr-border)"
+      hidden
+    >
+      <!-- Blocked lines stop checkout, and say so inline rather than on submit. -->
+      <p
+        id="cart-blocked-note"
+        class="mb-3 rounded-[var(--radius-input)] px-3 py-2 text-[0.75rem] font-bold"
+        style="background: var(--clr-error-bg); color: var(--clr-error)"
+        hidden
+      >
+        {content.cartFixBeforeCheckout}
+      </p>
+
+      <div class="mb-3 flex items-baseline justify-between gap-3">
+        <span class="text-[0.875rem] font-bold" style="color: var(--clr-text-2)">
+          {content.cartSubtotalLabel}
+        </span>
+        <span
+          id="cart-subtotal"
+          class="text-[1.125rem] font-black tabular-nums"
+          style="color: var(--clr-text)"
+        >
+        </span>
+      </div>
+
+      <button
+        type="button"
+        id="cart-checkout"
+        class="btn-primary !h-[3.25rem] w-full !text-[1rem] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {content.cartCheckoutCta}
+      </button>
+
+      <p
+        class="mt-2 text-center text-[0.75rem] font-medium"
+        style="color: var(--clr-text-2)"
+      >
+        {content.cartDeliveryNote}
+      </p>
+    </div>
+  </aside>
+</div>
+
+<!-- Row template. Kept in markup so every string stays in the content pack. -->
+<template id="cart-line-template">
+  <li class="flex gap-3" data-cart-line>
+    <!-- The thumbnail links too, but is hidden from assistive tech and taken
+         out of the tab order: it goes to the same place as the name beside it,
+         and two stops for one destination is noise for a keyboard shopper. -->
+    <a
+      data-cart-image-link
+      aria-hidden="true"
+      tabindex="-1"
+      class="h-16 w-16 shrink-0 overflow-hidden rounded-[var(--radius-input)]"
+      style="background: var(--clr-surface-alt)"
+    >
+      <img data-cart-image alt="" loading="lazy" decoding="async" class="h-full w-full object-cover" hidden />
+    </a>
+
+    <div class="min-w-0 flex-1">
+      <!-- The way back to the product. A shopper who wants the same thing in
+           another colour goes to the picker that already exists rather than to
+           a second one built into this sheet. -->
+      <a
+        data-cart-name
+        class="block truncate text-[0.875rem] font-black hover:underline underline-offset-[3px] focus-visible:outline-none focus-visible:ring-2"
+        style="color: var(--clr-text); --tw-ring-color: var(--clr-primary)"
+      >
+      </a>
+      <p
+        data-cart-variant
+        class="truncate text-[0.75rem] font-bold"
+        style="color: var(--clr-text-2)"
+        hidden
+      >
+      </p>
+      <p
+        data-cart-warning
+        class="mt-0.5 text-[0.75rem] font-black"
+        style="color: var(--clr-error)"
+        hidden
+      >
+      </p>
+
+      <div class="mt-2 flex items-center justify-between gap-2">
+        <div
+          class="inline-flex items-center rounded-full border"
+          style="border-color: var(--clr-border)"
+        >
+          <button
+            type="button"
+            data-cart-decrease
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-150 active:scale-[0.9] focus-visible:outline-none focus-visible:ring-2"
+            style="color: var(--clr-text); --tw-ring-color: var(--clr-primary)"
+          >
+            <Icon name="heroicons:minus" class="h-3.5 w-3.5" />
+          </button>
+          <span
+            data-cart-qty
+            class="min-w-[2rem] text-center text-[0.8125rem] font-black tabular-nums"
+            style="color: var(--clr-text)"
+          >
+          </span>
+          <button
+            type="button"
+            data-cart-increase
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-150 active:scale-[0.9] focus-visible:outline-none focus-visible:ring-2 disabled:opacity-40"
+            style="color: var(--clr-text); --tw-ring-color: var(--clr-primary)"
+          >
+            <Icon name="heroicons:plus" class="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <span
+          data-cart-total
+          class="text-[0.875rem] font-black tabular-nums"
+          style="color: var(--clr-text)"
+        >
+        </span>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      data-cart-remove
+      class="inline-flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-full transition-transform duration-150 active:scale-[0.9] focus-visible:outline-none focus-visible:ring-2"
+      style="color: var(--clr-text-2); --tw-ring-color: var(--clr-primary)"
+    >
+      <Icon name="heroicons:trash" class="h-4 w-4" />
+    </button>
+  </li>
+</template>
+
+<style>
+  /* A line whose product page is unknown must not behave like a link — no
+     hover underline, no pointer, nothing to click. */
+  [data-cart-name]:not([href]),
+  [data-cart-image-link]:not([href]) {
+    pointer-events: none;
+  }
+
+  /*
+    The sheet's open and closed positions live here, and the controller only
+    toggles `data-open`.
+
+    They used to be Tailwind utilities (`translate-x-full`, flipped by
+    `rtl:-translate-x-full`) with the controller assigning
+    `drawer.style.transform` to open it. Two things were wrong with that, and
+    together they meant the drawer never appeared:
+
+      1. Tailwind v4 compiles `translate-x-*` to the `translate` property, not
+         to `transform`. Assigning `style.transform` therefore competes with
+         nothing: `translate: 100%` still holds, so the sheet un-hid itself
+         one full width off-screen and stayed there.
+      2. `rtl:` is not a configured variant in this theme, so
+         `rtl:-translate-x-full` compiled to no rule at all and the Arabic
+         direction — the default for an Algerian storefront — was never
+         handled.
+
+    Keeping both states in CSS also keeps the animation on the compositor
+    (`translate` and `opacity` only), which matters on the low-end Android
+    hardware most of this traffic arrives on.
+  */
+  #cart-drawer {
+    translate: 100% 0;
+    transition: translate 200ms ease-out;
+  }
+
+  :global([dir="rtl"]) #cart-drawer {
+    translate: -100% 0;
+  }
+
+  /*
+    The RTL rule above and the open rule below have identical specificity, so a
+    plain `#cart-drawer[data-open]` would win only by being written later —
+    and an Arabic storefront, which is the default here, would silently keep
+    the sheet off-screen the day someone reorders these blocks. Declaring the
+    open state for the RTL selector too makes it win on specificity instead.
+  */
+  #cart-drawer[data-open],
+  :global([dir="rtl"]) #cart-drawer[data-open] {
+    translate: 0 0;
+  }
+
+  #cart-scrim {
+    opacity: 0;
+    transition: opacity 200ms ease-out;
+  }
+
+  #cart-scrim[data-open] {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #cart-drawer,
+    #cart-scrim {
+      transition: none;
+    }
+  }
+</style>

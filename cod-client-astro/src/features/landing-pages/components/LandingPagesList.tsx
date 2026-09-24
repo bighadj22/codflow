@@ -29,8 +29,12 @@ import {
   landingPageCvr,
   landingPageErrorMessage,
   landingPagePublicUrl,
+  trackingView,
 } from "@/features/landing-pages/model";
+import { TrackingBadge } from "@/features/landing-pages/components/TrackingBadge";
+import { getPixelConfig } from "@/features/settings/api";
 import type { LandingPageListItem } from "@/features/landing-pages/types";
+import type { StoreTrackingSwitches } from "../../../../../cod-shared/queries/tracking-config";
 import { formatMoneyValue } from "@/features/products/model";
 import {
   Alert,
@@ -103,6 +107,9 @@ export function LandingPagesList() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<string>("all");
+  // The store switches decide whether a page's own pixel is actually in force.
+  // Fetched once for the whole list, not per row.
+  const [storeSwitches, setStoreSwitches] = useState<StoreTrackingSwitches | null>(null);
   const deferredQuery = useDeferredValue(query);
 
   const canManage = canScope(identity, SCOPES.LANDING_PAGES_MANAGE);
@@ -118,6 +125,26 @@ export function LandingPagesList() {
 
   useEffect(() => {
     if (canScope(identity, SCOPES.LANDING_PAGES_READ)) void load();
+  }, [identity?.role, identity?.scopes.join(",")]);
+
+  useEffect(() => {
+    if (!canScope(identity, SCOPES.LANDING_PAGES_READ)) return;
+    let alive = true;
+    void getPixelConfig()
+      .then((store) => {
+        if (!alive) return;
+        setStoreSwitches(
+          store
+            ? { enabled: store.enabled, perPageTrackingEnabled: store.perPageTrackingEnabled }
+            : null,
+        );
+      })
+      // Non-critical — without it a page's badge reads as "not in force",
+      // which is the safe way to be wrong.
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
   }, [identity?.role, identity?.scopes.join(",")]);
 
   if (!canScope(identity, SCOPES.LANDING_PAGES_READ))
@@ -206,6 +233,8 @@ export function LandingPagesList() {
         publishedAt: dup.data.publishedAt,
         createdAt: dup.data.createdAt,
         updatedAt: dup.data.updatedAt,
+        // The copy inherits the source's pixel — see duplicateLandingPage.
+        tracking: page.tracking,
       };
       setPages((current) => [entry, ...(current ?? [])]);
       notify.success(t("actions.duplicated"));
@@ -325,6 +354,12 @@ export function LandingPagesList() {
                           <span className="mt-0.5 whitespace-nowrap font-mono text-[0.7rem] text-muted-foreground">
                             /lp/{page.slug}
                           </span>
+                          {page.tracking && (
+                            <TrackingBadge
+                              view={trackingView(storeSwitches, page.tracking)}
+                              className="mt-1 self-start"
+                            />
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-sm">

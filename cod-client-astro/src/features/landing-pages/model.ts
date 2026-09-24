@@ -1,4 +1,12 @@
-import type { LandingPageListItem, LandingPageStatus } from "./types";
+import type {
+  LandingPageListItem,
+  LandingPageStatus,
+  LandingPageTrackingSummary,
+} from "./types";
+import {
+  overrideApplies,
+  type StoreTrackingSwitches,
+} from "../../../../cod-shared/queries/tracking-config";
 
 /**
  * The public landing page URL — the thing the merchant pastes into an ad set.
@@ -74,4 +82,59 @@ export function landingPageErrorMessage(cause: unknown, t: (key: string) => stri
   if (code === "VALIDATION_FAILED") return t("error_validation");
   if (typeof context?.requestId === "string") return t("error_unexpected_id").replace("{id}", context.requestId);
   return t("error_generic");
+}
+
+// ─── Tracking ─────────────────────────────────────────────────────────────────
+
+/**
+ * How a landing page's tracking is described to the merchant.
+ *
+ * `inactive` is the state worth having a name for: a pixel is configured but
+ * the server will not use it. Showing "own pixel" there would tell the merchant
+ * their conversions are landing somewhere they are not.
+ */
+export type TrackingView =
+  | { kind: "store" }
+  | {
+      kind: "own";
+      pixelId: string;
+      conversionEvent: LandingPageTrackingSummary["conversionEvent"];
+      testMode: boolean;
+    }
+  | {
+      kind: "inactive";
+      /** Why it is not in force — each has a different fix. */
+      reason: "tracking_off" | "master_switch" | "switched_off";
+      pixelId: string;
+    };
+
+/**
+ * Presentation only. Whether the override applies at all is decided by
+ * `overrideApplies` in cod-shared — the same function the server obeys — so
+ * this badge cannot disagree with where the conversions actually go.
+ */
+export function trackingView(
+  store: StoreTrackingSwitches | null | undefined,
+  page: LandingPageTrackingSummary | null | undefined,
+): TrackingView {
+  if (!page) return { kind: "store" };
+
+  if (overrideApplies(store, page)) {
+    return {
+      kind: "own",
+      pixelId: page.pixelId,
+      conversionEvent: page.conversionEvent,
+      testMode: page.testMode,
+    };
+  }
+
+  // Configured but not in force. Which switch is to blame changes the fix, so
+  // it is reported rather than flattened into one warning.
+  const reason = !store?.enabled
+    ? "tracking_off"
+    : !store.perPageTrackingEnabled
+      ? "master_switch"
+      : "switched_off";
+
+  return { kind: "inactive", reason, pixelId: page.pixelId };
 }

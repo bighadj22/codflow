@@ -21,6 +21,7 @@
   --color-text-muted: var(--clr-text-2);
 
   --font-body: var(--font-body), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --radius-card: 1.25rem;
   --radius-input: 1rem;
@@ -332,3 +333,138 @@ textarea.form-input {
 /* ── Text Utilities ──────────────────────────────────────────────────────── */
 .text-balance { text-wrap: balance; }
 .text-pretty { text-wrap: pretty; }
+
+/* ── Rich description (merchant-authored HTML) ───────────────────────────── */
+/*
+ * Rendered with set:html when a product's descriptionFormat is "html". The
+ * markup is sanitised at the write chokepoint against the allow-list in
+ * cod-shared/lib/rich-text.ts (ADR 0002); this section only styles the tags
+ * that allow-list permits, using theme tokens (never raw design values).
+ * Anything not listed here cannot reach the DOM, because it is stripped
+ * upstream — so there is no need for defensive `all: unset` resets.
+ */
+.rich-description > :first-child { margin-top: 0; }
+.rich-description > :last-child { margin-bottom: 0; }
+
+.rich-description p { margin: 0 0 0.85em; }
+.rich-description strong, .rich-description b { font-weight: 800; color: var(--clr-text); }
+.rich-description em, .rich-description i { font-style: italic; }
+.rich-description u { text-decoration: underline; }
+.rich-description s, .rich-description strike { text-decoration: line-through; }
+.rich-description sub, .rich-description sup { font-size: 0.75em; line-height: 0; }
+.rich-description hr { border: 0; border-top: 1px solid var(--clr-border); margin: 1.25em 0; }
+
+.rich-description h2, .rich-description h3, .rich-description h4,
+.rich-description h5, .rich-description h6 {
+  font-weight: 800; color: var(--clr-text); line-height: 1.3; margin: 1.2em 0 0.5em;
+}
+.rich-description h2 { font-size: 1.35em; }
+.rich-description h3 { font-size: 1.2em; }
+.rich-description h4 { font-size: 1.1em; }
+.rich-description h5 { font-size: 1em; }
+.rich-description h6 { font-size: 0.95em; }
+
+.rich-description ul, .rich-description ol { margin: 0 0 0.85em; padding-inline-start: 1.4em; }
+.rich-description ul { list-style: disc; }
+.rich-description ol { list-style: decimal; }
+.rich-description li { margin: 0.25em 0; }
+.rich-description li > ul, .rich-description li > ol { margin-top: 0.25em; margin-bottom: 0; }
+
+.rich-description blockquote {
+  margin: 1em 0; padding-inline-start: 1em;
+  border-inline-start: 3px solid var(--clr-border); color: var(--clr-text-2);
+}
+
+.rich-description a {
+  color: var(--clr-primary); text-decoration: underline; text-underline-offset: 2px;
+}
+.rich-description a:hover { opacity: 0.85; }
+
+.rich-description img {
+  max-width: 100%; height: auto; margin: 0.5em 0;
+  border-radius: var(--radius-input); background: var(--clr-surface-alt);
+}
+.rich-description figure { margin: 1em 0; }
+.rich-description figcaption {
+  font-size: 0.85em; color: var(--clr-text-2); text-align: center; margin-top: 0.4em;
+}
+
+.rich-description code {
+  font-family: var(--font-mono); font-size: 0.9em;
+  background: var(--clr-surface-alt); border: 1px solid var(--clr-border);
+  border-radius: 0.35rem; padding: 0.1em 0.35em;
+}
+.rich-description pre {
+  background: var(--clr-surface-alt); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-input); padding: 0.85em 1em;
+  overflow-x: auto; margin: 0 0 0.85em;
+}
+.rich-description pre code { background: none; border: 0; padding: 0; }
+
+/* display:block + overflow-x lets wide tables scroll instead of overflowing. */
+.rich-description table {
+  display: block; width: 100%; overflow-x: auto;
+  border-collapse: collapse; margin: 0 0 0.85em; font-size: 0.95em;
+}
+.rich-description th, .rich-description td {
+  border: 1px solid var(--clr-border); padding: 0.5em 0.65em;
+  text-align: start; vertical-align: top;
+}
+.rich-description th { background: var(--clr-surface-alt); font-weight: 800; color: var(--clr-text); }
+.rich-description thead th { border-bottom-width: 2px; }
+
+/* Rich text: the three features the editor template writes as attributes.
+   Each is allowed at the write chokepoint (see ADR 0002) and rendered here —
+   the storefront is the only place a merchant's intent becomes visual. */
+
+/* Highlight — the merchant's colour travels as an inline background, a hex or
+   the rgb() a browser re-serialises it into; `data-color` carries the hex. That
+   inline declaration outranks the one below, which is only the fallback for a
+   mark stored without a colour. The text colour is set here rather than stored,
+   so a highlight reads against the storefront palette instead of inheriting
+   whatever colour surrounds it. */
+.rich-description mark {
+  background-color: color-mix(in srgb, var(--clr-accent) 45%, transparent);
+  color: var(--clr-text);
+  border-radius: var(--radius-input);
+  padding: 0 0.15em;
+}
+
+/* Text alignment — written as an inline text-align on paragraphs and headings,
+   so the browser applies it; nothing to restate here. */
+
+/* Checklists — a task list is a `ul[data-type="taskList"]` whose items carry
+   `data-checked`. The sanitiser drops the editor's checkbox input, so the box
+   is drawn here from the attribute. */
+.rich-description ul[data-type="taskList"] {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.rich-description ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+
+.rich-description ul[data-type="taskList"] li::before {
+  content: "";
+  flex: none;
+  width: 1em;
+  height: 1em;
+  margin-top: 0.3em;
+  border: 1px solid var(--clr-border);
+  background: var(--clr-surface-alt);
+  border-radius: var(--radius-input);
+}
+
+.rich-description ul[data-type="taskList"] li[data-checked="true"]::before {
+  background: var(--clr-primary);
+  border-color: var(--clr-primary);
+}
+
+/* The editor's list schema wraps item content in a paragraph; without this the
+   last line of every list item would carry a trailing gap. */
+.rich-description li > p {
+  margin-bottom: 0;
+}

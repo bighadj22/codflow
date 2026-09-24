@@ -3,6 +3,7 @@ import { Image } from "astro:assets";
 import type { StoreConfig } from "@/core/api/types";
 import type { StoreFrontContent } from "@/theme/config/content";
 import { Icon } from "astro-icon/components";
+import CartBadge from "@/theme/components/cart/CartBadge.astro";
 
 interface Props {
   config: StoreConfig;
@@ -72,6 +73,10 @@ const { config, content } = Astro.props;
       >
         <Icon name="heroicons:magnifying-glass" class="w-[22px] h-[22px]" aria-hidden="true" />
       </a>
+
+      {/* Cart trigger. Present only when the merchant enabled the cart, and it
+          keeps itself hidden until the basket has something in it. */}
+      {config.cartEnabled && content && <CartBadge content={content} />}
     </div>
 
   </div>

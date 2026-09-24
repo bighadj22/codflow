@@ -103,7 +103,7 @@ function CustomerGroupForm({ groupId }: { groupId?: string }) {
                   <p className="mt-0.5 text-xs font-mono text-muted-foreground">{form.color}</p>
                 </div>
               </div>
-              <Field label={t("form.color_label")}>
+              <Field label={t("form.color_label")} as="div">
                 <div className="flex flex-wrap items-center gap-2">
                   {PRESET_COLORS.map((color) => <button key={color} type="button" onClick={() => update("color", color)} disabled={busy} aria-label={color} title={color} className="size-9 rounded-lg transition-all active:scale-90 disabled:opacity-50" style={{ backgroundColor: color, boxShadow: form.color === color ? `0 0 0 2px var(--background), 0 0 0 4px ${color}` : "none" }} />)}
                   <label className="relative grid size-9 cursor-pointer place-items-center overflow-hidden rounded-lg border-2 border-dashed border-border text-muted-foreground hover:border-primary/40">

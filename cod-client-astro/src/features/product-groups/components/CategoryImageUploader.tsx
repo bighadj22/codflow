@@ -1,38 +1,33 @@
 import { useRef, useState } from "react";
 import { Loader2, UploadCloud, X } from "lucide-react";
-import { getPresignedUploadUrl } from "@/features/product-groups/api";
+import { ACCEPTED_IMAGE_TYPES, MAX_UPLOAD_MB, partitionUploadFiles } from "@/features/uploads/api";
+import { useImageUpload } from "@/features/uploads/useImageUpload";
 import { useT } from "@/i18n/react";
 import { notify } from "@/lib/notify";
-
-const ACCEPTED = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
-const MAX_MB = 10;
 
 export function CategoryImageUploader({ value, onChange, disabled }: { value?: string | null; onChange: (url: string | null) => void; disabled?: boolean }) {
   const common = useT("common");
   const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const { upload, progress } = useImageUpload("products");
+  const uploading = progress !== null;
 
   async function handleFile(file: File) {
-    if (!ACCEPTED.includes(file.type)) {
+    const { accepted, unsupportedCount, tooLargeCount } = partitionUploadFiles([file]);
+    if (unsupportedCount > 0) {
       notify.error(common("feedback.unsupported_file"));
       return;
     }
-    if (file.size > MAX_MB * 1024 * 1024) {
+    if (tooLargeCount > 0) {
       notify.error(common("feedback.file_too_large"));
       return;
     }
-    setUploading(true);
     try {
-      const { presignedUrl, publicUrl } = await getPresignedUploadUrl(file.type);
-      const putRes = await fetch(presignedUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-      if (!putRes.ok) throw new Error(`Upload failed: ${putRes.status}`);
-      onChange(publicUrl);
+      const { url } = await upload(accepted[0]);
+      onChange(url);
       notify.success(common("feedback.uploaded"));
     } catch {
       notify.error(common("feedback.upload_failed"));
-    } finally {
-      setUploading(false);
     }
   }
 
@@ -53,9 +48,9 @@ export function CategoryImageUploader({ value, onChange, disabled }: { value?: s
       {uploading ? <Loader2 size={40} className="animate-spin text-primary" /> : <span className="grid size-14 place-items-center rounded-2xl bg-primary/10"><UploadCloud size={28} className="text-primary" /></span>}
       <div className="text-center">
         <p className="text-sm font-semibold text-foreground">{uploading ? "Uploading…" : dragging ? "Drop image here" : "Click or drag image here"}</p>
-        <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, WebP, GIF · max {MAX_MB} MB</p>
+        <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, WebP, GIF · max {MAX_UPLOAD_MB} MB</p>
       </div>
-      <input ref={inputRef} type="file" accept={ACCEPTED.join(",")} className="hidden" onChange={(event) => event.currentTarget.files?.[0] && void handleFile(event.currentTarget.files[0])} disabled={disabled || uploading} />
+      <input ref={inputRef} type="file" accept={ACCEPTED_IMAGE_TYPES.join(",")} className="hidden" onChange={(event) => event.currentTarget.files?.[0] && void handleFile(event.currentTarget.files[0])} disabled={disabled || uploading} />
     </div>}
   </div>;
 }

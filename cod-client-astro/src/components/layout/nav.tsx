@@ -1,5 +1,6 @@
 import {
   Building2,
+  FileText,
   FolderOpen,
   Gift,
   Layers,
@@ -213,6 +214,13 @@ export function useNavSections(): NavSection[] {
           label: tN("sidebar.mcp"),
           icon: Sparkles,
           scope: "mcp:view",
+        },
+        {
+          kind: "leaf",
+          href: "/pages",
+          label: tN("sidebar.store_pages"),
+          icon: FileText,
+          scope: "store_pages:read",
         },
         {
           kind: "leaf",

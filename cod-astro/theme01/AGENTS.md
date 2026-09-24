@@ -58,3 +58,26 @@ tests for cod-server, cod-client-astro, and the legacy cod-client).
   or `wrangler secret put` — never in `wrangler.jsonc`.
 - `MEDIA_DOMAIN` is optional; unset, the image optimizer passes URLs through
   unchanged.
+- **astro-icon uses an explicit allowlist** (`icon({ include: { heroicons: […] } })`
+  in `astro.config.mjs`). An icon used in markup but missing from it throws
+  *at request time* — `astro check`, the validators and the component tests all
+  pass, and the page 200s with an empty body. `src/theme/icon-allowlist.test.ts`
+  guards both directions; add the name to the list in the same commit.
+- **Tailwind v4 compiles `translate-x-*` to the `translate` property, not
+  `transform`.** Setting `element.style.transform` from a script does not
+  override it. `rtl:` is also **not** a configured variant here, so
+  `rtl:-translate-x-full` compiles to nothing. Both bit the cart drawer: it
+  un-hid one full width off-screen and never appeared. Open/closed geometry
+  belongs in CSS keyed on a data attribute — see `CartDrawer.astro`.
+- **Scripts here self-initialise on import** (`product.ts`, `cart-ui.ts`,
+  `turnstile-field.ts`), because ClientRouter was removed and `astro:page-load`
+  never fires. A layout that *also* calls the init function binds every handler
+  twice — one tap adding two items. Import for side effect; `initCart()` and
+  `initCheckout()` are idempotent per root and return a teardown.
+- **Every page that renders the customer form must load
+  `track-abandonment.ts`.** Forgetting it loses the merchant's callback leads
+  silently. `src/theme/page-contracts.test.ts` enforces this for every page that
+  loads `otp-step.ts`.
+- The same-origin proxies in `src/core/endpoints/` re-validate with their own
+  Zod schemas and **Zod strips unknown keys** — a field missing from a proxy
+  schema never reaches cod-server, however correct the caller is.

@@ -24,7 +24,6 @@ import {
   productVariants,
   productImages,
   stores,
-  storePixelConfig,
   storeOtpConfig,
   storeTurnstileConfig,
   customers,
@@ -40,6 +39,20 @@ import {
   stockMovements,
 } from "../db/schema";
 import type { AppDb } from "../db/client";
+import { deriveDescriptionPlain } from "./products";
+import { resolveDeliveryFee } from "./shipping-resolution";
+import { normalizeOrderLines } from "./cart";
+import { resolvePublicTracking } from "./tracking-config";
+import { chunkIds } from "./d1-limits";
+import { getFooterPages, getPublicLegalContact } from "./store-pages";
+import type { PageLocale } from "../legal/kinds";
+import {
+  loadCatalogSnapshot,
+  extendSnapshot,
+  priceCartLines,
+  type CatalogSnapshot,
+} from "./catalog-snapshot";
+import { resolveCartOffers } from "./offers-cart";
 
 export interface StoreOrderData {
   customerName: string;
@@ -48,15 +61,33 @@ export interface StoreOrderData {
   communeId: string;
   address?: string;
   deliveryType: "home" | "stop_desk";
-  productId: string;
-  productName: string;
+  /**
+   * The one product a direct order form was rendered for. Absent on a basket
+   * order, which has no single representative product — `items[]` carries the
+   * truth then, and normalizeOrderLines ignores these outright.
+   */
+  productId?: string;
+  productName?: string;
   variantId?: string;
   variantLabel?: string;
   quantity: number;
-  pricePerUnit: number;
+  /** Display-only, and absent on a basket order. Pricing comes from the catalog. */
+  pricePerUnit?: number;
   notes?: string;
   offerId?: string;
   variantSelections?: Array<{ variantId: string; variantLabel?: string }>;
+  /**
+   * Cart request shape. When present it supersedes the flat product fields —
+   * see normalizeOrderLines, which is the only place the three shapes meet.
+   */
+  items?: Array<{
+    productId: string;
+    productName: string;
+    variantId?: string | null;
+    variantLabel?: string | null;
+    quantity: number;
+    offerId?: string;
+  }>;
   /** Resolved landing page id — set by the caller from landingPageSlug (best-effort). */
   landingPageId?: string | null;
   fbc?: string;
@@ -68,16 +99,12 @@ export interface StoreOrderData {
 export async function getStoreConfig(db: AppDb, storeId: string) {
   const store = await db.select().from(stores).where(eq(stores.id, storeId)).get();
   if (!store) return null;
-  const [pixelRow, otpRow, turnstileRow] = await Promise.all([
-    db
-      .select({
-        pixelId: storePixelConfig.pixelId,
-        enabled: storePixelConfig.enabled,
-        conversionEvent: storePixelConfig.conversionEvent,
-      })
-      .from(storePixelConfig)
-      .where(eq(storePixelConfig.storeId, storeId))
-      .get(),
+  const [tracking, otpRow, turnstileRow, pages, legalContact] = await Promise.all([
+    // Which pixel this storefront loads is resolved in one place for every
+    // sender — see queries/tracking-config.ts. The public accessor cannot
+    // return the Conversions API token, which is what keeps it out of the
+    // storefront payload structurally rather than by care.
+    resolvePublicTracking(db, { storeId }),
     db
       .select({ enabled: storeOtpConfig.enabled })
       .from(storeOtpConfig)
@@ -90,26 +117,21 @@ export async function getStoreConfig(db: AppDb, storeId: string) {
       .from(storeTurnstileConfig)
       .where(eq(storeTurnstileConfig.storeId, storeId))
       .get(),
+    // The footer renders on every page, so its link list rides along here
+    // rather than costing a second round trip per page view (plan D6/R7).
+    getFooterPages(db, storeId, store.lang as PageLocale),
+    getPublicLegalContact(db, storeId),
   ]);
   return {
     ...store,
-    pixelId: pixelRow?.enabled ? pixelRow.pixelId : null,
-    conversionEvent: pixelRow?.enabled ? (pixelRow.conversionEvent as "Purchase" | "Purchase_Confirmed" | "Purchase_Delivered" | "Lead") : "Purchase",
+    pixelId: tracking.pixelId,
+    conversionEvent: tracking.conversionEvent,
+    pages,
+    legalContact,
     otpEnabled: otpRow?.enabled === true,
     turnstileEnabled: turnstileRow?.enabled === true,
     turnstileSiteKey: turnstileRow?.enabled === true ? turnstileRow.siteKey : null,
   };
-}
-
-const MAX_IN_ARRAY_IDS = 90;
-
-function chunkIds(ids: string[]): string[][] {
-  if (ids.length === 0) return [];
-  const chunks: string[][] = [];
-  for (let i = 0; i < ids.length; i += MAX_IN_ARRAY_IDS) {
-    chunks.push(ids.slice(i, i + MAX_IN_ARRAY_IDS));
-  }
-  return chunks;
 }
 
 export async function getStoreProducts(
@@ -183,7 +205,7 @@ export async function getStoreProducts(
     variantInventoryByProduct.set(row.productId, Number(row.total));
   }
 
-  return rows.map((p) => {
+  return Promise.all(rows.map(async (p) => {
     const { avgRating, reviewCount, ...productData } = p;
     const inventory = productData.hasVariants
       ? variantInventoryByProduct.get(p.id) ?? 0
@@ -191,11 +213,12 @@ export async function getStoreProducts(
     return {
       ...productData,
       inventory,
+      descriptionPlain: await deriveDescriptionPlain(p.description, p.descriptionFormat),
       coverImage: coverImageByProduct.get(p.id) ?? null,
       reviewStats:
         reviewCount > 0 ? { avgRating: avgRating ?? 0, reviewCount } : null,
     };
-  });
+  }));
 }
 
 /**
@@ -320,6 +343,7 @@ export async function getStoreProductByHandle(
     inventory: totalInventory,
     variantOptions: product.variantOptions ? JSON.parse(product.variantOptions) : null,
     tags: product.tags ? JSON.parse(product.tags) : [],
+    descriptionPlain: await deriveDescriptionPlain(product.description, product.descriptionFormat),
     category: category ?? null,
     variants: variants.map((v) => ({
       ...v,
@@ -401,7 +425,12 @@ export async function findOrCreateCustomer(
 }
 
 /**
- * Resolve the storefront delivery fee for a wilaya.
+ * Wilaya-only delivery fee against the store's DEFAULT profile.
+ *
+ * Narrow adapter over resolveDeliveryFee for callers with no product or
+ * commune context. Order placement must NOT use this: it cannot see a
+ * product's own shipping profile or a commune-level override, both of which
+ * change what the customer is charged. Use resolveDeliveryFee there.
  *
  * Returns:
  *  - the fee (DZD, may be 0 for a legitimately-free price) when available
@@ -417,29 +446,12 @@ export async function getDeliveryFee(
   wilayaId: number,
   deliveryType: "home" | "stop_desk",
 ): Promise<number | null> {
-  const profile = await db
-    .select()
-    .from(shippingProfiles)
-    .where(eq(shippingProfiles.isDefault, true))
-    .get();
-
-  if (!profile) return 0;
-
-  const rule = await db
-    .select()
-    .from(shippingRules)
-    .where(
-      and(
-        eq(shippingRules.profileId, profile.id),
-        eq(shippingRules.wilayaId, wilayaId),
-      ),
-    )
-    .get();
-
-  if (!rule) return null;
-  if (deliveryType === "home" && !rule.homeEnabled) return null;
-  if (deliveryType === "stop_desk" && !rule.stopDeskEnabled) return null;
-  return deliveryType === "stop_desk" ? rule.stopDeskPrice : rule.homePrice;
+  return resolveDeliveryFee(db, {
+    productIds: [],
+    wilayaId,
+    communeId: null,
+    deliveryType,
+  });
 }
 
 export async function getShippingRates(db: AppDb) {
@@ -539,55 +551,6 @@ function groupVariantSelections(
   }));
 }
 
-// ─── Stock pre-check (before order creation) ─────────────────────────────────
-
-export async function checkStoreOrderStock(
-  db: AppDb,
-  params: {
-    productId: string;
-    variantId: string | null;
-    variantSelections: Array<{ variantId: string }>;
-    quantity: number;
-  },
-): Promise<string | null> {
-  const productRow = await db
-    .select({ trackInventory: products.trackInventory, inventory: products.inventory })
-    .from(products)
-    .where(eq(products.id, params.productId))
-    .get();
-
-  if (!productRow?.trackInventory) return null;
-
-  if (params.variantSelections.length > 0) {
-    const groups = groupVariantSelections(params.variantSelections);
-    for (const group of groups) {
-      const row = await db
-        .select({ inventory: productVariants.inventory })
-        .from(productVariants)
-        .where(eq(productVariants.id, group.variantId))
-        .get();
-      if ((row?.inventory ?? 0) < group.count) {
-        return "بعض الخيارات المطلوبة غير متوفرة حالياً. يرجى اختيار خياراً آخر.";
-      }
-    }
-  } else if (params.variantId) {
-    const row = await db
-      .select({ inventory: productVariants.inventory })
-      .from(productVariants)
-      .where(eq(productVariants.id, params.variantId))
-      .get();
-    if ((row?.inventory ?? 0) < params.quantity) {
-      return "هذا المنتج غير متوفر بالخيار المطلوب. يرجى اختيار خياراً آخر.";
-    }
-  } else {
-    if (productRow.inventory < params.quantity) {
-      return "هذا المنتج غير متوفر حالياً.";
-    }
-  }
-
-  return null;
-}
-
 // ─── Stock deduction + movement log ──────────────────────────────────────────
 
 interface DeductStockInput {
@@ -673,6 +636,13 @@ export async function createStoreOrder(
     customerName: string;
     deliveryFee: number;
   },
+  /**
+   * Catalog rows already loaded by the caller. The storefront handler loads
+   * them once for the SKU and stock checks and passes the same snapshot here,
+   * so a checkout reads each product row once rather than once per question.
+   * Omitted (tests, other callers) the engine loads its own.
+   */
+  preloaded?: CatalogSnapshot,
 ) {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -682,270 +652,125 @@ export async function createStoreOrder(
     .padStart(4, "0");
   const orderNumber = `ORD-${dateStr}-${random}`;
 
-  const primaryVariantId =
-    data.variantSelections && data.variantSelections.length > 0
-      ? data.variantSelections[0].variantId
-      : data.variantId ?? null;
-  const primaryVariantLabel =
-    data.variantSelections && data.variantSelections.length > 0
-      ? data.variantSelections[0].variantLabel ?? null
-      : data.variantLabel ?? null;
+  // Every accepted request shape becomes one list here. The engine below knows
+  // nothing about legacy fields, variantSelections, or carts.
+  const lines = normalizeOrderLines(data);
 
-  // ── Resolve phase (reads — no writes yet) ────────────────────────────────
+  // ── Resolve phase (reads — one batched round trip, or none when shared) ───
+  const snapshot = preloaded ?? (await loadCatalogSnapshot(db, lines, now));
 
-  // Server-authoritative pricing: the catalog row is the ONLY source of the
-  // unit price. The client's pricePerUnit is display-only and NEVER trusted —
-  // it reaches this function over plain HTTP and is trivially editable.
-  const catalogPriceRow = await db
-    .select({ price: products.price, trackInventory: products.trackInventory })
-    .from(products)
-    .where(and(eq(products.id, data.productId), isNull(products.deletedAt)))
-    .get();
+  // Server-authoritative pricing: the catalog row is the ONLY source of a unit
+  // price. The client's pricePerUnit is display-only and NEVER trusted — it
+  // arrives over plain HTTP and is trivially editable.
+  const { priced, subtotal: price } = priceCartLines(snapshot, lines);
+  const lineRows: Array<typeof orderProducts.$inferInsert> = priced.map((p) => ({
+    id: crypto.randomUUID(),
+    orderId: id,
+    productId: p.line.productId,
+    productName: p.line.productName,
+    variantId: p.line.variantId,
+    variantLabel: p.line.variantLabel,
+    sku: p.sku,
+    quantity: p.line.quantity,
+    pricePerUnit: p.unitPrice,
+    lineTotal: p.lineTotal,
+    createdAt: now,
+  }));
 
-  const authoritativeUnitPrice = (() => {
-    if (data.variantSelections && data.variantSelections.length > 0) {
-      // Multi-variant: the order's price is the sum of per-variant prices.
-      // Variant prices are resolved per line below (lines carry them); the
-      // headline price is computed after lines are built.
+  const { earned, freeShipping } = resolveCartOffers(lines, snapshot.offers);
+  const finalDeliveryFee = freeShipping ? 0 : data.deliveryFee;
+
+  // ── Reward lines ─────────────────────────────────────────────────────────
+  //
+  // A reward whose stock cannot cover it is skipped and the order still
+  // succeeds: revenue first, promotion second. That is the existing contract.
+  const rewardLines: Array<typeof orderProducts.$inferInsert> = [];
+  const rewardDeducts: DeductStockInput[] = [];
+
+  // Rewards can point outside the basket — another product, a specific variant,
+  // or "the default variant of that product". One batched top-up covers all
+  // three; a basket whose rewards are all in-basket adds no round trip at all.
+  if (earned.length > 0) {
+    await extendSnapshot(db, snapshot, {
+      productIds: earned
+        .map((e) => e.offer.rewardProductId)
+        .filter((id): id is string => !!id),
+      variantIds: earned
+        .map((e) => e.offer.rewardVariantId)
+        .filter((id): id is string => !!id),
+      variantsOfProducts: earned
+        .filter((e) => e.offer.rewardProductId && !e.offer.rewardVariantId)
+        .map((e) => e.offer.rewardProductId!),
+    });
+  }
+
+  const defaultVariantFor = (productId: string) =>
+    [...snapshot.variants.values()]
+      .filter((v) => v.productId === productId && v.active)
+      .sort((a, b) => a.id.localeCompare(b.id))[0];
+
+  const labelOf = (variations: string | undefined) => {
+    if (!variations) return null;
+    try {
+      return Object.values(JSON.parse(variations) as Record<string, string>).join(" / ");
+    } catch {
       return null;
     }
-    if (data.variantId) {
-      return null; // resolved below from the variant row
+  };
+
+  for (const { offer, line } of earned) {
+    if (!offer.rewardProductId) continue;
+    const rewardProduct = snapshot.products.get(offer.rewardProductId);
+    if (!rewardProduct) continue;
+
+    let rewardVariantId: string | null = offer.rewardVariantId ?? null;
+    let rewardVariantLabel: string | null = null;
+
+    if (!rewardVariantId && offer.rewardProductId === line.productId) {
+      // Reward is the product ordered — mirror the variant the shopper chose.
+      rewardVariantId = line.variantId;
+      rewardVariantLabel = line.variantLabel;
+    } else if (!rewardVariantId) {
+      const fallback = defaultVariantFor(offer.rewardProductId);
+      if (fallback) {
+        rewardVariantId = fallback.id;
+        rewardVariantLabel = labelOf(fallback.variations);
+      }
     }
-    return catalogPriceRow?.price ?? null;
-  })();
 
-  const activeOffer = await selectApplicableOffer(
-    db,
-    data.productId,
-    data.quantity,
-    primaryVariantId,
-    data.offerId,
-  );
-
-  const finalDeliveryFee =
-    activeOffer?.discountType === "free_shipping" ? 0 : data.deliveryFee;
-
-  const lineRows: Array<typeof orderProducts.$inferInsert> = [];
-
-  if (data.variantSelections && data.variantSelections.length > 0) {
-    let linesPriceTotal = 0;
-    for (const group of groupVariantSelections(data.variantSelections)) {
-      const varRow = await db
-        .select({ sku: productVariants.sku, price: productVariants.price })
-        .from(productVariants)
-        .where(eq(productVariants.id, group.variantId))
-        .get();
-      linesPriceTotal += (varRow?.price ?? 0) * group.count;
-      lineRows.push({
-        id: crypto.randomUUID(),
-        orderId: id,
-        productId: data.productId,
-        productName: data.productName,
-        variantId: group.variantId,
-        variantLabel: group.variantLabel,
-        sku: varRow?.sku ?? null,
-        quantity: group.count,
-        pricePerUnit: varRow?.price ?? 0,
-        lineTotal: (varRow?.price ?? 0) * group.count,
-        createdAt: now,
-      });
+    const rewardVariant = rewardVariantId ? snapshot.variants.get(rewardVariantId) : undefined;
+    if (rewardVariantId && !rewardVariantLabel) {
+      rewardVariantLabel = labelOf(rewardVariant?.variations);
     }
-    (lineRows as any).__priceTotal = linesPriceTotal;
-  } else if (data.variantId) {
-    const varRow = await db
-      .select({ sku: productVariants.sku, price: productVariants.price })
-      .from(productVariants)
-      .where(eq(productVariants.id, data.variantId))
-      .get();
-    const unitPrice = varRow?.price ?? authoritativeUnitPrice ?? 0;
-    lineRows.push({
+
+    if (rewardProduct.trackInventory) {
+      const available = rewardVariantId
+        ? (rewardVariant?.inventory ?? 0)
+        : rewardProduct.inventory;
+      if (available < offer.rewardQuantity) continue; // silently skipped
+    }
+
+    rewardLines.push({
       id: crypto.randomUUID(),
       orderId: id,
-      productId: data.productId,
-      productName: data.productName,
-      variantId: data.variantId,
-      variantLabel: data.variantLabel,
-      sku: varRow?.sku ?? null,
-      quantity: data.quantity,
-      pricePerUnit: unitPrice,
-      lineTotal: unitPrice * data.quantity,
+      productId: offer.rewardProductId,
+      productName: rewardProduct.name,
+      variantId: rewardVariantId,
+      variantLabel: rewardVariantLabel
+        ? `${rewardVariantLabel} — 🎁 مجاني`
+        : "🎁 مجاني",
+      sku: rewardVariantId ? (rewardVariant?.sku ?? null) : rewardProduct.sku,
+      quantity: offer.rewardQuantity,
+      pricePerUnit: 0,
+      lineTotal: 0,
       createdAt: now,
     });
-    (lineRows as any).__priceTotal = unitPrice * data.quantity;
-  } else {
-    let itemSku: string | null = null;
-    const prodSkuRow = await db
-      .select({ sku: products.sku })
-      .from(products)
-      .where(eq(products.id, data.productId))
-      .get();
-    itemSku = prodSkuRow?.sku ?? null;
-    const unitPrice = authoritativeUnitPrice ?? 0;
-    lineRows.push({
-      id: crypto.randomUUID(),
-      orderId: id,
-      productId: data.productId,
-      productName: data.productName,
-      variantId: null,
-      variantLabel: null,
-      sku: itemSku,
-      quantity: data.quantity,
-      pricePerUnit: unitPrice,
-      lineTotal: unitPrice * data.quantity,
-      createdAt: now,
-    });
-    (lineRows as any).__priceTotal = unitPrice * data.quantity;
-  }
 
-  // The order's price is the catalog-derived sum of its lines — never the
-  // client-supplied quantity × pricePerUnit.
-  const price = (lineRows as any).__priceTotal as number;
-
-  let rewardLine: typeof orderProducts.$inferInsert | null = null;
-  let rewardDeduct: DeductStockInput | null = null;
-
-  if (activeOffer && activeOffer.discountType !== "free_shipping") {
-    let resolvedRewardVariantId: string | null = activeOffer.rewardVariantId ?? null;
-    let resolvedRewardVariantLabel: string | null = null;
-
-    if (!resolvedRewardVariantId && activeOffer.rewardProductId === data.productId) {
-      resolvedRewardVariantId = primaryVariantId;
-      resolvedRewardVariantLabel = primaryVariantLabel;
-    } else if (
-      !resolvedRewardVariantId &&
-      activeOffer.rewardProductId &&
-      activeOffer.rewardProductId !== data.productId
-    ) {
-      const defaultVariant = await db
-        .select({ id: productVariants.id, variations: productVariants.variations })
-        .from(productVariants)
-        .where(
-          and(
-            eq(productVariants.productId, activeOffer.rewardProductId),
-            eq(productVariants.active, true),
-          ),
-        )
-        .orderBy(asc(productVariants.position))
-        .get();
-      if (defaultVariant) {
-        resolvedRewardVariantId = defaultVariant.id;
-        resolvedRewardVariantLabel = Object.values(
-          JSON.parse(defaultVariant.variations) as Record<string, string>,
-        ).join(" / ");
-      }
-    } else if (resolvedRewardVariantId) {
-      const rewardVariantRow = await db
-        .select({ variations: productVariants.variations })
-        .from(productVariants)
-        .where(eq(productVariants.id, resolvedRewardVariantId))
-        .get();
-      if (rewardVariantRow) {
-        resolvedRewardVariantLabel = Object.values(
-          JSON.parse(rewardVariantRow.variations) as Record<string, string>,
-        ).join(" / ");
-      }
-    }
-
-    if (activeOffer.rewardProductId) {
-      const rewardProductRow = await db
-        .select({ name: products.name, trackInventory: products.trackInventory })
-        .from(products)
-        .where(eq(products.id, activeOffer.rewardProductId))
-        .get();
-
-      let rewardInStock = true;
-      if (rewardProductRow?.trackInventory) {
-        if (resolvedRewardVariantId) {
-          const rv = await db
-            .select({ inventory: productVariants.inventory })
-            .from(productVariants)
-            .where(eq(productVariants.id, resolvedRewardVariantId))
-            .get();
-          rewardInStock = (rv?.inventory ?? 0) >= activeOffer.rewardQuantity;
-        } else {
-          const rp = await db
-            .select({ inventory: products.inventory })
-            .from(products)
-            .where(eq(products.id, activeOffer.rewardProductId))
-            .get();
-          rewardInStock = (rp?.inventory ?? 0) >= activeOffer.rewardQuantity;
-        }
-      }
-
-      if (rewardInStock && rewardProductRow) {
-        let rewardSku: string | null = null;
-        if (resolvedRewardVariantId) {
-          const rv = await db
-            .select({ sku: productVariants.sku })
-            .from(productVariants)
-            .where(eq(productVariants.id, resolvedRewardVariantId))
-            .get();
-          rewardSku = rv?.sku ?? null;
-        } else if (activeOffer.rewardProductId) {
-          const rp = await db
-            .select({ sku: products.sku })
-            .from(products)
-            .where(eq(products.id, activeOffer.rewardProductId))
-            .get();
-          rewardSku = rp?.sku ?? null;
-        }
-        rewardLine = {
-          id: crypto.randomUUID(),
-          orderId: id,
-          productId: activeOffer.rewardProductId,
-          productName: rewardProductRow.name,
-          variantId: resolvedRewardVariantId,
-          variantLabel: resolvedRewardVariantLabel
-            ? `${resolvedRewardVariantLabel} — 🎁 مجاني`
-            : "🎁 مجاني",
-          sku: rewardSku,
-          quantity: activeOffer.rewardQuantity,
-          pricePerUnit: 0,
-          lineTotal: 0,
-          createdAt: now,
-        };
-
-        if (rewardProductRow.trackInventory) {
-          rewardDeduct = {
-            productId: activeOffer.rewardProductId,
-            variantId: resolvedRewardVariantId,
-            quantity: activeOffer.rewardQuantity,
-            orderId: id,
-            customerId: data.customerId,
-            customerName: data.customerName,
-            now,
-          };
-        }
-      }
-    }
-  }
-
-  const productRow = await db
-    .select({ trackInventory: products.trackInventory })
-    .from(products)
-    .where(eq(products.id, data.productId))
-    .get();
-
-  const deductions: DeductStockInput[] = [];
-  if (productRow?.trackInventory) {
-    if (data.variantSelections && data.variantSelections.length > 0) {
-      for (const group of groupVariantSelections(data.variantSelections)) {
-        deductions.push({
-          productId: data.productId,
-          variantId: group.variantId,
-          quantity: group.count,
-          orderId: id,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          now,
-        });
-      }
-    } else {
-      deductions.push({
-        productId: data.productId,
-        variantId: data.variantId ?? null,
-        quantity: data.quantity,
+    if (rewardProduct.trackInventory) {
+      rewardDeducts.push({
+        productId: offer.rewardProductId,
+        variantId: rewardVariantId,
+        quantity: offer.rewardQuantity,
         orderId: id,
         customerId: data.customerId,
         customerName: data.customerName,
@@ -953,7 +778,26 @@ export async function createStoreOrder(
       });
     }
   }
-  if (rewardDeduct) deductions.push(rewardDeduct);
+
+  // ── Stock deductions ─────────────────────────────────────────────────────
+  //
+  // trackInventory is the parent product's master switch: false excludes the
+  // product AND all of its variants from stock entirely.
+  const deductions: DeductStockInput[] = [];
+  for (const line of lines) {
+    const product = snapshot.products.get(line.productId);
+    if (!product?.trackInventory) continue;
+    deductions.push({
+      productId: line.productId,
+      variantId: line.variantId,
+      quantity: line.quantity,
+      orderId: id,
+      customerId: data.customerId,
+      customerName: data.customerName,
+      now,
+    });
+  }
+  deductions.push(...rewardDeducts);
 
   // ── Commit phase (one atomic batch) ──────────────────────────────────────
 
@@ -986,11 +830,8 @@ export async function createStoreOrder(
     }),
   ];
 
-  for (const line of lineRows) {
+  for (const line of [...lineRows, ...rewardLines]) {
     statements.push(db.insert(orderProducts).values(line));
-  }
-  if (rewardLine) {
-    statements.push(db.insert(orderProducts).values(rewardLine));
   }
 
   statements.push(
@@ -1132,40 +973,3 @@ export async function createReview(
   return { id };
 }
 
-export async function validateOrderSkus(
-  db: AppDb,
-  productId: string,
-  variantId?: string,
-  variantSelections?: { variantId: string }[],
-): Promise<{ missing: "variant" | "product"; id: string } | null> {
-  if (variantSelections && variantSelections.length > 0) {
-    const uniqueVariantIds = [...new Set(variantSelections.map((v) => v.variantId))];
-    for (const vid of uniqueVariantIds) {
-      const row = await db
-        .select({ sku: productVariants.sku })
-        .from(productVariants)
-        .where(eq(productVariants.id, vid))
-        .get();
-      if (!row?.sku) return { missing: "variant", id: vid };
-    }
-    return null;
-  }
-
-  if (variantId) {
-    const row = await db
-      .select({ sku: productVariants.sku })
-      .from(productVariants)
-      .where(eq(productVariants.id, variantId))
-      .get();
-    if (!row?.sku) return { missing: "variant", id: variantId };
-    return null;
-  }
-
-  const row = await db
-    .select({ sku: products.sku })
-    .from(products)
-    .where(eq(products.id, productId))
-    .get();
-  if (!row?.sku) return { missing: "product", id: productId };
-  return null;
-}

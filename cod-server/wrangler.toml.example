@@ -60,12 +60,6 @@ name       = "lp-image-upload-workflow"
 binding    = "LP_IMAGE_UPLOAD_WORKFLOW"
 class_name = "CodLandingPageImageUploadWorkflow"
 
-# The `agents` package statically imports `cloudflare:email`. Declaring this
-# satisfies the module resolver even though this Worker never sends email.
-# (Cloudflare's local dev runtime fails to load the Worker without it.)
-[[send_email]]
-name = "SEND_EMAIL_UNUSED"
-
 # Cron Triggers
 # Sweeps pending abandoned orders → abandoned status every hour.
 # Maximum lag from "true abandonment" to "marked abandoned" is ~90 min (pending > 30 min).
@@ -122,9 +116,6 @@ id = "00000000000000000000000000000000"
 [[env.production.kv_namespaces]]
 binding = "OAUTH_KV"
 id = "00000000000000000000000000000000"
-
-[[env.production.send_email]]
-name = "SEND_EMAIL_UNUSED"
 
 [[env.production.workflows]]
 name       = "capi-workflow"

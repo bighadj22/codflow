@@ -1,0 +1,132 @@
+---
+/**
+ * Free-delivery progress.
+ *
+ * The merchant's free-delivery threshold is the strongest lever they have for
+ * basket size, and the first version of this wasted it: a hairline rule and a
+ * line of grey text at the BOTTOM of the drawer, under the items, where a
+ * shopper reads the total and leaves. It has to be the first thing they see
+ * and it has to look like progress worth chasing.
+ *
+ * So it lives at the top of both surfaces and renders as a banner: an icon, a
+ * statement in the shopper's own words, and a filled track. The stripes move
+ * while there is still distance to cover and the whole thing turns success-
+ * coloured the moment it is earned — the shopper should be able to tell which
+ * state they are in from across the room, without reading.
+ *
+ * One component, two placements. The drawer and the checkout summary both show
+ * this, and on the checkout page both exist at once, so the ids are prefixed
+ * rather than shared — the controllers each own their own copy.
+ *
+ * Hidden until the server says there is a threshold. A merchant who has not
+ * set one ships nothing.
+ */
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  /** `cart` for the drawer, `checkout` for the order summary. */
+  idPrefix: "cart" | "checkout";
+  class?: string;
+}
+
+const { idPrefix, class: className = "" } = Astro.props;
+---
+
+<div
+  id={`${idPrefix}-free-delivery`}
+  class:list={["cod-fd", className]}
+  data-state="progress"
+  hidden
+>
+  <div class="flex items-center gap-2">
+    <Icon name="heroicons:truck" class="cod-fd-icon cod-fd-icon--progress h-[1.125rem] w-[1.125rem] shrink-0" />
+    <Icon name="heroicons:check-circle" class="cod-fd-icon cod-fd-icon--earned h-[1.125rem] w-[1.125rem] shrink-0" />
+    <p id={`${idPrefix}-free-delivery-text`} class="cod-fd-text min-w-0 flex-1"></p>
+  </div>
+
+  <div class="cod-fd-track rounded-full" role="presentation">
+    <div id={`${idPrefix}-free-delivery-bar`} class="cod-fd-fill rounded-full"></div>
+  </div>
+</div>
+
+<style>
+  /*
+    Tinted with `transparent` rather than `white` so the banner sits correctly
+    on whatever surface it is placed on, and so a merchant's darker palette
+    does not turn it into a pale rectangle.
+  */
+  .cod-fd {
+    border-radius: var(--radius-input);
+    padding: 0.625rem 0.75rem;
+    background: color-mix(in srgb, var(--clr-success) 9%, transparent);
+  }
+
+  .cod-fd-text {
+    font-size: 0.8125rem;
+    font-weight: 800;
+    line-height: 1.3;
+    color: var(--clr-text);
+  }
+
+  .cod-fd-icon {
+    color: var(--clr-text-2);
+  }
+
+  /* One icon per state, so neither ever shows the wrong one mid-render. */
+  .cod-fd[data-state="progress"] .cod-fd-icon--earned,
+  .cod-fd[data-state="earned"] .cod-fd-icon--progress {
+    display: none;
+  }
+
+  .cod-fd[data-state="earned"] .cod-fd-text,
+  .cod-fd[data-state="earned"] .cod-fd-icon--earned {
+    color: var(--clr-success);
+  }
+
+  /* Rounding comes from `rounded-full` in the markup — the style validator
+     keeps radius values out of component CSS. */
+  .cod-fd-track {
+    margin-top: 0.5rem;
+    height: 0.5rem;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--clr-text-2) 16%, transparent);
+  }
+
+  /*
+    Width is set by the controller; everything else is here. The fill grows
+    from the inline start, so it runs right-to-left in Arabic with no extra
+    rule.
+  */
+  .cod-fd-fill {
+    width: 0%;
+    height: 100%;
+    background-color: var(--clr-success);
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, white 32%, transparent) 0 0.45rem,
+      transparent 0.45rem 0.9rem
+    );
+    background-size: 1.28rem 100%;
+    animation: cod-fd-stripes 0.9s linear infinite;
+    transition: width 420ms ease-out;
+  }
+
+  /* The stripes are the "keep going" signal; once earned it can settle. */
+  .cod-fd[data-state="earned"] .cod-fd-fill {
+    animation: none;
+    background-image: none;
+  }
+
+  @keyframes cod-fd-stripes {
+    to {
+      background-position: 1.28rem 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cod-fd-fill {
+      animation: none;
+      transition: none;
+    }
+  }
+</style>

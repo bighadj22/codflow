@@ -9,6 +9,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- legal-pages: store-owned content pages — Terms, Privacy, Refund/Return and
+  Shipping, pre-seeded per store with Algeria-COD-grounded templates (migration
+  0030 + `store_pages` / `store_page_translations` / `store_legal_profile`)
+  because Meta Ads rejects a storefront that has none. Templates are authored
+  as typed data (`cod-shared/legal/`), not HTML strings, so a merchant fact
+  with no value (no RC number, no return window) drops its clause instead of
+  rendering a placeholder. Content is sanitised through the same
+  `cod-shared/lib/rich-text.ts` allow-list product descriptions use, at one
+  write chokepoint every path — merchant edit, seed, or template reset — goes
+  through
+- legal-pages: `/api/store-pages` — merchant CRUD, per-locale save, "reset to
+  the current template," custom pages (kind=custom, not seeded, deletable —
+  legal kinds can only be unpublished), and the store's legal profile (RC/NIF,
+  contact, return and delivery windows) that templates render from; Dashboard
+  → Pages: TipTap editor (the same one product descriptions use), locale tabs
+  led by the store's own language, SEO fields, a completeness banner, and a
+  one-click "Add Terms, Privacy, Refund & Shipping" for a store that predates
+  this feature
+- legal-pages: `GET /store/pages/{slug}` + `/store/config`'s new `pages[]` and
+  `legalContact` — theme01's `/pages/<slug>` renders the resolved page (real
+  404 for draft/unknown, never a soft 200); the footer's Shipping/Returns
+  column, previously two dead `<span>`s with no `href`, now links to whatever
+  is actually configured; the checkout form gains a Terms/Refund consent line
+  resolved by page **kind**, never a hardcoded slug
+- legal-pages: `stores.lang` widened to include `fr` (type-only — the column
+  had no CHECK constraint) so a French-language store can actually be
+  configured, matching the `fr` content pack theme01 already shipped
+- cart: opt-in shopping cart, per store (migration 0027 + `stores.cart_enabled`,
+  Dashboard → Settings → Shopping cart). **Off by default**: a store that never
+  turns it on ships no cart markup and keeps its one-click order form exactly as
+  it is. When on, product pages gain a secondary "Add to cart" beside the order
+  form, the header gains a cart trigger, and a side drawer shows the basket with
+  live quantity controls priced by the server
+- cart: `/checkout` — a dedicated page for basket orders: editable order
+  summary, free-delivery progress, live delivery fee as the wilaya and delivery
+  type are chosen, running total, plus the existing customer fields, WhatsApp
+  OTP gate and Turnstile. The single-product express form is untouched and is
+  never used for a basket. Closed (302 to `/`) when the merchant has the cart
+  off, and `noindex`
+- cart: `POST /store/cart/validate` — re-prices a basket from the catalog and
+  reports per-line stock and availability, so the drawer and the checkout page
+  cannot show a total the order engine would not charge
+- cart: multi-line storefront orders end to end — one order carries several
+  products, each with its own variant and quantity, through pricing, offers,
+  stock deduction, dispatch and the dashboard. Capped at 20 distinct lines and
+  100 units per line
+- cart: delivery-pricing settings (migration 0026) — free-shipping threshold and
+  how a basket mixing shipping profiles is charged (highest rate in the basket,
+  or always the default profile), both merchant choices with our recommendation
+  as the default
+- cart: abandoned checkouts capture the whole basket (migration 0028 +
+  `abandoned_orders.items_json` / `item_count`), and the dashboard's abandoned
+  list shows every line with its quantity and line total. Single-product records
+  are stored and rendered exactly as before
+- cart: Meta Pixel `AddToCart` on each add, and `InitiateCheckout` on the
+  checkout page carrying the basket and the server-validated subtotal. Stores
+  with no pixel configured are unaffected
 - checkout: optional per-store Cloudflare Turnstile bot protection on the
   order form (migration 0024 + `store_turnstile_config`), enabled from
   Dashboard → Settings → Verification with the merchant's own site/secret
@@ -36,6 +93,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- delivery: **product-level shipping profiles were silently ignored at
+  checkout** — a product assigned its own profile was charged the store
+  default, so every order of that product under-collected (or over-collected)
+  delivery. Resolution now considers each product's own profile
+- delivery: **commune-level shipping overrides were silently ignored at
+  checkout** — a per-commune rate the merchant had set never reached the
+  order. Overrides now apply, and are compared before the highest-rate rule
+  picks a winner for a mixed basket
+- checkout: delivery-fee resolution no longer confuses "inherit" with
+  "free" — a NULL rate means inherit, `0` means the merchant set it to zero,
+  and a free-shipping threshold can no longer override a profile that refuses
+  delivery to a commune
+- performance: catalog reads per checkout reduced from one round trip per
+  product to a single batched read, so a multi-line order costs roughly the
+  same number of database round trips as a single-product one
 - delivery: Yalidine webhook signature verification implemented (HMAC-SHA256
   over raw body, hex digest, constant-time compare) — previously a TODO that
   accepted unsigned events

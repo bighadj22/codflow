@@ -38,6 +38,12 @@ function storeRow(overrides: Record<string, any> = {}) {
     ogImage: "https://cdn.example.com/og.png",
     announcementBar: "Free delivery on orders above 3000 دج",
     reviewsEnabled: true,
+    cartEnabled: false,
+    // Position matters: the mock db maps a full-table select by schema column
+    // order, so these sit exactly where the schema puts them — after
+    // reviewsEnabled and before status.
+    freeShippingThreshold: null,
+    cartShippingMode: "highest",
     status: "active",
     createdAt: NOW,
     updatedAt: NOW,

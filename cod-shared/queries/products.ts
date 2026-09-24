@@ -1,9 +1,12 @@
 import { eq, and, like, or, sum, isNull, sql, inArray, getTableColumns } from "drizzle-orm";
 import { products, productCategories, productVariants, productImages, reviews, stockMovements } from "../db/schema";
 import type { AppDb } from "../db/client";
+import { sanitizeRichText, toPlainText } from "../lib/rich-text";
 import { safeLikeTerm } from "./search";
 
 type BatchStatement = Parameters<AppDb["batch"]>[0][number];
+
+export type DescriptionFormat = "text" | "html";
 
 export interface VariantOption {
   name: string;
@@ -22,6 +25,7 @@ export interface ProductFilters {
 export interface CreateProductData {
   name: string;
   description?: string | null;
+  descriptionFormat?: DescriptionFormat;
   handle?: string;
   price: number;
   compareAtPrice?: number | null;
@@ -45,6 +49,7 @@ export interface CreateProductData {
 export interface UpdateProductData {
   name?: string;
   description?: string | null;
+  descriptionFormat?: DescriptionFormat;
   handle?: string;
   price?: number;
   compareAtPrice?: number | null;
@@ -67,6 +72,38 @@ export interface UpdateProductData {
 
 function toHandle(name: string, id: string) {
   return name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-") + "-" + id.slice(0, 8);
+}
+
+function normaliseFormat(value: unknown): DescriptionFormat {
+  return value === "html" ? "html" : "text";
+}
+
+/**
+ * Sanitise at the write chokepoint: an `html` description never reaches D1
+ * unsanitised. `text` descriptions pass through untouched — legacy rows and
+ * text-mode merchants keep rendering exactly as before.
+ */
+async function sanitiseForFormat(
+  description: string | null,
+  format: DescriptionFormat,
+): Promise<string | null> {
+  if (description === null || format !== "html") return description;
+  return (await sanitizeRichText(description)).html;
+}
+
+/**
+ * Tag-free rendering handed to clients for <meta name=description> and
+ * JSON-LD. For `text` rows it is the raw column (meta output is unchanged
+ * from today); for `html` rows it strips tags, drops images and decodes
+ * entities. Runs in workerd — HTMLRewriter does not exist outside Workers.
+ */
+export async function deriveDescriptionPlain(
+  description: string | null,
+  format: DescriptionFormat | null | undefined,
+): Promise<string | null> {
+  if (description === null) return null;
+  if (format === "html") return toPlainText(description);
+  return description;
 }
 
 async function buildProductDetail(db: AppDb, productId: string) {
@@ -98,6 +135,7 @@ async function buildProductDetail(db: AppDb, productId: string) {
     ...product,
     variantOptions,
     tags,
+    descriptionPlain: await deriveDescriptionPlain(product.description, product.descriptionFormat),
     category,
     variants: parsedVariants,
     images,
@@ -168,7 +206,7 @@ export async function getAllProducts(db: AppDb, filters?: ProductFilters) {
     }
   }
 
-  return rows.map((p) => {
+  return Promise.all(rows.map(async (p) => {
     const { reviewCount, avgRating, primaryImageSrc, ...productData } = p;
     const variants = variantsByProduct.get(p.id) ?? [];
     const totalInventory =
@@ -180,6 +218,7 @@ export async function getAllProducts(db: AppDb, filters?: ProductFilters) {
       ...productData,
       variantOptions: p.variantOptions ? JSON.parse(p.variantOptions) : null,
       tags: p.tags ? JSON.parse(p.tags) : [],
+      descriptionPlain: await deriveDescriptionPlain(p.description, p.descriptionFormat),
       variantsCount: variants.length,
       totalInventory,
       primaryImageSrc,
@@ -187,7 +226,7 @@ export async function getAllProducts(db: AppDb, filters?: ProductFilters) {
       reviewCount,
       avgRating,
     };
-  });
+  }));
 }
 
 export async function getProductById(db: AppDb, productId: string) {
@@ -199,10 +238,14 @@ export async function createProduct(db: AppDb, data: CreateProductData) {
   const now = new Date().toISOString();
   const handle = data.handle || toHandle(data.name, id);
 
+  const descriptionFormat = normaliseFormat(data.descriptionFormat);
+  const description = await sanitiseForFormat(data.description ?? null, descriptionFormat);
+
   await db.insert(products).values({
     id,
     name: data.name,
-    description: data.description ?? null,
+    description,
+    descriptionFormat,
     handle,
     currency: "DZD",
     price: data.price,
@@ -235,7 +278,26 @@ export async function updateProduct(db: AppDb, productId: string, data: UpdatePr
   const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
 
   if (data.name !== undefined) updates.name = data.name;
-  if (data.description !== undefined) updates.description = data.description ?? null;
+  if (data.description !== undefined || data.descriptionFormat !== undefined) {
+    // The effective format governs how the final description is stored. When
+    // the format flips to 'html' the STORED value is re-sanitised even if the
+    // description itself did not change — a legacy text row must never start
+    // rendering its raw content as live markup.
+    const current = await db
+      .select({ description: products.description, descriptionFormat: products.descriptionFormat })
+      .from(products)
+      .where(eq(products.id, productId))
+      .get();
+    const format = data.descriptionFormat !== undefined
+      ? normaliseFormat(data.descriptionFormat)
+      : normaliseFormat(current?.descriptionFormat);
+    const description = await sanitiseForFormat(
+      data.description !== undefined ? data.description ?? null : current?.description ?? null,
+      format,
+    );
+    updates.description = description;
+    updates.descriptionFormat = format;
+  }
   if (data.handle !== undefined) updates.handle = data.handle;
   if (data.price !== undefined) updates.price = data.price;
   if (data.compareAtPrice !== undefined) updates.compareAtPrice = data.compareAtPrice ?? null;

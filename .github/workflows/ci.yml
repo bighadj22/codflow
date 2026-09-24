@@ -42,8 +42,10 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run typecheck --workspace codflow-client-astro
-      - run: npm test --workspace codflow-client-astro
       - run: npm run build --workspace codflow-client-astro
+        env:
+          PUBLIC_API_URL: http://localhost:8787
+      - run: npm test --workspace codflow-client-astro
         env:
           PUBLIC_API_URL: http://localhost:8787
 

@@ -1,4 +1,4 @@
-export type StoreLang = "ar" | "en";
+export type StoreLang = "ar" | "en" | "fr";
 export type StoreStatus = "active" | "inactive";
 
 /** The single tenant's configuration as returned by the stores API. */
@@ -22,6 +22,12 @@ export interface StoreConfig {
   ogImage: string | null;
   announcementBar: string | null;
   reviewsEnabled: boolean;
+  /** Shopping cart opt-in. False keeps the storefront exactly as it is. */
+  cartEnabled: boolean;
+  /** Order subtotal (DZD) at or above which delivery is free. null = off. */
+  freeShippingThreshold: number | null;
+  /** Which rate a basket spanning several shipping profiles pays. */
+  cartShippingMode: "highest" | "default_profile";
   status: StoreStatus;
   storeApiKey: string | null;
 }
@@ -45,6 +51,9 @@ export type UpdateStoreData = Partial<
     | "ogImage"
     | "announcementBar"
     | "reviewsEnabled"
+    | "cartEnabled"
+    | "freeShippingThreshold"
+    | "cartShippingMode"
     | "status"
   >
 >;
@@ -60,6 +69,8 @@ export interface PixelConfig {
   conversionEvent: "Purchase" | "Purchase_Confirmed" | "Purchase_Delivered" | "Lead";
   testMode: boolean;
   enabled: boolean;
+  /** Master switch for per-landing-page pixels — off means every page uses this one. */
+  perPageTrackingEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -72,6 +83,8 @@ export interface SavePixelConfigData {
   conversionEvent: "Purchase" | "Purchase_Confirmed" | "Purchase_Delivered" | "Lead";
   testMode?: boolean;
   enabled?: boolean;
+  /** Omitted keeps the stored value — an unrelated edit must not reset it. */
+  perPageTrackingEnabled?: boolean;
 }
 
 /** WhatsApp OTP verification configuration (dzverify). Absent until first saved — null = disabled. */

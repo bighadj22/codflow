@@ -71,17 +71,18 @@ const badges = [
             {content?.footerSupport}
           </h3>
           <ul class="space-y-2.5">
-            {[
-              { label: content?.footerShipping },
-              { label: content?.footerReturns },
-              { label: content?.navContact },
-            ].map((link) => (
+            {config.pages.map((page) => (
               <li>
-                <span class="text-[0.8125rem] sm:text-[0.875rem] font-bold transition-all cursor-pointer" style="color: var(--clr-text-2)">
-                  {link.label}
-                </span>
+                <a href={`/pages/${page.slug}`} class="text-[0.8125rem] sm:text-[0.875rem] font-bold transition-all hover:text-primary" style="color: var(--clr-text-2)">
+                  {page.title}
+                </a>
               </li>
             ))}
+            <li>
+              <span class="text-[0.8125rem] sm:text-[0.875rem] font-bold" style="color: var(--clr-text-2)">
+                {content?.navContact}
+              </span>
+            </li>
           </ul>
         </div>
 

@@ -1,0 +1,102 @@
+---
+/**
+ * Related products.
+ *
+ * A COD storefront is usually reached from an ad, straight onto one product
+ * page. A shopper who decides "not this one" has nowhere to go but back to the
+ * ad, so this exists to catch that exit — and, now that there is a basket, to
+ * give them a reason to add a second thing.
+ *
+ * It sits at the END of the page, after the description and the reviews, and
+ * deliberately not under the order form. A grid of alternatives directly below
+ * the buy button invites a shopper to wander off mid-decision; down here it
+ * only meets the ones who were already leaving.
+ *
+ * "Related" means the same category, because category is the only relationship
+ * this data actually has. Anything dressed up as "frequently bought together"
+ * would need order-history mining, and inventing it from nothing would just be
+ * a random grid with a confident label.
+ *
+ * Rendered as a deferred server island: the fetch happens after the product is
+ * already on screen, so this can never cost the page its LCP. If the request
+ * fails, the section is simply absent — a storefront must not break because a
+ * suggestion could not be loaded.
+ */
+import ProductCard from "@/theme/components/product/ProductCard.astro";
+import { fetchProductsRaw } from "@/core/api/client";
+import {
+  usableRelated,
+  shouldShowRelated,
+  MAX_RELATED,
+  MIN_RELATED,
+} from "@/theme/utils/related-products";
+import type { StoreFrontContent } from "@/theme/config/content";
+
+interface Props {
+  /** The product being viewed — excluded from its own suggestions. */
+  productId: string;
+  /** Its category, when it has one. */
+  categoryId: string | null;
+  currencySymbol: string;
+  content: StoreFrontContent;
+}
+
+const { productId, categoryId, currencySymbol, content } = Astro.props;
+
+// Selection rules live in related-products.ts so they can be tested.
+let related: any[] = [];
+
+if (categoryId) {
+  related = usableRelated(
+    await fetchProductsRaw({ categoryId, limit: MAX_RELATED + 1 }),
+    productId,
+  );
+}
+
+// A thin category — or a product filed under none — still deserves somewhere
+// to go, so fall back to the catalog at large rather than showing nothing.
+// Fetched only when needed: a rich category costs one request, not two.
+if (related.length < MIN_RELATED) {
+  related = usableRelated(await fetchProductsRaw({ limit: MAX_RELATED + 1 }), productId);
+}
+
+const show = shouldShowRelated(related.length);
+---
+
+{show && (
+  <section
+    class="max-w-5xl mx-auto px-5 pb-16 pt-12"
+    style="border-top: 1px solid var(--clr-border)"
+    aria-labelledby="related-products-title"
+  >
+    <div class="mb-6">
+      <h2
+        id="related-products-title"
+        class="text-[1.375rem] sm:text-[1.75rem] font-black tracking-tight"
+        style="color: var(--clr-text)"
+      >
+        {content.relatedTitle}
+      </h2>
+      <p class="mt-1 text-[0.875rem] font-bold" style="color: var(--clr-text-2)">
+        {content.relatedSub}
+      </p>
+    </div>
+
+    {/* A phone scrolls sideways rather than stacking eight cards below the
+        order form, which would push the page length out for no gain. From
+        `sm` up it becomes an ordinary grid. */}
+    <div
+      class="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4"
+    >
+      {related.map((product) => (
+        <div class="w-[44vw] max-w-[13rem] shrink-0 snap-start sm:w-auto sm:max-w-none">
+          <ProductCard
+            product={product}
+            currencySymbol={currencySymbol}
+            content={content}
+          />
+        </div>
+      ))}
+    </div>
+  </section>
+)}

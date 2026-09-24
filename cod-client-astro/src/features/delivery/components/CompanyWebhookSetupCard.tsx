@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Copy, ExternalLink, ShieldAlert, ShieldCheck, Zap } from "lucide-react";
-import { PUBLIC_API_URL } from "astro:env/client";
+import { publicApiUrl } from "@/lib/api";
 import { Button, Field, Input } from "@/components/ui";
 import { useT } from "@/i18n/react";
 import { cn } from "@/lib/utils";
@@ -32,7 +32,7 @@ export function CompanyWebhookSetupCard({
   const [secret, setSecret] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const webhookUrl = `${PUBLIC_API_URL}/webhooks/yalidine`;
+  const webhookUrl = `${publicApiUrl()}/webhooks/yalidine`;
   const secretSet = !!company?.webhookSecret;
 
   function copyUrl() {

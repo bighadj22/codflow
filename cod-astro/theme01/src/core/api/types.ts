@@ -24,7 +24,7 @@ export interface StoreConfig {
   bgColor: string;
   fontFamily: string;
   fontUrl: string | null;
-  lang: "ar" | "en";
+  lang: "ar" | "en" | "fr";
   currency: string;
   currencySymbol: string;
   contentJson: string | null;
@@ -33,6 +33,10 @@ export interface StoreConfig {
   ogImage: string | null;
   announcementBar: string | null;
   reviewsEnabled: boolean;
+  /** When true the storefront renders the cart alongside the direct order form. */
+  cartEnabled: boolean;
+  /** Subtotal (DZD) at or above which delivery is free. null = no threshold. */
+  freeShippingThreshold: number | null;
   otpEnabled: boolean;
   /** Cloudflare Turnstile — true only when a store_turnstile_config row exists AND is enabled. */
   turnstileEnabled: boolean;
@@ -41,6 +45,47 @@ export interface StoreConfig {
   status: "active" | "inactive";
   pixelId?: string | null;
   conversionEvent?: "Purchase" | "Purchase_Confirmed" | "Purchase_Delivered" | "Lead" | null;
+  /**
+   * Published pages that opt into the footer, titled in the store's own
+   * language, ordered for display. The checkout consent line resolves Terms/
+   * Refund from here by `kind` — never a hardcoded slug, since a merchant may
+   * rename any page's slug freely.
+   */
+  pages: StorePageLink[];
+  /**
+   * The public subset of the store's legal profile. Null until the merchant
+   * saves one from the dashboard (Settings → Store Pages) — RC/NIF are never
+   * exposed here, only inside the legal documents themselves.
+   */
+  legalContact: StoreLegalContact | null;
+}
+
+export interface StorePageLink {
+  id: string;
+  kind: "terms" | "privacy" | "refund" | "shipping" | "custom";
+  slug: string;
+  title: string;
+  position: number;
+}
+
+export interface StoreLegalContact {
+  contactEmail: string | null;
+  contactPhone: string | null;
+  deliveryMinDays: number;
+  deliveryMaxDays: number;
+}
+
+/** A resolved store page — GET /store/pages/{slug}. */
+export interface StorePagePublic {
+  id: string;
+  kind: "terms" | "privacy" | "refund" | "shipping" | "custom";
+  slug: string;
+  locale: "ar" | "en" | "fr";
+  title: string;
+  /** Sanitised HTML. Render with set:html and never re-sanitise. */
+  bodyHtml: string;
+  metaTitle: string | null;
+  metaDescription: string | null;
 }
 
 export interface ShippingRates {

@@ -94,6 +94,10 @@ function abandonedRow(overrides: Record<string, unknown> = {}): Record<string, u
     variant_id: null,
     variant_label: null,
     price: 2500,
+    // Position matters: the mock db maps a full-table select positionally by
+    // schema column order, so these sit exactly where migration 0028 put them.
+    items_json: null,
+    item_count: null,
     delivery_type: "home",
     fbc: null,
     fbp: null,

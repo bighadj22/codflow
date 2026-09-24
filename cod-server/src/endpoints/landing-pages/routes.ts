@@ -13,11 +13,14 @@ import * as h from "./handlers";
 import {
   createLandingPageSchema,
   updateLandingPageSchema,
+  landingPageTrackingSchema,
 } from "./validation";
 import {
   LandingPageSchema,
   LandingPageListItemSchema,
   LandingPageImageSchema,
+  LandingPageTrackingSchema,
+  LandingPageTrackingStateSchema,
   ListResponseSchema,
   SuccessResponseSchema,
 } from "@/openapi/schemas";
@@ -369,6 +372,75 @@ const deleteLandingPageImageRoute = defineRoute({
   handler: h.deleteLandingPageImage,
 });
 
+// ─── Tracking override ────────────────────────────────────────────────────────
+
+const getLandingPageTrackingRoute = defineRoute({
+  method: "get",
+  path: "/{id}/tracking",
+  auth: { scope: SCOPES.LANDING_PAGES_READ },
+  tags: ["Landing Pages"],
+  summary: "Get landing page tracking",
+  description:
+    "This page's tracking: `config` is its own Meta Pixel + Conversions API configuration (null when it inherits the store's, which is the default for every page), and `lastEvent` is the most recent Conversions API attempt for an order this page produced — proof that a campaign is reporting, including Meta's own message when one failed. The access token is never returned, only a masked hint.",
+  operationId: "getLandingPageTracking",
+  params: idParams,
+  responses: {
+    200: {
+      description: "The page's tracking configuration and its most recent Conversions API attempt",
+      content: jsonContent(SuccessResponseSchema(LandingPageTrackingStateSchema)),
+    },
+    404: { description: "Landing page not found" },
+  },
+  handler: h.getLandingPageTrackingConfig,
+});
+
+const saveLandingPageTrackingRoute = defineRoute({
+  method: "put",
+  path: "/{id}/tracking",
+  auth: { scope: SCOPES.LANDING_PAGES_MANAGE },
+  tags: ["Landing Pages"],
+  summary: "Save landing page tracking",
+  description: `Give this page its own pixel, REPLACING the store's for its visitors and for the orders attributed to it — never adding to it. Takes effect only while the store's per-page tracking switch is on (Settings → Tracking).
+
+**\`accessToken\`** is required when creating the override and optional afterwards: an empty value keeps the stored token, because the dashboard only ever holds a masked hint.
+
+**\`conversionEvent\`** is required — which moment counts as a conversion is a spend decision and is never defaulted for the merchant.
+
+**\`testMode\`** requires a \`testEventCode\`, or the events reach production measurement instead of Meta's test stream.`,
+  operationId: "saveLandingPageTracking",
+  params: idParams,
+  body: landingPageTrackingSchema,
+  responses: {
+    200: {
+      description: "Saved tracking configuration",
+      content: jsonContent(SuccessResponseSchema(LandingPageTrackingSchema)),
+    },
+    400: { description: "Missing access token on create, or test mode without a test event code" },
+    404: { description: "Landing page not found" },
+  },
+  handler: h.saveLandingPageTrackingConfig,
+});
+
+const deleteLandingPageTrackingRoute = defineRoute({
+  method: "delete",
+  path: "/{id}/tracking",
+  auth: { scope: SCOPES.LANDING_PAGES_MANAGE },
+  tags: ["Landing Pages"],
+  summary: "Remove landing page tracking",
+  description:
+    "Return the page to the store pixel. Succeeds whether or not an override existed.",
+  operationId: "deleteLandingPageTracking",
+  params: idParams,
+  responses: {
+    200: {
+      description: "Page returned to the store pixel",
+      content: jsonContent(z.object({ success: z.boolean().openapi({ example: true }) })),
+    },
+    404: { description: "Landing page not found" },
+  },
+  handler: h.deleteLandingPageTrackingConfig,
+});
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 const router = new OpenAPIHono<AppContext>();
@@ -387,5 +459,8 @@ router.openapi(listLandingPageImagesRoute.route, listLandingPageImagesRoute.hand
 router.openapi(saveLandingPageImageRoute.route, saveLandingPageImageRoute.handler);
 router.openapi(reorderLandingPageImagesRoute.route, reorderLandingPageImagesRoute.handler);
 router.openapi(deleteLandingPageImageRoute.route, deleteLandingPageImageRoute.handler);
+router.openapi(getLandingPageTrackingRoute.route, getLandingPageTrackingRoute.handler);
+router.openapi(saveLandingPageTrackingRoute.route, saveLandingPageTrackingRoute.handler);
+router.openapi(deleteLandingPageTrackingRoute.route, deleteLandingPageTrackingRoute.handler);
 
 export default router;

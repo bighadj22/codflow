@@ -2,15 +2,29 @@ import { Context } from "hono";
 import type { AppContext } from "@/types";
 import { getDb } from "@/db";
 import * as queries from "./queries";
-import { storeOrderSchema, storeReviewSchema } from "./validation";
+import { storeOrderSchema, storeReviewSchema, validateCartSchema } from "./validation";
 import { NotFoundError, ValidationError, ConflictError, BusinessLogicError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 import { assertOtpVerification } from "./otp-gate";
 import { assertTurnstile } from "./turnstile-gate";
-import { getPixelConfig } from "../../../../cod-shared/queries/pixel-config";
-import { resolveConversionForStage, getCapiWorkflowId } from "@/workflows/capi-helpers";
-import { stores } from "../../../../cod-shared/db/schema";
+import { resolveTrackingConfig } from "../../../../cod-shared/queries/tracking-config";
+import {
+  normalizeOrderLines,
+  CartValidationError,
+  type CartLine,
+} from "../../../../cod-shared/queries/cart";
+// Pure, like normalizeOrderLines: imported directly rather than through
+// ./queries so there is nothing for a test to stub and no way for the priced
+// subtotal to diverge from what the engine charges.
+import { priceCartLines } from "../../../../cod-shared/queries/catalog-snapshot";
+import {
+  resolveConversionForStage,
+  getCapiWorkflowId,
+  conversionSourceUrl,
+} from "@/workflows/capi-helpers";
+import { stores, orders } from "../../../../cod-shared/db/schema";
 import { eq } from "drizzle-orm";
+import type { PageLocale } from "../../../../cod-shared/legal/kinds";
 
 export async function getStoreConfig(c: Context<AppContext>) {
   const storeId = c.get("storeId")!;
@@ -91,10 +105,87 @@ export async function getStoreLandingPage(c: Context<AppContext>) {
         publishedAt: lp.publishedAt,
         images: lp.images,
         product,
+        // Which pixel this page loads and fires at — resolved server-side,
+        // inside the batch above, so the browser never works it out for
+        // itself and cannot disagree with the Conversions API mirror.
+        tracking: lp.tracking,
       },
     },
     200,
   );
+}
+
+/**
+ * GET /store/orders/{id}/tracking
+ *
+ * Which pixel this order belongs to, and which browser event to fire for it.
+ *
+ * The thank-you page fires the sale event but has no idea which landing page
+ * the shopper came from — the redirect carries the order number, the total and
+ * the order id, nothing else. It cannot be told by the URL either: landing-page
+ * attribution is best-effort, so an unknown, draft or archived slug leaves the
+ * order unattributed, and a browser trusting that slug would fire at a pixel
+ * the server never recorded. Asking is the only way the two sides cannot drift.
+ *
+ * Returns the DECISION, not the configuration: `event` is null whenever no
+ * browser event should fire, which deletes the copy of the conversion-stage
+ * rule that used to live in the theme.
+ *
+ * Deliberately narrow: an unguessable order id in, a public pixel id and an
+ * event name out. No customer, no total, no contents, and never a token.
+ */
+export async function getStoreOrderTracking(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const orderId = c.req.param("id")!;
+
+  const order = await db
+    .select({ id: orders.id, landingPageId: orders.landingPageId })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .get();
+  if (!order) throw new NotFoundError("Order", orderId);
+
+  const config = await resolveTrackingConfig(db, {
+    storeId: c.get("storeId")!,
+    landingPageId: order.landingPageId,
+  });
+
+  if (!config?.enabled || !config.pixelId) {
+    return c.json({ success: true, data: { pixelId: null, event: null } }, 200);
+  }
+
+  const decision = resolveConversionForStage(config.conversionEvent, "checkout");
+
+  return c.json(
+    {
+      success: true,
+      data: {
+        pixelId: config.pixelId,
+        event: decision.shouldFire ? decision.eventName ?? null : null,
+      },
+    },
+    200,
+  );
+}
+
+/**
+ * A published legal or custom page, in the store's own language — the same
+ * `Promise.all`-lean shape as the rest of this file: one lookup for the
+ * store's locale, one resolved read. Draft, unknown, and foreign-store slugs
+ * all answer the same 404, so nothing about a page's existence leaks.
+ */
+export async function getStorePage(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const storeId = c.get("storeId")!;
+  const slug = c.req.param("slug")!;
+
+  const storeRow = await db.select({ lang: stores.lang }).from(stores).where(eq(stores.id, storeId)).get();
+  if (!storeRow) throw new NotFoundError("Store", storeId);
+
+  const page = await queries.resolvePublishedPage(db, storeId, slug, storeRow.lang as PageLocale);
+  if (!page) throw new NotFoundError("Store Page", slug);
+
+  return c.json({ success: true, data: page }, 200);
 }
 
 export async function listStoreCategories(c: Context<AppContext>) {
@@ -133,12 +224,33 @@ export async function createStoreOrder(c: Context<AppContext>) {
   // rejected before spending D1 reads. No-op when the store has it disabled.
   await assertTurnstile(c, db, data);
 
-  const skuMissing = await queries.validateOrderSkus(
+  // Normalise first: every request shape becomes one list, and a basket that
+  // breaks its own bounds is refused here with a 4xx rather than surfacing as
+  // an unhandled error deeper in the engine.
+  //
+  // Imported directly rather than through ./queries: this is a pure function
+  // and a plain error class, so there is nothing to stub, and routing them
+  // through the mockable module would only make `instanceof` fragile in tests.
+  let lines: CartLine[];
+  try {
+    lines = normalizeOrderLines(data);
+  } catch (err) {
+    if (err instanceof CartValidationError) {
+      throw new ValidationError(err.message, ERROR_CODES.VALUE_OUT_OF_RANGE, err.detail);
+    }
+    throw err;
+  }
+
+  // ONE catalog read for the whole checkout. The SKU check, the stock check and
+  // the order engine all answer their questions from this same snapshot, so a
+  // product row is fetched once per order instead of once per question.
+  const snapshot = await queries.loadCatalogSnapshot(
     db,
-    data.productId,
-    data.variantId,
-    data.variantSelections
+    lines,
+    new Date().toISOString()
   );
+
+  const skuMissing = queries.findMissingSku(snapshot, lines);
   if (skuMissing) {
     throw new BusinessLogicError(
       `SKU is missing on ${skuMissing.missing} ${skuMissing.id} — add a SKU before accepting orders`,
@@ -147,23 +259,29 @@ export async function createStoreOrder(c: Context<AppContext>) {
     );
   }
 
-  const stockError = await queries.checkStoreOrderStock(db, {
-    productId: data.productId,
-    variantId: data.variantId ?? null,
-    variantSelections: data.variantSelections ?? [],
-    quantity: data.quantity,
-  });
+  const stockError = queries.findStockShortfall(snapshot, lines);
   if (stockError) {
     throw new BusinessLogicError(stockError, ERROR_CODES.INSUFFICIENT_STOCK);
   }
 
   await assertOtpVerification(c, db, data);
 
-  const deliveryFee = await queries.getDeliveryFee(
-    db,
-    data.wilayaId,
-    data.deliveryType
-  );
+  // Resolves each product's own shipping profile and the commune-level
+  // override, not just the default profile's wilaya rate. A basket spanning
+  // two profiles pays the highest applicable rate (plan Q1).
+  // Priced from the same snapshot the engine will use, so the number the
+  // free-delivery threshold is judged against is the number the customer is
+  // charged — they cannot drift apart.
+  const { subtotal } = priceCartLines(snapshot, lines);
+
+  const deliveryFee = await queries.resolveDeliveryFee(db, {
+    productIds: [...new Set(lines.map((l) => l.productId))],
+    wilayaId: data.wilayaId,
+    communeId: data.communeId,
+    deliveryType: data.deliveryType,
+    storeId: c.get("storeId"),
+    subtotal,
+  });
 
   if (deliveryFee === null) {
     // Delivery to this wilaya (or this delivery type) is not configured —
@@ -205,15 +323,19 @@ export async function createStoreOrder(c: Context<AppContext>) {
     }
   }
 
-  const order = await queries.createStoreOrder(db, {
-    ...data,
-    customerId: customer.id,
-    customerName: customer.name,
-    deliveryFee,
-    landingPageId,
-    ipAddress,
-    userAgent,
-  });
+  const order = await queries.createStoreOrder(
+    db,
+    {
+      ...data,
+      customerId: customer.id,
+      customerName: customer.name,
+      deliveryFee,
+      landingPageId,
+      ipAddress,
+      userAgent,
+    },
+    snapshot
+  );
 
   // Meta CAPI conversion event at checkout — evaluated against merchant's tracking mode.
   // When mode is instant "Purchase", sends Purchase (matching the thank-you Pixel).
@@ -223,11 +345,11 @@ export async function createStoreOrder(c: Context<AppContext>) {
   if (c.env.CAPI_WORKFLOW) {
     try {
       const storeId = c.get("storeId");
-      const pixelConfig =
+      const tracking =
         storeId && typeof db.select === "function"
-          ? await getPixelConfig(db, storeId)
-          : undefined;
-      const decision = resolveConversionForStage(pixelConfig?.conversionEvent, "checkout");
+          ? await resolveTrackingConfig(db, { storeId, landingPageId })
+          : null;
+      const decision = resolveConversionForStage(tracking?.conversionEvent, "checkout");
 
       if (decision.shouldFire && decision.eventName) {
         let storeRow: { domain: string | null } | undefined = undefined;
@@ -239,9 +361,18 @@ export async function createStoreOrder(c: Context<AppContext>) {
             .get();
         }
 
-        let eventSourceUrl: string | undefined = storeRow?.domain
-          ? `https://${storeRow.domain}/thank-you`
-          : undefined;
+        // The landing page the ad pointed at, when this order came from one —
+        // same rule the Workflow uses for every later stage, so an order's
+        // source URL does not change between its checkout and delivery events.
+        //
+        // Keyed on landingPageId, not the raw slug: attribution is
+        // best-effort, and a slug that did not resolve is not this order's
+        // page. The Workflow reads the attributed page from the order, so
+        // naming an unresolved slug here would give one order two source URLs.
+        let eventSourceUrl = conversionSourceUrl(
+          storeRow?.domain,
+          landingPageId ? data.landingPageSlug : null,
+        );
 
         if (!eventSourceUrl) {
           const referer = c.req.header("Referer");
@@ -287,6 +418,107 @@ export async function createStoreOrder(c: Context<AppContext>) {
       },
     },
     201
+  );
+}
+
+/**
+ * POST /store/cart/validate
+ *
+ * Re-prices and re-checks a basket so the cart drawer can tell the truth
+ * before the shopper commits. Read-only: nothing is written and no stock is
+ * reserved.
+ *
+ * It answers from the SAME snapshot, the SAME pricing function and the SAME
+ * offer rules the order engine uses, which is what makes the displayed total
+ * and the charged total identical by construction rather than by agreement.
+ *
+ * The free-delivery figure is subtotal-based, so it can be answered before the
+ * shopper has typed an address. Delivery itself still depends on the wilaya
+ * and is resolved at checkout.
+ */
+export async function validateCart(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const bodyData: any = (c.req as any).valid?.("json");
+  const data: import("./validation").ValidateCartInput =
+    bodyData ?? validateCartSchema.parse(await c.req.json());
+
+  let lines: CartLine[];
+  try {
+    lines = normalizeOrderLines({
+      productId: data.items[0].productId,
+      productName: data.items[0].productName,
+      quantity: data.items[0].quantity,
+      items: data.items,
+    });
+  } catch (err) {
+    if (err instanceof CartValidationError) {
+      throw new ValidationError(err.message, ERROR_CODES.VALUE_OUT_OF_RANGE, err.detail);
+    }
+    throw err;
+  }
+
+  const now = new Date().toISOString();
+  const snapshot = await queries.loadCatalogSnapshot(db, lines, now);
+  const resolved = queries.resolveCartLines(snapshot, lines);
+
+  // Only orderable lines count toward the subtotal and the offers. A line the
+  // shopper must fix should not inflate a free-delivery promise it cannot keep.
+  const orderable = resolved.filter((entry) => entry.blocker === null);
+  const subtotal = orderable.reduce((sum, entry) => sum + entry.lineTotal, 0);
+
+  const { earned, freeShipping } = queries.resolveCartOffers(
+    orderable.map((entry) => entry.line),
+    snapshot.offers,
+  );
+
+  const storeId = c.get("storeId");
+  const store = storeId
+    ? await db
+        .select({ freeShippingThreshold: stores.freeShippingThreshold })
+        .from(stores)
+        .where(eq(stores.id, storeId))
+        .get()
+    : undefined;
+  const threshold = store?.freeShippingThreshold ?? null;
+  const thresholdActive = threshold != null && threshold > 0;
+
+  return c.json(
+    {
+      success: true,
+      data: {
+        lines: resolved.map((entry) => ({
+          productId: entry.line.productId,
+          variantId: entry.line.variantId,
+          variantLabel: entry.line.variantLabel,
+          productName: entry.productName,
+          quantity: entry.line.quantity,
+          unitPrice: entry.unitPrice,
+          lineTotal: entry.lineTotal,
+          maxQuantity: entry.maxQuantity,
+          blocker: entry.blocker,
+        })),
+        subtotal,
+        rewards: earned.map((item) => ({
+          offerId: item.offer.id,
+          productId: item.offer.rewardProductId,
+          productName:
+            (item.offer.rewardProductId
+              ? snapshot.products.get(item.offer.rewardProductId)?.name
+              : null) ?? null,
+          quantity: item.offer.rewardQuantity,
+        })),
+        freeDelivery: {
+          /** Earned by a single-product basket's free-shipping offer. */
+          fromOffer: freeShipping,
+          threshold: thresholdActive ? threshold : null,
+          qualified: thresholdActive ? subtotal >= threshold : false,
+          /** How much more to spend to qualify. 0 once qualified or inactive. */
+          remaining:
+            thresholdActive && subtotal < threshold ? threshold - subtotal : 0,
+        },
+      },
+    },
+    200,
   );
 }
 

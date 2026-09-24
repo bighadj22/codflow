@@ -374,6 +374,59 @@ export function abandonedStatusOptions(
   return [status, ...ABANDONED_TRANSITIONS[status]];
 }
 
+/** One row of the basket, ready to render. */
+export interface AbandonedBasketLine {
+  key: string;
+  productName: string;
+  variantLabel: string | null;
+  quantity: number;
+  lineTotal: number;
+}
+
+/**
+ * What to show in the "what they were buying" column.
+ *
+ * Three genuinely different cases, kept apart on purpose rather than flattened
+ * into one list:
+ *
+ *   basket   the shopper abandoned a cart, and every line is known — quantity
+ *            included. The list shows all of them, because this column exists
+ *            so a merchant can ring the customer and say what they had.
+ *   product  a single-product checkout. The record never stored a quantity,
+ *            so rendering "1×" here would be inventing one: the shopper may
+ *            well have been ordering three.
+ *   unknown  contact details captured before the shopper picked anything.
+ */
+export type AbandonedBasketView =
+  | { kind: "basket"; lines: AbandonedBasketLine[] }
+  | { kind: "product"; productName: string; variantLabel: string | null }
+  | { kind: "unknown" };
+
+export function abandonedBasketView(
+  row: Pick<AbandonedOrder, "items" | "productName" | "variantLabel">,
+): AbandonedBasketView {
+  if (row.items && row.items.length > 0) {
+    return {
+      kind: "basket",
+      lines: row.items.map((item, index) => ({
+        key: `${item.productId}-${item.variantId ?? ""}-${index}`,
+        productName: item.productName,
+        variantLabel: item.variantLabel ?? null,
+        quantity: item.quantity,
+        lineTotal: item.unitPrice * item.quantity,
+      })),
+    };
+  }
+
+  if (!row.productName) return { kind: "unknown" };
+
+  return {
+    kind: "product",
+    productName: row.productName,
+    variantLabel: row.variantLabel ?? null,
+  };
+}
+
 export interface AbandonedFilters {
   query: string;
   status: string;

@@ -1,0 +1,46 @@
+---
+/**
+ * Product description — the one place the rich/plain rendering decision lives.
+ *
+ * `descriptionFormat: "html"` means the value is sanitised HTML produced at the
+ * write chokepoint (cod-shared/lib/rich-text.ts, ADR 0002): it is rendered with
+ * `set:html` and never re-parsed or re-sanitised here.
+ *
+ * Everything else — `"text"`, or absent (every legacy row) — is rendered as
+ * escaped text, exactly as before this feature existed. A merchant's prose
+ * containing "<" must never become an element.
+ *
+ * Kept free of other imports so this branch can be rendered and asserted on its
+ * own (see ProductDescription.render.test.ts).
+ */
+import type { Product } from "@/core/api/types";
+
+interface Props {
+  /**
+   * Sanitised HTML when `format` is "html"; plain text otherwise. Nothing is
+   * rendered when this is null/empty.
+   */
+  description: string | null | undefined;
+  /** Absent means "text" (legacy parity). */
+  format?: Product["descriptionFormat"];
+  isDesktop?: boolean;
+}
+
+const { description, format, isDesktop = false } = Astro.props;
+const sizeCls = isDesktop ? "text-[1.0625rem] mb-6" : "text-[0.9375rem] mb-4";
+---
+
+{description && (format === "html" ? (
+  <div
+    class:list={[sizeCls, "rich-description leading-relaxed"]}
+    style="color: var(--clr-text-2)"
+    set:html={description}
+  />
+) : (
+  <p
+    class:list={[sizeCls, "font-medium leading-relaxed"]}
+    style="color: var(--clr-text-2)"
+  >
+    {description}
+  </p>
+))}

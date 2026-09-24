@@ -1,7 +1,7 @@
 /**
  * Offer Selection — Unit Tests
  *
- * Tests selectApplicableOffer(), checkStoreOrderStock(), and the interaction
+ * Tests selectApplicableOffer() and its tier/variant/schedule rules.
  * between offers, stock, and order validation.
  *
  * selectApplicableOffer queries:
@@ -53,7 +53,6 @@
 
 import { describe, it, expect } from "vitest";
 import { selectApplicableOffer } from "./queries";
-import { checkStoreOrderStock } from "./queries";
 import { makeMockDb, f, a, offerRow } from "@/test-utils/mock-db";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -61,15 +60,6 @@ import { makeMockDb, f, a, offerRow } from "@/test-utils/mock-db";
 const PAST   = "2000-01-01T00:00:00.000Z";
 const FUTURE = "2099-01-01T00:00:00.000Z";
 const NOW_TS = new Date().toISOString();
-
-/** Q1 for checkStoreOrderStock: partial select { track_inventory, inventory } */
-function productQ(trackInventory: boolean, inventory: number) {
-  return f({ track_inventory: trackInventory ? 1 : 0, inventory });
-}
-/** Q2 for checkStoreOrderStock: partial select { inventory } */
-function variantQ(inventory: number) {
-  return f({ inventory });
-}
 
 /**
  * selectApplicableOffer issues ONE of two query patterns:
@@ -262,106 +252,12 @@ describe("selectApplicableOffer — discount types", () => {
 });
 
 // ─── SECTION E: stock × offer interaction ────────────────────────────────────
-
-describe("checkStoreOrderStock — stock × offer", () => {
-  it("E1: variant in stock, offer would fire → stock gate passes", async () => {
-    // variant has 5 in stock, ordering 2 — stock check passes (offer selection is separate)
-    const db = makeMockDb([productQ(true, 0), variantQ(5)]);
-    const error = await checkStoreOrderStock(db, {
-      productId: "prod-001",
-      variantId: "var-001-1",
-      variantSelections: [],
-      quantity: 2,
-    });
-    expect(error).toBeNull();
-  });
-
-  it("E2: variant OOS, offer would fire → stock gate blocks before offer", async () => {
-    const db = makeMockDb([productQ(true, 0), variantQ(0)]);
-    const error = await checkStoreOrderStock(db, {
-      productId: "prod-001",
-      variantId: "var-001-1",
-      variantSelections: [],
-      quantity: 2,
-    });
-    expect(error).not.toBeNull();
-    expect(typeof error).toBe("string");
-  });
-
-  it("E3: qty exactly equals variant stock → passes (stock gate uses >=, not >)", async () => {
-    // stock=2, qty=2 — exactly at cap, should pass
-    const db = makeMockDb([productQ(true, 0), variantQ(2)]);
-    const error = await checkStoreOrderStock(db, {
-      productId: "prod-001",
-      variantId: "var-001-1",
-      variantSelections: [],
-      quantity: 2,
-    });
-    expect(error).toBeNull();
-  });
-
-  it("E4: qty exceeds variant stock → stock gate blocks", async () => {
-    // stock=2, qty=3 — over cap
-    const db = makeMockDb([productQ(true, 0), variantQ(2)]);
-    const error = await checkStoreOrderStock(db, {
-      productId: "prod-001",
-      variantId: "var-001-1",
-      variantSelections: [],
-      quantity: 3,
-    });
-    expect(error).not.toBeNull();
-  });
-
-  it("E5: offer tier (variantSelections) — qty satisfies offer, all variants in stock → passes", async () => {
-    // Offer tier: 2 units selected (var_a ×1, var_b ×1), both in stock
-    const db = makeMockDb([
-      productQ(true, 0),
-      variantQ(5),   // var_a: 5 in stock
-      variantQ(8),   // var_b: 8 in stock
-    ]);
-    const error = await checkStoreOrderStock(db, {
-      productId: "prod-001",
-      variantId: null,
-      variantSelections: [{ variantId: "var_a" }, { variantId: "var_b" }],
-      quantity: 1,
-    });
-    expect(error).toBeNull();
-  });
-
-  it("E6: offer tier — one selection OOS, offer should not be allowed through stock gate", async () => {
-    const db = makeMockDb([
-      productQ(true, 0),
-      variantQ(5),   // var_a: ok
-      variantQ(0),   // var_b: OOS
-    ]);
-    const error = await checkStoreOrderStock(db, {
-      productId: "prod-001",
-      variantId: null,
-      variantSelections: [{ variantId: "var_a" }, { variantId: "var_b" }],
-      quantity: 1,
-    });
-    expect(error).not.toBeNull();
-  });
-
-  it("E7: offer tier — same variant repeated, cumulative qty exceeds stock → blocked", async () => {
-    // Customer picks var_a ×3 via offer tier, but only 2 in stock
-    const db = makeMockDb([
-      productQ(true, 0),
-      variantQ(2),   // var_a: only 2 in stock
-    ]);
-    const error = await checkStoreOrderStock(db, {
-      productId: "prod-001",
-      variantId: null,
-      variantSelections: [
-        { variantId: "var_a" },
-        { variantId: "var_a" },
-        { variantId: "var_a" },
-      ],
-      quantity: 1,
-    });
-    expect(error).not.toBeNull();
-  });
-});
+//
+// Moved to offers-stock-gate.e2e.test.ts. checkStoreOrderStock is now one
+// batched, id-keyed lookup rather than a read per product and per variant, so
+// the positional mock fixtures here would be pinning a query plan instead of
+// behaviour. All seven cases (E1–E7) run there against real D1 with the real
+// migrations, under the same names, plus an E8 for baskets.
 
 // ─── SECTION F: edge / defensive ─────────────────────────────────────────────
 
@@ -436,16 +332,8 @@ describe("KickStore offer regression scenarios", () => {
     expect(result!.discountType).toBe("free_shipping");
   });
 
-  it("Street Fighter qty=2 but variant OOS → stock gate blocks despite matching offer", async () => {
-    const db = makeMockDb([productQ(true, 0), variantQ(0)]);
-    const error = await checkStoreOrderStock(db, {
-      productId: "prod-004",
-      variantId: "var-004-6",  // 45/Kaki — OOS
-      variantSelections: [],
-      quantity: 2,
-    });
-    expect(error).not.toBeNull();
-  });
+  // "Street Fighter qty=2 but variant OOS → stock gate blocks despite matching
+  // offer" now lives in offers-stock-gate.e2e.test.ts (real D1).
 
   it("Night Rider offer is inactive → returns null regardless of qty", async () => {
     // inactive offers are filtered in DB query (eq(status, 'active'))

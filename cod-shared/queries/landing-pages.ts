@@ -10,11 +10,18 @@ import { eq, desc, and, sql, isNull, count } from "drizzle-orm";
 import {
   landingPages,
   landingPageImages,
+  landingPagePixelConfig,
+  storePixelConfig,
   orders,
   products,
   stores,
 } from "../db/schema";
 import type { AppDb } from "../db/client";
+import {
+  publicTrackingFrom,
+  type StoreConfigRow,
+  type PageConfigRow,
+} from "./tracking-config";
 
 export interface LandingPageStats {
   views: number;
@@ -37,6 +44,13 @@ export interface LandingPageListItem {
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** The page's own tracking, when it has one. Never carries the token. */
+  tracking: {
+    pixelId: string;
+    conversionEvent: "Lead" | "Purchase" | "Purchase_Confirmed" | "Purchase_Delivered";
+    enabled: boolean;
+    testMode: boolean;
+  } | null;
 }
 
 export interface CreateLandingPageData {
@@ -113,10 +127,21 @@ async function resolveListRow(
       publishedAt: landingPages.publishedAt,
       createdAt: landingPages.createdAt,
       updatedAt: landingPages.updatedAt,
+      // Enough of the tracking override to badge the row — never the token.
+      // A join rather than a request per row: a merchant running twenty pages
+      // wants to see which are on their own pixel in one look.
+      trackingPixelId: landingPagePixelConfig.pixelId,
+      trackingConversionEvent: landingPagePixelConfig.conversionEvent,
+      trackingEnabled: landingPagePixelConfig.enabled,
+      trackingTestMode: landingPagePixelConfig.testMode,
       ...STATS_SELECT,
     })
     .from(landingPages)
     .leftJoin(products, eq(landingPages.productId, products.id))
+    .leftJoin(
+      landingPagePixelConfig,
+      eq(landingPagePixelConfig.landingPageId, landingPages.id),
+    )
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(landingPages.createdAt));
 
@@ -127,13 +152,30 @@ async function resolveListRow(
   if (pagination.offset !== undefined) query = query.offset(pagination.offset);
   const rows = await query.all();
 
-  return rows.map((row) => ({
-    ...row,
-    imageCount: Number(row.imageCount),
-    views: Number(row.views),
-    orders: Number(row.orders),
-    revenue: Number(row.revenue),
-  }));
+  return rows.map((row) => {
+    const {
+      trackingPixelId,
+      trackingConversionEvent,
+      trackingEnabled,
+      trackingTestMode,
+      ...rest
+    } = row;
+    return {
+      ...rest,
+      imageCount: Number(rest.imageCount),
+      views: Number(rest.views),
+      orders: Number(rest.orders),
+      revenue: Number(rest.revenue),
+      tracking: trackingPixelId
+        ? {
+            pixelId: trackingPixelId,
+            conversionEvent: trackingConversionEvent!,
+            enabled: Boolean(trackingEnabled),
+            testMode: Boolean(trackingTestMode),
+          }
+        : null,
+    };
+  });
 }
 
 export async function listLandingPages(
@@ -254,11 +296,21 @@ export async function getLandingPageDetailBySlug(db: AppDb, slug: string) {
       .select({ id: products.id, name: products.name, handle: products.handle, price: products.price })
       .from(products)
       .where(eq(products.id, row.productId)),
+    // Which pixel this page reports to, resolved INSIDE the batch the page
+    // already runs. The landing page is where a merchant's ad money lands, so
+    // knowing the answer costs it no extra round trip.
+    db.select().from(storePixelConfig).limit(1),
+    db
+      .select()
+      .from(landingPagePixelConfig)
+      .where(eq(landingPagePixelConfig.landingPageId, row.id)),
   ] as [BatchStatement, ...BatchStatement[]]);
 
   const images = (results[0] as unknown as typeof landingPageImages.$inferSelect[]) ?? [];
   const statsRow = ((results[1] as unknown as Array<Record<string, unknown>>) ?? [])[0];
   const productRow = ((results[2] as unknown as Array<Record<string, unknown>>) ?? [])[0];
+  const storeTrackingRow = ((results[3] as unknown as StoreConfigRow[]) ?? [])[0];
+  const pageTrackingRow = ((results[4] as unknown as PageConfigRow[]) ?? [])[0];
 
   return {
     ...row,
@@ -273,6 +325,8 @@ export async function getLandingPageDetailBySlug(db: AppDb, slug: string) {
           revenue: Number(statsRow.revenue),
         }
       : { views: 0, orders: 0, revenue: 0 },
+    // Safe by construction: publicTrackingFrom cannot return the token.
+    tracking: publicTrackingFrom(storeTrackingRow, pageTrackingRow),
   };
 }
 
@@ -513,6 +567,17 @@ export async function duplicateLandingPage(db: AppDb, id: string): Promise<strin
     .orderBy(landingPageImages.position)
     .all();
 
+  // A duplicate is a fresh creative test of the same product for the same
+  // campaign, so it inherits the same pixel — like every other setting here,
+  // and unlike the scoreboard. The Studio shows it, so changing it is one
+  // click; silently putting the copy on a different pixel would be the
+  // surprising behaviour.
+  const sourceTracking = await db
+    .select()
+    .from(landingPagePixelConfig)
+    .where(eq(landingPagePixelConfig.landingPageId, id))
+    .get();
+
   const newId = crypto.randomUUID();
   const now = new Date().toISOString();
   const slug = generateLandingPageSlug();
@@ -545,6 +610,17 @@ export async function duplicateLandingPage(db: AppDb, id: string): Promise<strin
         width: image.width,
         height: image.height,
         createdAt: now,
+      }),
+    );
+  }
+  if (sourceTracking) {
+    statements.push(
+      db.insert(landingPagePixelConfig).values({
+        ...sourceTracking,
+        id: crypto.randomUUID(),
+        landingPageId: newId,
+        createdAt: now,
+        updatedAt: now,
       }),
     );
   }

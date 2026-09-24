@@ -3,12 +3,16 @@
 // This component handles the product fetch and rendering
 // Allows the parent page to stream layout/head immediately
 import OrderForm from "@/theme/components/order/OrderForm.astro";
+import AddToCartButton from "@/theme/components/cart/AddToCartButton.astro";
 import ProductGallery from "@/theme/components/product/ProductGallery.astro";
 import ProductInfo from "@/theme/components/product/ProductInfo.astro";
 import ReviewsIsland from "@/theme/components/product/ReviewsIsland.astro";
+import RelatedProducts from "@/theme/components/product/RelatedProducts.astro";
 import ShippingIsland from "@/theme/components/product/ShippingIsland.astro";
 import { getProductJsonLd } from "@/theme/utils/seo";
 import { fetchProductByHandle } from "@/core/api/client";
+import { getThumbnailImage } from "@/core/utils/image-optimizer";
+import { productImageSource } from "@/theme/utils/product-image";
 
 interface Props {
   slug: string;
@@ -31,6 +35,12 @@ const defaultVariant = product.hasVariants
   ? (product.variants.find((v: typeof product.variants[0]) => v.isDefault) ?? product.variants[0])
   : null;
 const basePrice    = defaultVariant?.price ?? product.price;
+
+// Thumbnail for the cart drawer and the checkout summary. Resized to 80px
+// because it renders at 64 — shipping a full gallery image for a thumbnail is
+// wasted bandwidth on a phone. See product-image.ts for the fallback rule.
+const cartImageSrc = productImageSource(product);
+const cartImage = cartImageSrc ? getThumbnailImage(cartImageSrc) : null;
 const comparePrice = defaultVariant?.compareAtPrice ?? product.compareAtPrice;
 const hasDiscount  = comparePrice != null && comparePrice > basePrice;
 const discountPct  = hasDiscount ? Math.round((1 - basePrice / comparePrice!) * 100) : 0;
@@ -104,8 +114,11 @@ const jsonLd = getProductJsonLd(product, basePrice);
       />
     </div>
 
-    <!-- ── RIGHT: Product info + Order form ── -->
-    <div class="px-5 sm:px-0 py-6 sm:py-0">
+    <!-- ── RIGHT: Product info + Order form ──
+         Sticky on desktop so the buy box stays reachable while the left
+         column (gallery + description) scrolls. `self-start` lets a grid
+         child stick instead of stretching to the row height. -->
+    <div class="px-5 sm:px-0 py-6 sm:py-0 lg:sticky lg:top-6 lg:self-start">
 
       <!-- Mobile Info -->
       <ProductInfo
@@ -132,7 +145,24 @@ const jsonLd = getProductJsonLd(product, basePrice);
         otpEnabled={config.otpEnabled === true}
         turnstileEnabled={config.turnstileEnabled === true}
         turnstileSiteKey={config.turnstileSiteKey ?? null}
-      />
+        pages={config.pages ?? []}
+      >
+        {/* Sits inside the order card, directly under the confirm button.
+            Secondary by design: the direct order form stays the primary
+            action. This serves the shopper who wants more than one product and
+            never competes with the one-step checkout that converts. */}
+        {config.cartEnabled && !isOutOfStock && (
+          <Fragment slot="secondary-action">
+            <AddToCartButton
+              product={product}
+              content={content}
+              basePrice={basePrice}
+              defaultVariant={defaultVariant ?? null}
+              image={cartImage}
+            />
+          </Fragment>
+        )}
+      </OrderForm>
     </div>
   </div>
 </div>
@@ -156,3 +186,14 @@ const jsonLd = getProductJsonLd(product, basePrice);
     </ReviewsIsland>
   </div>
 )}
+
+{/* Exit rescue, last on the page. Deferred so the fetch happens after the
+    product is already on screen — it can never cost the page its LCP, and a
+    failed request simply means no section. */}
+<RelatedProducts
+  productId={product.id}
+  categoryId={product.category?.id ?? null}
+  currencySymbol={cur}
+  content={content}
+  server:defer
+/>

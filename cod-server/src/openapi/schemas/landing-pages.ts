@@ -128,5 +128,99 @@ export const LandingPageListItemSchema = z
     publishedAt: z.string().datetime().nullable().openapi({ example: null }),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
+    tracking: z
+      .object({
+        pixelId: z.string().openapi({ example: "1234567890123456" }),
+        conversionEvent: z.enum(["Lead", "Purchase", "Purchase_Confirmed", "Purchase_Delivered"]),
+        enabled: z.boolean(),
+        testMode: z.boolean(),
+      })
+      .nullable()
+      .openapi({
+        description:
+          "This page's own pixel, or null when it inherits the store's. Enough to badge a list row; the access token is never included. Whether it is actually in force also depends on the store's per-page tracking switch.",
+      }),
   })
   .openapi("LandingPageListItem");
+
+/**
+ * A landing page's own Meta Pixel + Conversions API configuration, which
+ * REPLACES the store's for that page's visitors and orders. Absent (null) for
+ * a page that inherits the store pixel, which is the default for every page.
+ *
+ * The access token is write-only: it is accepted on save and returned only as
+ * a masked hint.
+ */
+export const LandingPageTrackingSchema = z
+  .object({
+    id: z.string().openapi({ example: "lppc_abc123" }),
+    landingPageId: z.string().openapi({ example: "lp_abc123" }),
+    pixelId: z.string().openapi({
+      description: "The Meta Pixel this page reports to. Public by definition — it appears in the page source.",
+      example: "1234567890123456",
+    }),
+    adAccountName: z.string().nullable().openapi({
+      description: "The merchant's own label for the ad account. Reference only, never sent to Meta.",
+      example: "Zinc — scaling",
+    }),
+    accessTokenMasked: z.string().openapi({
+      description: "Last four characters of the stored Conversions API token. The token itself never leaves the server.",
+      example: "••••x9Kq",
+    }),
+    testEventCode: z.string().nullable().openapi({ example: "TEST12345" }),
+    conversionEvent: z
+      .enum(["Lead", "Purchase", "Purchase_Confirmed", "Purchase_Delivered"])
+      .openapi({
+        description: "Which moment counts as a conversion for THIS page's campaigns — independent of the store's choice.",
+        example: "Purchase",
+      }),
+    testMode: z.boolean().openapi({ example: false }),
+    enabled: z.boolean().openapi({
+      description: "Switched off returns the page to the store pixel without losing what was configured.",
+      example: true,
+    }),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .openapi("LandingPageTracking");
+
+/**
+ * The most recent Conversions API attempt for an order this page produced —
+ * proof for the merchant that a newly pointed campaign is actually reporting,
+ * without opening Events Manager. Present for pages with no override too: such
+ * a page still sells through the store pixel.
+ */
+export const LandingPageTrackingActivitySchema = z
+  .object({
+    eventName: z.string().openapi({ example: "Purchase" }),
+    stage: z.string().openapi({
+      description: "Which business moment produced it: checkout, confirmed, or delivered.",
+      example: "delivered",
+    }),
+    status: z.string().openapi({
+      description: "sent | failed | skipped | claimed",
+      example: "sent",
+    }),
+    pixelId: z.string().nullable().openapi({
+      description: "Which pixel it went to. Null only for rows written before this was recorded.",
+      example: "1234567890123456",
+    }),
+    error: z.string().nullable().openapi({
+      description: "Meta's own message when the attempt failed.",
+      example: null,
+    }),
+    sentAt: z.string().openapi({ example: "2026-09-19T18:42:39.682Z" }),
+  })
+  .openapi("LandingPageTrackingActivity");
+
+/** What a landing page's tracking panel reads: the configuration and the proof. */
+export const LandingPageTrackingStateSchema = z
+  .object({
+    config: LandingPageTrackingSchema.nullable().openapi({
+      description: "The page's own pixel, or null when it inherits the store's.",
+    }),
+    lastEvent: LandingPageTrackingActivitySchema.nullable().openapi({
+      description: "The last Conversions API attempt for this page, or null when there has been none.",
+    }),
+  })
+  .openapi("LandingPageTrackingState");

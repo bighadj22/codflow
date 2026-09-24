@@ -25,7 +25,7 @@ export const StoreSchema = z
       description: "Google Fonts import URL (optional override)",
       example: "https://fonts.googleapis.com/css2?family=Cairo",
     }),
-    lang: z.enum(["ar", "en"]).openapi({ description: "Store UI language", example: "ar" }),
+    lang: z.enum(["ar", "en", "fr"]).openapi({ description: "Store UI language", example: "ar" }),
     currency: z.string().openapi({ example: "DZD" }),
     currencySymbol: z.string().openapi({ example: "دج" }),
     contentJson: z.string().nullable().openapi({
@@ -41,6 +41,19 @@ export const StoreSchema = z
     reviewsEnabled: z.boolean().openapi({
       description: "When false, reviews are hidden on the storefront and submission is disabled",
       example: true,
+    }),
+    cartEnabled: z.boolean().openapi({
+      description:
+        "When true the storefront renders the shopping cart alongside the direct order form",
+      example: false,
+    }),
+    freeShippingThreshold: z.number().int().nullable().openapi({
+      description: "Order subtotal (DZD) at or above which delivery is free. null = off",
+      example: null,
+    }),
+    cartShippingMode: z.enum(["highest", "default_profile"]).openapi({
+      description: "Which rate a basket spanning several shipping profiles pays",
+      example: "highest",
     }),
     status: z.enum(["active", "inactive"]).openapi({ example: "active" }),
     storeApiKey: z.string().nullable().openapi({
@@ -78,6 +91,11 @@ export const StorePixelConfigSchema = z
       description: "When true, Conversions API events carry test_event_code to Meta's test stream.",
     }),
     enabled: z.boolean().openapi({ example: true }),
+    perPageTrackingEnabled: z.boolean().openapi({
+      description:
+        "Master switch for per-landing-page pixels. While false (the default), every landing page reports to this pixel no matter what is configured against it — which is also this feature's rollback.",
+      example: false,
+    }),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   })
@@ -112,6 +130,14 @@ const storeBaseFields = {
   id: z.string(),
   name: z.string().openapi({ example: "Samsung Galaxy A54" }),
   description: z.string().nullable(),
+  descriptionFormat: z.enum(["text", "html"]).openapi({
+    description:
+      "How `description` is stored. `text` renders as literal text (legacy rows and products created without a format); `html` is sanitised rich text — render only via a strict HTML sink.",
+  }),
+  descriptionPlain: z.string().nullable().openapi({
+    description:
+      "Tag-free rendering of `description` for <meta name=description> and JSON-LD. Identical to `description` for `text` rows; null when `description` is null.",
+  }),
   handle: z.string().openapi({ example: "samsung-galaxy-a54" }),
   currency: z.string().openapi({ example: "DZD" }),
   price: z.number().openapi({ example: 45000 }),
@@ -263,6 +289,23 @@ export const StoreProductDetailSchema = z
   })
   .openapi("StoreProductDetail");
 
+export const StorePublicTrackingSchema = z
+  .object({
+    pixelId: z.string().nullable().openapi({
+      description:
+        "The Meta Pixel to load, or null when no pixel should load at all. Public by definition — it appears in the page source. The Conversions API token is never included.",
+      example: "1234567890123456",
+    }),
+    conversionEvent: z
+      .enum(["Lead", "Purchase", "Purchase_Confirmed", "Purchase_Delivered"])
+      .openapi({
+        description:
+          "Which moment counts as a conversion here. Inert while pixelId is null.",
+        example: "Purchase",
+      }),
+  })
+  .openapi("StorePublicTracking");
+
 export const StoreLandingPageSchema = z
   .object({
     id: z.string().openapi({ example: "lp_abc123" }),
@@ -287,8 +330,29 @@ export const StoreLandingPageSchema = z
       description:
         "The product in its full store-product shape — the landing page renders the same data the product page does, so the order form works unmodified. Null when the product is no longer publicly visible.",
     }),
+    tracking: StorePublicTrackingSchema.openapi({
+      description:
+        "Which Meta pixel THIS page loads and fires at, already resolved server-side: the page's own pixel when it has one in force, otherwise the store's. The browser never works this out for itself, so it cannot disagree with the Conversions API mirror.",
+    }),
   })
   .openapi("StoreLandingPage");
+
+export const StoreOrderTrackingSchema = z
+  .object({
+    pixelId: z.string().nullable().openapi({
+      description: "The Meta pixel this order belongs to, or null when tracking is off.",
+      example: "1234567890123456",
+    }),
+    event: z
+      .enum(["Purchase", "Lead"])
+      .nullable()
+      .openapi({
+        description:
+          "The browser event the thank-you page should fire, or null when none should — tracking is off, or the merchant's conversion fires further down the funnel from the server only.",
+        example: "Purchase",
+      }),
+  })
+  .openapi("StoreOrderTracking");
 
 export const StoreConfigSchema = z
   .object({
@@ -304,7 +368,7 @@ export const StoreConfigSchema = z
     fontUrl: z.string().nullable().openapi({
       description: "Google Fonts CSS URL override",
     }),
-    lang: z.enum(["ar", "en"]),
+    lang: z.enum(["ar", "en", "fr"]),
     currency: z.string().openapi({ example: "DZD" }),
     currencySymbol: z.string().openapi({ example: "دج" }),
     contentJson: z.string().nullable().openapi({
@@ -318,6 +382,18 @@ export const StoreConfigSchema = z
     reviewsEnabled: z.boolean().openapi({
       description: "When false, the reviews section is hidden on the storefront",
       example: true,
+    }),
+    cartEnabled: z.boolean().openapi({
+      description:
+        "When true the storefront renders the shopping cart alongside the direct " +
+        "order form. False (the default) leaves the storefront exactly as it was.",
+      example: false,
+    }),
+    freeShippingThreshold: z.number().int().nullable().openapi({
+      description:
+        "Order subtotal (DZD) at or above which delivery is free. null = no threshold. " +
+        "Exposed so the storefront can show the promise and how far the shopper is from it.",
+      example: 10000,
     }),
     otpEnabled: z.boolean().openapi({
       description:
@@ -341,5 +417,56 @@ export const StoreConfigSchema = z
     status: z.enum(["active", "inactive"]),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
+    pages: z
+      .array(
+        z.object({
+          id: z.string(),
+          kind: z.enum(["terms", "privacy", "refund", "shipping", "custom"]),
+          slug: z.string().openapi({ example: "refund-policy" }),
+          title: z.string().openapi({ example: "سياسة الإرجاع والاسترجاع" }),
+          position: z.number().int(),
+        }),
+      )
+      .openapi({
+        description:
+          "Published pages that opt into the footer, titled in the store's own language " +
+          "(stores.lang), ordered for display. The checkout consent line resolves Terms/" +
+          "Refund from here by `kind`, never by a hardcoded slug — a merchant may rename " +
+          "any page's slug freely.",
+      }),
+    legalContact: z
+      .object({
+        contactEmail: z.string().nullable(),
+        contactPhone: z.string().nullable(),
+        deliveryMinDays: z.number().int(),
+        deliveryMaxDays: z.number().int(),
+      })
+      .nullable()
+      .openapi({
+        description:
+          "The public subset of the store's legal profile — contact details and the " +
+          "delivery window, both used in the footer and the policy pages. Null until the " +
+          "merchant saves a legal profile (Settings → Store Pages); RC/NIF are never " +
+          "exposed here, only inside the documents themselves.",
+      }),
   })
   .openapi("StoreConfig");
+
+export const StorePagePublicSchema = z
+  .object({
+    id: z.string(),
+    kind: z.enum(["terms", "privacy", "refund", "shipping", "custom"]),
+    slug: z.string().openapi({ example: "refund-policy" }),
+    locale: z.enum(["ar", "en", "fr"]).openapi({
+      description:
+        "The locale actually served — the store's own language, or the fallback locale " +
+        "when that translation doesn't exist (see legal/render.ts's resolution order).",
+    }),
+    title: z.string(),
+    bodyHtml: z.string().openapi({
+      description: "Sanitised HTML. Render with set:html and never re-sanitise.",
+    }),
+    metaTitle: z.string().nullable(),
+    metaDescription: z.string().nullable(),
+  })
+  .openapi("StorePagePublic");

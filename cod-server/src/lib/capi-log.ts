@@ -8,6 +8,8 @@ export interface CapiLogEntry {
   eventName: "Lead" | "Purchase";
   stage?: "checkout" | "confirmed" | "delivered";
   status: CapiLogStatus;
+  /** Which Meta pixel this attempt was aimed at — null only when none was resolved. */
+  pixelId?: string | null;
   metaEventId?: string | null;
   error?: string | null;
 }
@@ -24,6 +26,7 @@ export async function logCapiEvent(db: ReturnType<typeof getDb>, entry: CapiLogE
       eventName: entry.eventName,
       stage: entry.stage ?? "delivered",
       status: entry.status,
+      pixelId: entry.pixelId ?? null,
       metaEventId: entry.metaEventId ?? null,
       error: entry.error ?? null,
       sentAt: new Date().toISOString(),

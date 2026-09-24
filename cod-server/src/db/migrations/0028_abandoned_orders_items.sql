@@ -1,0 +1,32 @@
+-- Full basket snapshot for abandoned checkouts
+-- (report-md/SHOPPING_CART_PLAN.md Phase 6).
+--
+-- Until now an abandoned record held ONE product, because a checkout could
+-- only ever be about one. With the cart, a shopper can walk away from a basket
+-- of five, and a merchant calling them back needs to know what was in it.
+--
+-- Both columns are additive and nullable, so every row that exists today stays
+-- exactly as it is and every reader keeps working:
+--
+--   items_json   the whole basket, as a JSON array of
+--                {productId, productName, variantId, variantLabel,
+--                 quantity, unitPrice}. NULL for a single-product checkout,
+--                which is still the common case and still uses the flat
+--                product_* columns alone.
+--   item_count   how many DISTINCT lines the basket held. NULL for a
+--                single-product checkout. Kept as its own column so the list
+--                view can say "and 4 more" without parsing the JSON.
+--
+-- The flat product_id / product_name / variant_id / variant_label columns stay
+-- populated for basket rows too, from the FIRST line. That is what makes this
+-- safe: the dashboard's product column, the search, and every existing query
+-- keep working untouched, and nothing had to be migrated.
+--
+-- `price` keeps its documented meaning, "cart value at abandonment": for a
+-- basket it is the basket subtotal rather than one line's unit price, so
+-- getAbandonedOrderStats' estimated-lost-revenue sum stays honest without
+-- being rewritten.
+--
+-- Rollback is to stop writing the two columns; no data migration to reverse.
+ALTER TABLE `abandoned_orders` ADD COLUMN `items_json` text;
+ALTER TABLE `abandoned_orders` ADD COLUMN `item_count` integer;

@@ -1,8 +1,19 @@
 /**
  * Product Page Logic
- * Handles variant selection, gallery interactions, offer tiers, 
+ * Handles variant selection, gallery interactions, offer tiers,
  * shipping calculations, and commune loading.
  */
+
+import {
+  bindDeliveryFields,
+  watchShippingRates,
+  rateFor,
+  selectedWilayaId,
+  currentDeliveryType,
+  toggleAddressFields,
+} from "./delivery-fields";
+// fbq only exists when the merchant configured a pixel — one shared guard.
+import { trackAt } from "./pixel";
 
 export function initProductPage() {
   // ── DATA BRIDGE ────────────────────────────────────────────────────────────
@@ -23,35 +34,7 @@ export function initProductPage() {
   
   /** @type {Record<string, Object>} Shipping rates per wilaya: { wilayaId: { home, stopDesk } } */
   let rates: Record<string, { home: number; stopDesk: number }> = {};
-  
-  // Try to load rates from the Island bridge (Server Island might load later)
-  function loadRates(): boolean {
-    const ratesEl = document.getElementById("shipping-rates-data");
-    if (ratesEl && ratesEl.dataset.rates) {
-      try {
-        const parsedRates = JSON.parse(ratesEl.dataset.rates);
-        rates = parsedRates;
-        refreshShipping(); // Trigger refresh once rates are available
-        return true;
-      } catch (e) {
-        console.warn("Failed to parse shipping rates", e);
-        return false;
-      }
-    }
-    return false;
-  }
 
-  // Initial load attempt
-  if (!loadRates()) {
-    // If not ready, watch for the Island to be injected/populated
-    const observer = new MutationObserver(() => {
-      if (loadRates()) observer.disconnect();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    // Disconnect after 10s to avoid a permanent observer if the Island never loads
-    setTimeout(() => observer.disconnect(), 10_000);
-  }
-    
   // Localized strings and configuration
   const cur                = el.dataset.cur!;
   const shippingCalc       = el.dataset.shippingCalc!;
@@ -93,7 +76,6 @@ export function initProductPage() {
   /** Maximum quantity allowed by stock; 100 = uncapped */
   let currentVariantMax   = 100;
   let hasStockCap         = false;
-  let latestCommuneRequest = 0;
 
   /**
    * Formats a number for currency display using Algerian locale.
@@ -110,7 +92,6 @@ export function initProductPage() {
   const priceInput = document.getElementById("price-input") as HTMLInputElement | null;
   const variantIdInput = document.getElementById("variant-id-input") as HTMLInputElement | null;
   const variantLabelInput = document.getElementById("variant-label-input") as HTMLInputElement | null;
-  const wilayaSelect = document.getElementById("f-wilaya") as HTMLSelectElement | null;
   const gallery   = document.getElementById("gallery");
   const dots      = document.querySelectorAll<HTMLButtonElement>(".gallery-dot");
   const thumbs    = document.querySelectorAll<HTMLButtonElement>(".gallery-thumb");
@@ -442,10 +423,7 @@ export function initProductPage() {
       const slide = gallery.querySelector<HTMLElement>(`[data-image-id="${match.imageId}"]`);
       if (slide) {
         const index = Array.from(gallery.children).indexOf(slide);
-        if (index >= 0) {
-          gallery.scrollTo({ left: index * gallery.offsetWidth, behavior: "smooth" });
-          setActive(index);
-        }
+        if (index >= 0) goToImage(index);
       }
     }
 
@@ -483,44 +461,24 @@ export function initProductPage() {
 
   // ── DELIVERY & SHIPPING ────────────────────────────────────────────────────
 
-  /**
-   * Handles delivery type (Home vs Stop Desk) radio changes.
-   */
-  document.querySelectorAll<HTMLInputElement>(".delivery-radio-input").forEach((radio) => {
-    radio.addEventListener("change", () => {
-      // Visual feedback for labels
-      document.querySelectorAll<HTMLElement>(".delivery-radio-label div").forEach((div) => {
-        div.classList.remove("border-[var(--clr-primary)]", "text-[var(--clr-primary)]", "bg-[var(--clr-primary)]/5", "shadow-sm");
-        div.classList.add("border-[var(--clr-border)]", "text-[var(--clr-text-2)]", "bg-[var(--clr-surface-alt)]");
-      });
-      if (radio.checked) {
-        const div = radio.nextElementSibling as HTMLElement;
-        div.classList.remove("border-[var(--clr-border)]", "text-[var(--clr-text-2)]", "bg-[var(--clr-surface-alt)]");
-        div.classList.add("border-[var(--clr-primary)]", "text-[var(--clr-primary)]", "bg-[var(--clr-primary)]/5", "shadow-sm");
-      }
-      
-      // Show/hide address fields based on delivery type
-      toggleAddressFields();
-      refreshShipping();
-    });
+  // Rates ride in on the shipping bridge, which can already be in the DOM at
+  // mount. This subscription lives here — after every piece of state
+  // `refreshShipping` touches — so the callback, whenever it fires, never
+  // meets an uninitialized binding. (Historical note: registering this at the
+  // top of initProductPage delivered rates synchronously into a TDZ
+  // ReferenceError that killed the page's whole init, commune selector
+  // included.)
+  watchShippingRates((loaded) => {
+    rates = loaded;
+    refreshShipping();
   });
 
-  /**
-   * Shows or hides address fields based on selected delivery type.
-   * Home delivery = show fields, Stop desk = hide fields
-   */
-  function toggleAddressFields() {
-    const addressContainer = document.getElementById("address-field-container");
-    if (!addressContainer) return;
-    
-    const selectedType = document.querySelector<HTMLInputElement>('.delivery-radio-input:checked')?.value;
-    
-    if (selectedType === "home") {
-      addressContainer.classList.remove("hidden");
-    } else {
-      addressContainer.classList.add("hidden");
-    }
-  }
+  // Delivery type, the address field and commune loading are shared with
+  // the checkout page so the two cannot drift apart — see delivery-fields.ts.
+  bindDeliveryFields(
+    { communeLoading, communePlaceholder, communeDisabled },
+    { isRTL, onChange: refreshShipping },
+  );
 
   /**
    * Recalculates shipping cost based on selected wilaya and delivery type.
@@ -534,76 +492,38 @@ export function initProductPage() {
       return;
     }
 
-    // 2. Otherwise use rate table
-    const wilayaId = wilayaSelect?.value;
-    const dt = (document.querySelector<HTMLInputElement>('.delivery-radio-input:checked')?.value ?? "home") as "home" | "stop_desk";
-    
-    if (!wilayaId) {
-      currentShipping = NaN;
-      updatePriceUI();
-      return;
-    }
-
-    const rate = rates[wilayaId];
-    currentShipping = rate ? (dt === "stop_desk" ? rate.stopDesk : rate.home) : NaN;
+    // 2. Otherwise the merchant's rate table decides.
+    currentShipping = rateFor(rates, selectedWilayaId(), currentDeliveryType());
     updatePriceUI();
   }
 
-  // ── WILAYA & COMMUNE LOADING ───────────────────────────────────────────────
-
-  /**
-   * Fetches communes for the selected wilaya and populates the custom Select.
-   * Uses window.__selectSetLoading / __selectPopulate from Select.astro.
-   */
-  async function loadCommunes(wilayaId: string) {
-    const requestId = ++latestCommuneRequest;
-    if (typeof window.__selectSetLoading === 'function') {
-      window.__selectSetLoading("f-commune", true, communeLoading);
-    }
-    try {
-      const res = await fetch(`/api/communes/${wilayaId}`);
-      const json = (await res.json()) as { data: Array<{ id: string; name: string; nameAr: string }> };
-      if (requestId !== latestCommuneRequest) return;
-      const communes = (json.data ?? []).map((c) => ({
-        value: c.id,
-        label: isRTL ? c.nameAr : c.name,
-      }));
-      if (typeof window.__selectPopulate === 'function') {
-        window.__selectPopulate("f-commune", communes, communePlaceholder);
-      }
-    } catch (error) {
-      if (requestId !== latestCommuneRequest) return;
-      console.warn('Failed to load communes:', error);
-      if (typeof window.__selectPopulate === 'function') {
-        window.__selectPopulate("f-commune", [], communePlaceholder);
-      }
-    }
-  }
-
-  // Wilaya change triggers commune reload and shipping refresh
-  wilayaSelect?.addEventListener("change", (e) => {
-    const wilayaId = (e.target as HTMLInputElement).value;
-    if (wilayaId) {
-      loadCommunes(wilayaId);
-    } else {
-      latestCommuneRequest += 1;
-      if (typeof window.__selectSetDisabled === 'function') {
-        window.__selectSetDisabled("f-commune", communeDisabled);
-      }
-    }
-    refreshShipping();
-  });
 
   // ── GALLERY INTERACTIVITY ──────────────────────────────────────────────────
 
   /**
-   * Updates visual indicators (dots/thumbs) based on current scroll position.
-   * @param {number} i - Index of the active image.
+   * Slide offset for an index, signed for the track's writing direction.
+   *
+   * Every slide is exactly one track wide, so the offset is a multiple of the
+   * width. In RTL the scroll origin is the right edge and `scrollLeft` runs
+   * negative, so reading takes the magnitude and writing takes the sign back.
+   */
+  function slideSign(track: HTMLElement): number {
+    return getComputedStyle(track).direction === "rtl" ? -1 : 1;
+  }
+
+  /**
+   * Updates the visual indicators for the image at `i`.
+   *
+   * A dot's button is a 44px tap target; the dot the shopper sees is the span
+   * inside it, so the active styling belongs there — styling the button would
+   * shrink the tap target and leave the dot itself unchanged.
    */
   function setActive(i: number) {
     dots.forEach((d, j) => {
-      d.style.width   = j === i ? "1.25rem" : "0.5rem";
-      d.style.opacity = j === i ? "1"    : "0.3";
+      const pip = d.firstElementChild as HTMLElement | null;
+      if (!pip) return;
+      pip.style.width   = j === i ? "1.25rem" : "0.5rem";
+      pip.style.opacity = j === i ? "1" : "0.3";
     });
     thumbs.forEach((t, j) => {
       t.style.borderColor = j === i ? "var(--clr-primary)" : "transparent";
@@ -611,17 +531,33 @@ export function initProductPage() {
     });
   }
 
-  // Mobile scroll tracking
-  gallery?.addEventListener("scroll", () => {
-    const i = Math.round(gallery.scrollLeft / gallery.offsetWidth);
+  /** Scrolls the track to image `i` and marks it active. */
+  function goToImage(i: number) {
+    if (!gallery) return;
+    gallery.scrollTo({
+      left: slideSign(gallery) * i * gallery.clientWidth,
+      behavior: "smooth",
+    });
     setActive(i);
-  });
+  }
 
-  // Desktop thumbnail clicks
-  thumbs.forEach((btn) => {
+  // Scroll tracking, read once per frame: the scroll event fires far more
+  // often than the indicators can meaningfully change.
+  let galleryFrame = 0;
+  gallery?.addEventListener("scroll", () => {
+    if (galleryFrame) return;
+    galleryFrame = requestAnimationFrame(() => {
+      galleryFrame = 0;
+      const width = gallery.clientWidth;
+      if (width > 0) setActive(Math.round(Math.abs(gallery.scrollLeft) / width));
+    });
+  }, { passive: true });
+
+  // Dots (mobile) and thumbnails (desktop) both jump to their image.
+  [...dots, ...thumbs].forEach((btn) => {
     btn.addEventListener("click", () => {
-      const i = parseInt(btn.dataset.index!);
-      gallery?.scrollTo({ left: i * (gallery as any).offsetWidth, behavior: "smooth" });
+      const i = Number(btn.dataset.index);
+      if (Number.isInteger(i)) goToImage(i);
     });
   });
 
@@ -693,11 +629,6 @@ export function initProductPage() {
   const pixelId   = el.dataset.pixelId || "";
   const productId = el.dataset.productId || "";
 
-  // fbq may not exist when the store has no pixel configured — guard every call.
-  type FbqFn = (...args: unknown[]) => void;
-  const fbqSafe = (): FbqFn | null =>
-    typeof (window as any).fbq === "function" ? (window as any).fbq as FbqFn : null;
-
   function getCookie(name: string): string | null {
     return (
       document.cookie
@@ -709,7 +640,9 @@ export function initProductPage() {
 
   // 1. ViewContent — fires once immediately after page init
   if (pixelId) {
-    fbqSafe()?.("track", "ViewContent", {
+    // trackAt, not track: this page's events belong to the pixel the page
+    // loaded — which on a landing page with its own pixel is not the store's.
+    trackAt(pixelId, "ViewContent", {
       content_ids: [productId],
       content_type: "product",
       value: currentPrice,
@@ -727,7 +660,7 @@ export function initProductPage() {
       const fireInitiateCheckout = () => {
         if (checkoutStarted) return;
         checkoutStarted = true;
-        fbqSafe()?.("track", "InitiateCheckout", {
+        trackAt(pixelId, "InitiateCheckout", {
           content_ids: [productId],
           content_type: "product",
           value: currentPrice,

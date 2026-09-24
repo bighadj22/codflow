@@ -104,7 +104,7 @@ function ProductGroupForm({ groupId }: { groupId?: string }) {
         </div>
       </Card>
       <Card title={t("form.section_image")}>
-        <Field label={t("form.image_label")}>
+        <Field label={t("form.image_label")} as="div">
           <CategoryImageUploader value={form.imageUrl || null} onChange={(url) => update("imageUrl", url ?? "")} disabled={busy} />
           <p className="mt-2 text-xs text-muted-foreground">{t("form.image_help")}</p>
         </Field>

@@ -2,17 +2,12 @@ import { useEffect, useState } from "react";
 import { BarChart2, Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui";
 import { useT } from "@/i18n/react";
+import {
+  ConversionEventPicker,
+  type ConversionEvent,
+} from "@/components/tracking/ConversionEventPicker";
 import { getPixelConfig, savePixelConfig } from "@/features/settings/api";
 import { FieldRow, SettingsSection } from "@/features/settings/components/SettingsSection";
-
-type ConversionEvent = "Purchase" | "Purchase_Confirmed" | "Purchase_Delivered" | "Lead";
-
-const EVENT_OPTIONS: { value: ConversionEvent; labelKey: string; hintKey: string }[] = [
-  { value: "Purchase", labelKey: "store.tracking_event_purchase_instant_label", hintKey: "store.tracking_event_purchase_instant_hint" },
-  { value: "Purchase_Confirmed", labelKey: "store.tracking_event_purchase_confirmed_label", hintKey: "store.tracking_event_purchase_confirmed_hint" },
-  { value: "Purchase_Delivered", labelKey: "store.tracking_event_purchase_delivered_label", hintKey: "store.tracking_event_purchase_delivered_hint" },
-  { value: "Lead", labelKey: "store.tracking_event_lead_label", hintKey: "store.tracking_event_lead_hint" },
-];
 
 export function TrackingSettings() {
   const t = useT("settings");
@@ -24,6 +19,7 @@ export function TrackingSettings() {
   const [testMode, setTestMode] = useState(false);
   const [enabled, setEnabled] = useState(true);
   const [conversionEvent, setConversionEvent] = useState<ConversionEvent | null>(null);
+  const [perPageTracking, setPerPageTracking] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
 
@@ -38,6 +34,7 @@ export function TrackingSettings() {
       setConversionEvent(data.conversionEvent);
       setTestMode(data.testMode);
       setEnabled(data.enabled);
+      setPerPageTracking(data.perPageTrackingEnabled);
       setLastSaved(data.updatedAt);
     });
     return () => {
@@ -74,6 +71,7 @@ export function TrackingSettings() {
       conversionEvent,
       testMode,
       enabled,
+      perPageTrackingEnabled: perPageTracking,
     });
     setAccessTokenMasked(result.accessTokenMasked);
     setAccessToken("");
@@ -156,31 +154,54 @@ export function TrackingSettings() {
         )}
       </FieldRow>
 
-      <FieldRow label={t("store.tracking_event_label")}>
-        <div className="grid gap-2" role="radiogroup" aria-label={t("store.tracking_event_label")}>
-          {EVENT_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={conversionEvent === option.value}
-              onClick={() => setConversionEvent(option.value)}
-              className={`cursor-pointer rounded-xl border p-3 text-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                conversionEvent === option.value
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/40"
-              }`}
-            >
-              <span className="block text-sm font-semibold text-foreground">
-                {t(option.labelKey)}
-              </span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">
-                {t(option.hintKey)}
-              </span>
-            </button>
-          ))}
+      <div className="space-y-2.5">
+        <div>
+          <label className="text-xs font-semibold text-foreground">
+            {t("store.tracking_event_label")}
+          </label>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {t("store.tracking_event_description")}
+          </p>
         </div>
-      </FieldRow>
+
+        <ConversionEventPicker
+          value={conversionEvent}
+          onChange={setConversionEvent}
+        />
+      </div>
+
+      {/* Per-landing-page pixels. Off is the default and the rollback: while
+          it is off, every landing page reports to the pixel above no matter
+          what is saved against it. */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <span className="text-sm font-semibold text-foreground">
+            {t("store.tracking_per_page_label")}
+          </span>
+          <p className="text-xs text-muted-foreground">{t("store.tracking_per_page_hint")}</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={perPageTracking}
+          onClick={() => setPerPageTracking((current) => !current)}
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            perPageTracking ? "bg-primary" : "bg-muted-foreground/30"
+          }`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition-transform ${
+              perPageTracking ? "translate-x-5 rtl:-translate-x-5" : "translate-x-0.5"
+            }`}
+          />
+        </button>
+      </div>
+
+      {perPageTracking && (
+        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          {t("store.tracking_per_page_next_step")}
+        </p>
+      )}
 
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">

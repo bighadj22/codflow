@@ -28,6 +28,24 @@ const upsertSchema = z.object({
   variantId: z.string().max(200).optional(),
   variantLabel: z.string().max(200).optional(),
   price: z.number().positive().optional(),
+  // The whole basket, when the shopper walked away from a cart checkout.
+  // This schema is what the proxy forwards — Zod strips anything not declared
+  // here, so a field missing from this list never reaches cod-server at all.
+  // Bounds mirror cod-server's own schema (cod-shared/queries/cart.ts).
+  items: z
+    .array(
+      z.object({
+        productId: z.string().min(1).max(200),
+        productName: z.string().min(1).max(200),
+        variantId: z.string().max(200).nullish(),
+        variantLabel: z.string().max(200).nullish(),
+        quantity: z.number().int().min(1).max(100),
+        unitPrice: z.number().nonnegative(),
+      }),
+    )
+    .min(1)
+    .max(20)
+    .optional(),
   deliveryType: z.enum(["home", "stop_desk"]).optional(),
   fbc: z.string().max(500).optional(),
   fbp: z.string().max(500).optional(),

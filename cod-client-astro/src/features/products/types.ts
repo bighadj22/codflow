@@ -1,5 +1,7 @@
 export type ProductType = "PHYSICAL" | "DIGITAL";
 export type ProductStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
+/** How a product description is stored. Mirrors the API enum — see ADR 0002. */
+export type DescriptionFormat = "text" | "html";
 
 export interface ProductCategory {
   id: string;
@@ -54,6 +56,7 @@ export interface Product {
   id: string;
   name: string;
   description?: string | null;
+  descriptionFormat?: DescriptionFormat;
   handle: string;
   currency: string;
   price: number;

@@ -3,7 +3,7 @@
 // ║  Defines the placeOrder action: input validation + API call.         ║
 // ║  UI customisation belongs in components, not here.                   ║
 // ╚══════════════════════════════════════════════════════════════════════╝
-import { defineAction } from "astro:actions";
+import { ActionError, defineAction } from "astro:actions";
 import { z } from "astro/zod";
 import { placeOrder } from "@/core/api/client";
 
@@ -11,8 +11,18 @@ export const server = {
   placeOrder: defineAction({
     accept: "form",
     input: z.object({
-      productId: z.string().min(1),
-      productName: z.string().min(1),
+      // Optional because a basket order has no single representative product;
+      // the handler below requires them whenever `items` is absent. They stay
+      // on a plain z.object rather than a .superRefine() because `accept:
+      // "form"` needs an object schema to parse FormData with.
+      productId: z.preprocess(
+        (v) => (v === "" || v == null ? undefined : v),
+        z.string().min(1).optional()
+      ),
+      productName: z.preprocess(
+        (v) => (v === "" || v == null ? undefined : v),
+        z.string().min(1).optional()
+      ),
       // Forms always submit all hidden inputs — empty string must become undefined
       variantId: z.preprocess(
         (v) => (v === "" || v == null ? undefined : v),
@@ -22,7 +32,10 @@ export const server = {
         (v) => (v === "" || v == null ? undefined : v),
         z.string().optional()
       ),
-      pricePerUnit: z.coerce.number().positive(),
+      pricePerUnit: z.preprocess(
+        (v) => (v === "" || v == null ? undefined : v),
+        z.coerce.number().positive().optional()
+      ),
       quantity: z.coerce.number().int().min(1).max(100).default(1),
       // Explicit offer tier selected by the user
       offerId: z.preprocess(
@@ -72,6 +85,26 @@ export const server = {
         (v) => (v === "" || v == null ? undefined : v),
         z.string().min(1).max(2048).optional()
       ),
+      // Cart basket. Present only when checkout started from the drawer; an
+      // empty or malformed value falls through to the flat single-product
+      // fields above, so the direct order form is untouched by this.
+      items: z.preprocess(
+        (v) => {
+          if (!v || typeof v !== "string" || v === "[]") return undefined;
+          try {
+            const parsed = JSON.parse(v);
+            return Array.isArray(parsed) && parsed.length > 0 ? parsed : undefined;
+          } catch { return undefined; }
+        },
+        z.array(z.object({
+          productId: z.string().min(1),
+          productName: z.string().min(1),
+          variantId: z.string().min(1).optional(),
+          variantLabel: z.string().optional(),
+          quantity: z.coerce.number().int().min(1).max(100),
+          pricePerUnit: z.coerce.number().nonnegative().optional(),
+        })).optional()
+      ),
       // Landing page attribution — best-effort: unknown/draft slug leaves
       // the order unattributed, never blocked (platform extension, LP feature).
       landingPageSlug: z.preprocess(
@@ -80,6 +113,17 @@ export const server = {
       ),
     }),
     handler: async (input, context) => {
+      // An order is either a basket or a single product, never neither. The
+      // schema above cannot express that (form parsing needs a plain object),
+      // and cod-server refuses the shape anyway — failing here turns a bare
+      // 400 into a field error the form can actually render.
+      if (!input.items?.length && (!input.productId || !input.productName || !input.pricePerUnit)) {
+        throw new ActionError({
+          code: "BAD_REQUEST",
+          message: "An order needs either a basket or a product.",
+        });
+      }
+
       // Forward the shopper's attribution headers so cod-server records the
       // visitor, not this worker — same mechanism as core/endpoints/abandoned.ts.
       const forwardedHeaders: Record<string, string> = {};
@@ -108,6 +152,7 @@ export const server = {
         notes: input.notes,
         offerId: input.offerId,
         variantSelections: input.variantSelections,
+        items: input.items,
         fbc: input.fbc,
         fbp: input.fbp,
         otpToken: input.otpToken,

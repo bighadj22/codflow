@@ -76,8 +76,6 @@ export const fr: StoreFrontContent = {
   footerAbout: "Votre boutique en ligne de confiance en Algérie avec paiement à la livraison",
   footerQuickLinks: "Liens rapides",
   footerSupport: "Support client",
-  footerShipping: "Infos livraison",
-  footerReturns: "Retours et échanges",
   footerRights: "Tous droits réservés",
 
   // ── Order form ────────────────────────────────────────────────────────────
@@ -106,6 +104,7 @@ export const fr: StoreFrontContent = {
   formSubmit: "Confirmer la commande",
   formConfirmNote: "Notre équipe vous contactera pour confirmer votre commande dans les 24 heures",
 
+  checkoutConsentText: "En passant cette commande, vous acceptez nos {terms} et notre {refund}.",
   // ── WhatsApp OTP verification ─────────────────────────────────────────────
   otpTitle: "Vérifiez votre téléphone",
   otpSubtitle: "Nous avons envoyé un code à 6 chiffres sur votre WhatsApp",
@@ -224,4 +223,35 @@ export const fr: StoreFrontContent = {
   notFoundCtaHome: "Retour à la boutique",
   notFoundCtaProducts: "Parcourir les produits",
   notFoundPageTitle: "Page introuvable",
+
+  // ── Shopping cart ─────────────────────────────────────────────────────────
+  cartTitle: "Votre panier",
+  cartItemsLabel: "{n} articles",
+  cartEmptyTitle: "Votre panier est vide",
+  cartEmptyHint: "Ajoutez un produit et il apparaîtra ici.",
+  cartAddToCart: "Ajouter au panier",
+  cartAdded: "Ajouté au panier",
+  cartOpenLabel: "Ouvrir le panier",
+  cartCloseLabel: "Fermer le panier",
+  cartSubtotalLabel: "Sous-total",
+  cartCheckoutCta: "Commander",
+  cartRemoveLabel: "Retirer",
+  cartIncreaseLabel: "Augmenter la quantité",
+  cartDecreaseLabel: "Diminuer la quantité",
+  cartFreeDeliveryEarned: "Livraison gratuite débloquée",
+  cartFreeDeliveryRemaining: "Ajoutez {amount} {currency} pour la livraison gratuite",
+  cartLineUnavailable: "Plus disponible",
+  cartLineOutOfStock: "Il n'en reste que {n}",
+  cartGiftLabel: "Cadeau offert",
+  cartFixBeforeCheckout: "Retirez les articles indisponibles pour continuer.",
+  cartDeliveryNote: "La livraison est calculée à la commande.",
+  cartUnavailableNotice: "Votre navigateur bloque le stockage, le panier est donc indisponible. Vous pouvez toujours commander ce produit directement.",
+  cartContinueShopping: "Continuer mes achats",
+
+  checkoutTitle: "Finaliser la commande",
+  checkoutSummaryTitle: "Votre commande",
+  checkoutLoading: "Préparation de votre panier…",
+
+  relatedTitle: "Vous aimerez aussi",
+  relatedSub: "D'autres produits de la même catégorie",
 };

@@ -12,20 +12,6 @@
     "copy": "Copier",
     "copied": "Copié"
   },
-  "snippet": {
-    "heading": "Configuration rapide",
-    "description": "Choisissez votre application IA pour obtenir la configuration prête à coller.",
-    "tab_claude_desktop": "Claude Desktop",
-    "tab_claude_web": "Claude.ai",
-    "tab_chatgpt": "ChatGPT",
-    "tab_other": "Autre",
-    "copy_snippet": "Copier l'extrait",
-    "claude_desktop_instructions": "Dans Claude Desktop, ouvrez Paramètres → Connecteurs → Ajouter un connecteur personnalisé, puis collez cette URL et connectez-vous avec CodFlow :",
-    "claude_desktop_alt": "Ou connexion locale via mcp-remote — collez ceci dans Paramètres → Développeur → Modifier la configuration :",
-    "claude_web_instructions": "Dans Claude.ai, ouvrez Personnaliser → Connecteurs → « + » → Ajouter un connecteur personnalisé, puis collez cette URL :",
-    "chatgpt_instructions": "Dans ChatGPT, activez le Mode développeur (Paramètres → Connecteurs → Paramètres avancés), puis créez un connecteur et collez cette URL :",
-    "other_instructions": "Tout client compatible MCP peut se connecter via mcp-remote :"
-  },
   "my_connections": {
     "title": "Vos connexions",
     "empty_title": "Aucun agent IA connecté pour le moment",

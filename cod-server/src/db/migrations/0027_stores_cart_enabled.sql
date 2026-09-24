@@ -1,0 +1,14 @@
+-- Shopping cart opt-in, per store (report-md/SHOPPING_CART_PLAN.md D4).
+--
+-- Additive and defaulted to 0, so every store that exists today reads as
+-- cart-disabled and its storefront is unchanged: same product page, same
+-- one-click order form. A merchant turns it on from Settings when they want it.
+--
+-- NOT NULL DEFAULT 0 also makes the deploy order irrelevant — a storefront
+-- running older code against the new column, or newer code against a store row
+-- written before it, both see "disabled" rather than NULL.
+--
+-- Rollback is `UPDATE stores SET cart_enabled = 0`: no data migration to
+-- reverse, because multi-line orders remain valid CodFlow orders that the
+-- dashboard and the carriers already understand.
+ALTER TABLE `stores` ADD COLUMN `cart_enabled` integer NOT NULL DEFAULT 0;

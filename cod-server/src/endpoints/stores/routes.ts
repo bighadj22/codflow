@@ -14,6 +14,7 @@ import type { AppContext } from "@/types";
 import { defineRoute } from "@/lib/route-builder";
 import { SCOPES } from "../../../../cod-shared/rbac/scopes";
 import * as handlers from "./handlers";
+import { updateStoreSchema } from "./validation";
 import {
   StoreSchema,
   StorePixelConfigSchema,
@@ -24,41 +25,17 @@ const jsonContent = <T extends z.ZodType>(schema: T) => ({
   "application/json": { schema },
 });
 
-const hexColor = z.string().regex(/^#[0-9a-fA-F]{3,8}$/, "Invalid hex color");
-
 // ─── Request schemas ──────────────────────────────────────────────────────────
 
-const updateStoreBodySchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  logoUrl: z.string().url().nullable().optional(),
-  primaryColor: hexColor.optional(),
-  accentColor: hexColor.optional(),
-  bgColor: hexColor.optional(),
-  fontFamily: z.string().min(1).max(200).optional(),
-  fontUrl: z.string().url().nullable().optional(),
-  lang: z.enum(["ar", "en"]).optional(),
-  currencySymbol: z.string().min(1).max(10).optional(),
-  contentJson: z.string().nullable().optional(),
-  metaTitle: z.string().max(200).nullable().optional(),
-  metaDescription: z.string().max(500).nullable().optional(),
-  ogImage: z.string().url().nullable().optional(),
-  announcementBar: z.string().max(500).nullable().optional(),
-  reviewsEnabled: z.boolean().optional(),
-  status: z.enum(["active", "inactive"]).optional(),
-});
-
-const savePixelBodySchema = z.object({
-  pixelId: z.string().min(1),
-  adAccountName: z.string().max(200).nullable().optional(),
-  accessToken: z.string().default("").openapi({
-    description:
-      "Meta access token. Empty string keeps the previously stored token (the token is never sent back to the client).",
-  }),
-  testEventCode: z.string().nullable().optional(),
-  conversionEvent: z.enum(["Purchase", "Purchase_Confirmed", "Purchase_Delivered", "Lead"]),
-  testMode: z.boolean().optional(),
-  enabled: z.boolean().optional(),
-});
+// NOTE: the PATCH /me body schema is NOT defined here. It is imported from
+// ./validation (updateStoreSchema) — that used to be duplicated in this file,
+// which drifted out of sync as settings were added: cartEnabled,
+// freeShippingThreshold and cartShippingMode were writable per validation.ts
+// but silently stripped by this file's stale copy before the handler ever
+// saw them (OpenAPIHono validates the body against the route's `body` schema
+// pre-handler; unknown keys are dropped, not rejected, so the save looked
+// successful and did nothing). One schema, imported, so this cannot drift
+// again.
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
@@ -89,7 +66,7 @@ const updateMyStoreRoute = defineRoute({
   description:
     "Partially updates the store configuration. All fields are optional — only include the fields you want to change. Set nullable fields to `null` to clear them.",
   operationId: "updateMyStore",
-  body: updateStoreBodySchema,
+  body: updateStoreSchema,
   responses: {
     200: {
       description: "Updated store configuration",
@@ -129,9 +106,9 @@ const savePixelConfigRoute = defineRoute({
   tags: ["Store Settings"],
   summary: "Save pixel configuration",
   description:
-    "Upserts the store's Meta pixel tracking configuration. `conversionEvent` is required — the merchant explicitly chooses whether the Conversions API optimizes for `Lead` (fires at order placement, deduplicated with the browser pixel) or `Purchase` (fires at confirmed delivery). An empty `accessToken` keeps the previously stored token.",
+    "Upserts the store's Meta pixel tracking configuration. `perPageTrackingEnabled` is the master switch for per-landing-page pixels; omitting it keeps the stored value. `conversionEvent` is required — the merchant explicitly chooses whether the Conversions API optimizes for `Lead` (fires at order placement, deduplicated with the browser pixel) or `Purchase` (fires at confirmed delivery). An empty `accessToken` keeps the previously stored token.",
   operationId: "savePixelConfig",
-  body: savePixelBodySchema,
+  body: handlers.pixelConfigSchema,
   responses: {
     200: {
       description: "Saved pixel configuration",
@@ -154,15 +131,6 @@ const otpConfigResponse = z.object({
       updatedAt: z.string().datetime(),
     })
     .nullable(),
-});
-
-const saveOtpConfigBodySchema = z.object({
-  apiKey: z.string().default("").openapi({
-    description:
-      "dzverify API key. Empty string keeps the previously stored key (the key is never sent back to the client).",
-  }),
-  language: z.enum(["en", "fr", "ar"]).optional(),
-  enabled: z.boolean().optional(),
 });
 
 const getOtpConfigRoute = defineRoute({
@@ -189,18 +157,12 @@ const saveOtpConfigRoute = defineRoute({
   description:
     "Upserts the store's dzverify OTP configuration. An empty `apiKey` keeps the stored key. Requires a key before enabling. No row = verification disabled (safe default).",
   operationId: "saveOtpConfig",
-  body: saveOtpConfigBodySchema,
+  body: handlers.otpConfigSchema,
   responses: {
     200: { description: "Saved OTP configuration", content: jsonContent(otpConfigResponse) },
     400: { description: "No API key stored or submitted (REQUIRED_FIELD_MISSING)" },
   },
   handler: handlers.saveOtpConfig,
-});
-
-const testOtpConfigBodySchema = z.object({
-  apiKey: z.string().optional().openapi({
-    description: "Test this key instead of the stored one (pre-save validation).",
-  }),
 });
 
 const testOtpConfigRoute = defineRoute({
@@ -212,7 +174,7 @@ const testOtpConfigRoute = defineRoute({
   description:
     "Checks the stored (or submitted) dzverify API key against the provider's quota endpoint. A key lacking the usage:read scope is reported as valid with quota unavailable. Negative outcomes return 200 with ok:false — the check itself succeeded.",
   operationId: "testOtpConnection",
-  body: testOtpConfigBodySchema,
+  body: handlers.testOtpConfigSchema,
   responses: {
     200: {
       description: "Connection check executed",
@@ -255,19 +217,6 @@ const turnstileConfigResponse = z.object({
     .nullable(),
 });
 
-const saveTurnstileConfigBodySchema = z.object({
-  siteKey: z.string().default("").openapi({
-    description:
-      "Public Turnstile site key. Empty string keeps the previously stored value.",
-  }),
-  secretKey: z.string().default("").openapi({
-    description:
-      "Siteverify secret key. Empty string keeps the previously stored secret " +
-      "(the secret is never sent back to the client).",
-  }),
-  enabled: z.boolean().optional(),
-});
-
 const getTurnstileConfigRoute = defineRoute({
   method: "get",
   path: "/turnstile-config",
@@ -292,7 +241,7 @@ const saveTurnstileConfigRoute = defineRoute({
   description:
     "Upserts the store's Turnstile configuration. Empty `siteKey`/`secretKey` keep the stored values. Enabling requires both keys. No row = Turnstile disabled (safe default).",
   operationId: "saveTurnstileConfig",
-  body: saveTurnstileConfigBodySchema,
+  body: handlers.turnstileConfigSchema,
   responses: {
     200: { description: "Saved Turnstile configuration", content: jsonContent(turnstileConfigResponse) },
     400: { description: "Site/secret key missing (REQUIRED_FIELD_MISSING)" },
@@ -314,22 +263,6 @@ const emailConfigResponse = z.object({
       updatedAt: z.string().datetime(),
     })
     .nullable(),
-});
-
-const saveEmailConfigBodySchema = z.object({
-  apiKey: z.string().default("").openapi({
-    description:
-      "Sendili API key. Empty string keeps the previously stored key (the key is never sent back to the client).",
-  }),
-  fromEmail: z.string().email().openapi({
-    description: "Sender address — its domain must be verified in the Sendili workspace.",
-    example: "noreply@acme.com",
-  }),
-  fromName: z.string().max(200).nullable().optional().openapi({
-    description: "Optional sender display name (e.g. the store name).",
-    example: "Acme Store",
-  }),
-  enabled: z.boolean().optional(),
 });
 
 const getEmailConfigRoute = defineRoute({
@@ -356,18 +289,12 @@ const saveEmailConfigRoute = defineRoute({
   description:
     "Upserts the store's Sendili email configuration. An empty `apiKey` keeps the stored key. Requires a key before enabling. No row = email sending disabled (safe default).",
   operationId: "saveEmailConfig",
-  body: saveEmailConfigBodySchema,
+  body: handlers.emailConfigSchema,
   responses: {
     200: { description: "Saved email configuration", content: jsonContent(emailConfigResponse) },
     400: { description: "No API key stored or submitted (REQUIRED_FIELD_MISSING), or invalid fromEmail" },
   },
   handler: handlers.saveEmailConfig,
-});
-
-const testEmailConfigBodySchema = z.object({
-  apiKey: z.string().optional().openapi({
-    description: "Test this key instead of the stored one (pre-save validation).",
-  }),
 });
 
 const testEmailConfigRoute = defineRoute({
@@ -379,7 +306,7 @@ const testEmailConfigRoute = defineRoute({
   description:
     "Checks the stored (or submitted) Sendili API key against GET /v1/account and returns the verified sending domains for the from-address picker. Negative outcomes return 200 with ok:false — the check itself succeeded.",
   operationId: "testEmailConnection",
-  body: testEmailConfigBodySchema,
+  body: handlers.testEmailConfigSchema,
   responses: {
     200: {
       description: "Connection check executed",

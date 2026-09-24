@@ -45,8 +45,7 @@ What it is **not**:
 
 ## Turning It On
 
-Dashboard → **Settings → Verification** (the Cloudflare Turnstile card,
-below the WhatsApp phone verification card):
+Dashboard → **Settings → Bot Protection** (the Cloudflare Turnstile card):
 
 1. **Site key** — paste your widget's public site key.
 2. **Secret key** — paste your widget's secret key. After saving, only the

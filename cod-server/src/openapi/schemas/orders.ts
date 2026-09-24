@@ -325,6 +325,20 @@ export const AbandonedOrderStatusEnum = z.enum([
   "converted",
 ]);
 
+export const AbandonedOrderItemSchema = z
+  .object({
+    productId: z.string(),
+    productName: z.string().openapi({ example: "Hoodie Classic" }),
+    variantId: z.string().nullish(),
+    variantLabel: z.string().nullish().openapi({ example: "Noir / L" }),
+    quantity: z.number().int().openapi({ example: 2 }),
+    unitPrice: z.number().openapi({
+      description: "Price shown to the shopper at abandonment. Display only.",
+      example: 2400,
+    }),
+  })
+  .openapi("AbandonedOrderItem");
+
 export const AbandonedOrderSchema = z
   .object({
     id: z.string().openapi({ example: "ab_abc123" }),
@@ -338,12 +352,24 @@ export const AbandonedOrderSchema = z
     wilayaName: z.string().nullable().openapi({ example: "الجزائر" }),
     communeName: z.string().nullable(),
     productId: z.string().nullable(),
-    productName: z.string().nullable().openapi({ example: "Samsung Galaxy A54" }),
+    productName: z.string().nullable().openapi({
+      description:
+        "The only product, or the FIRST line of the basket. Always populated, so this column reads the same for both shapes.",
+      example: "Samsung Galaxy A54",
+    }),
     variantId: z.string().nullable(),
     variantLabel: z.string().nullable().openapi({ example: "أحمر / XL" }),
     price: z.number().nullable().openapi({
-      description: "Cart value at abandonment",
+      description: "Cart value at abandonment — the basket subtotal, or one unit's price",
       example: 9000,
+    }),
+    items: AbandonedOrderItemSchema.array().nullable().openapi({
+      description:
+        "The whole basket, when the shopper abandoned a cart checkout. Null for a single-product checkout, where the flat product fields above are the record.",
+    }),
+    itemCount: z.number().int().nullable().openapi({
+      description: "Distinct lines in the basket. Null for a single-product checkout.",
+      example: 3,
     }),
     deliveryType: z.enum(["home", "stop_desk"]).nullable(),
     fbc: z.string().nullable().openapi({
