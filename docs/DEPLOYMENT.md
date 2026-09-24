@@ -74,13 +74,11 @@ PUBLIC_API_URL = "https://api.yourdomain.com"
 PUBLIC_TRUSTED_ORIGINS = "https://mystore-dashboard.<your-subdomain>.workers.dev,https://dashboard.yourdomain.com"
 ```
 
-Also set the build-time client env (used by the browser API client):
-
-```bash
-cd cod-client-astro
-cp .env.example .env
-# edit .env → PUBLIC_API_URL="https://api.yourdomain.com"
-```
+The browser API client reads `PUBLIC_API_URL`, which is inlined at build time.
+Its production value is the `[vars]` entry in `cod-client-astro/wrangler.toml`
+set above — it is deliberately **not** in `.env`, where it would be ignored (see
+[CONFIGURATION.md](./CONFIGURATION.md#public_api_url--where-it-is-read-from)).
+Local development overrides it from `.dev.vars`.
 
 **Verify no placeholders remain:**
 
@@ -125,16 +123,21 @@ Deploy in order:
 
 ```bash
 cd cod-server && npm run deploy
-cd ../cod-client-astro && npm run build && npm run deploy
-cd ../cod-astro/theme01 && npm run build && npm run deploy
+cd ../cod-client-astro && npm run deploy
+cd ../cod-astro/theme01 && npm run deploy
 ```
+
+Each `deploy` script builds first. For the dashboard and the storefront, build
+separately only when you want the artifact without shipping it — their deploy
+scripts also inject the production API origin, which a bare `npm run build` on a
+developer machine does not.
 
 **After first deploy, update URLs and redeploy:**
 
 1. Get your deployed worker URLs from the deploy output
 2. Update these in the configs:
    - `PUBLIC_APP_URL` + `PUBLIC_TRUSTED_ORIGINS` (cod-client-astro wrangler.toml) → your dashboard URL
-   - `.env` `PUBLIC_API_URL` (cod-client-astro) → your API URL — then **rebuild** (it is baked into the client bundle)
+   - `PUBLIC_API_URL` (cod-client-astro wrangler.toml `[vars]`) → your API URL — then **rebuild**, it is baked into the client bundle
    - `WORKER_URL`, `BETTER_AUTH_URL`, `WORKER_SELF_URL` (cod-server wrangler.toml) → your API + dashboard URLs
    - `COD_SERVER_URL` (repo-root `.env`) → your API URL — the theme01 deploy script injects it at deploy time (never in wrangler.jsonc)
 3. Redeploy affected workers
@@ -255,7 +258,7 @@ rm /tmp/secret.txt
 
 ```bash
 cd cod-server && npm run deploy
-cd ../cod-astro/theme01 && npm run build && npm run deploy
+cd ../cod-astro/theme01 && npm run deploy
 ```
 
 **Full R2 setup details:** [cod-server/src/endpoints/images/README.md](../cod-server/src/endpoints/images/README.md)

@@ -195,7 +195,7 @@ in gitignored `.dev.vars` files or `wrangler secret put` in production.
 |----------|-------|---------|
 | `WORKER_URL`, `MEDIA_DOMAIN`, `R2_BUCKET_NAME`, `BETTER_AUTH_URL`, `WORKER_SELF_URL` | `cod-server` | public URLs + R2 (see `src/types/env.ts`) |
 | `PUBLIC_APP_URL`, `PUBLIC_API_URL`, `PUBLIC_TRUSTED_ORIGINS` | `cod-client-astro` (wrangler `[vars]`) | dashboard origin, API origin, auth cookie origins |
-| `PUBLIC_API_URL` | `cod-client-astro` (`.env`, build time) | API origin baked into the client bundle |
+| `PUBLIC_API_URL` | `cod-client-astro` (`.dev.vars`, local only) | the API origin local development builds against — never in `.env`, where it is ignored |
 | `COD_SERVER_URL`, `STORE_API_KEY`, `MEDIA_DOMAIN` | `cod-astro/theme01` | backend base URL + store key + media CDN |
 | `BETTER_AUTH_SECRET`, `MCP_LOGIN_TICKET_SECRET`, R2 creds, `CF_ACCOUNT_ID` | all | secrets — never in a wrangler config file |
 

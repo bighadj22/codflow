@@ -12,9 +12,9 @@ cod-server/
 └── .dev.vars           # Local secrets (gitignored)
 
 cod-client-astro/
-├── wrangler.toml       # Cloudflare bindings (D1, KV)
-├── .env                # Build-time client env (PUBLIC_API_URL)
-└── .dev.vars           # Local secrets (gitignored)
+├── wrangler.toml       # Cloudflare bindings (D1, KV) + production PUBLIC_API_URL
+├── .env                # Build-time client env (no PUBLIC_API_URL — see below)
+└── .dev.vars           # Local secrets + local PUBLIC_API_URL (gitignored)
 
 cod-astro/theme01/
 ├── wrangler.jsonc      # Cloudflare config
@@ -111,14 +111,30 @@ binding = "RATE_LIMIT_KV"
 id = "your-kv-id"
 ```
 
-### .env (build-time, baked into the client bundle)
+### PUBLIC_API_URL — where it is read from
 
-```env
-PUBLIC_API_URL=https://api.yourdomain.com
+`PUBLIC_API_URL` is consumed via `astro:env/client`, so it is inlined into the
+browser bundle at build time and a rebuild is required to change it.
+
+It is **not** read from `cod-client-astro/.env`. The Cloudflare adapter pushes
+wrangler values and `.dev.vars` into `process.env`, and Astro loads env with an
+empty prefix, so Vite's final `process.env` pass outranks the `.env` files:
+
+```
+.dev.vars  >  wrangler.toml [vars]  >  process.env  >  .env
 ```
 
-Set this **before** `npm run build` — it is consumed via `astro:env/client`
-and requires a rebuild to change.
+A value placed in `.env` is silently ignored. Set it where it is read:
+
+| Context | File | Value |
+| --- | --- | --- |
+| Local development | `.dev.vars` | `PUBLIC_API_URL=http://localhost:8787` |
+| Production | `wrangler.toml` `[vars]` | `PUBLIC_API_URL = "https://api.yourdomain.com"` |
+
+`.dev.vars` is local-only by Cloudflare's definition but is still read during a
+build, so a plain `npm run build` on a developer machine bakes the local URL
+into the bundle. Deploy with `npm run deploy`, which parks `.dev.vars` for the
+build and refuses to upload a bundle that still contains a loopback URL.
 
 ### Secrets
 

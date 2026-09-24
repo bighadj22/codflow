@@ -109,9 +109,18 @@ other is how these drift.
   adapter's `persistState`. Sign-in against an unmigrated local D1 is the
   #1 "dashboard broken locally" cause — run `cod-server npm run db:setup:local`
   first, then `cod-client-astro npm run seed:admin`.
-- `cod-client-astro/.env` (`PUBLIC_API_URL`) is a **build-time** client var —
-  changing it requires a rebuild. Runtime vars (`PUBLIC_APP_URL`,
-  `PUBLIC_TRUSTED_ORIGINS`) live in wrangler.toml `[vars]`.
+- `PUBLIC_API_URL` is a **build-time** client value: `astro:env/client` inlines
+  it into the browser bundle, so changing it requires a rebuild. It does **not**
+  go in `cod-client-astro/.env` — the Cloudflare adapter pushes wrangler values
+  and `.dev.vars` into `process.env`, and Astro reads env with an empty prefix,
+  so Vite's final `process.env` pass outranks the .env files:
+  `.dev.vars` > `wrangler.toml [vars]` > `process.env` > `.env`. A value in
+  `.env` is silently ignored, and `.dev.vars` — local-only by Cloudflare's
+  definition but still read during a build — once baked `http://localhost:8787`
+  into production. Set it in `.dev.vars` (local) and `wrangler.toml [vars]`
+  (production); `cod-client-astro npm run deploy` parks `.dev.vars` for the
+  build and refuses to upload a bundle containing a loopback URL. Runtime vars
+  (`PUBLIC_APP_URL`, `PUBLIC_TRUSTED_ORIGINS`) live in wrangler.toml `[vars]`.
 - `BETTER_AUTH_SECRET` and `MCP_LOGIN_TICKET_SECRET` must be **identical** on
   cod-server and cod-client-astro (shared auth D1 + MCP login-ticket relay).
 - Better Auth 1.7 schema requirements live in migrations 0010/0011:
@@ -130,8 +139,35 @@ other is how these drift.
 - Inbound webhooks exist only for **Yalidine** and **ZR Express**. NOEST and
   EcoTrack tracking is pulled on demand via `GET /orders/:id/tracking` — there
   is no inbound receiver for them.
+- The **shopping cart is off by default, per store** (`stores.cart_enabled`).
+  A store that never enables it ships no cart markup at all. Rollback for the
+  whole feature is `UPDATE stores SET cart_enabled = 0` — there is no data
+  migration to reverse, because a multi-line order is a valid CodFlow order the
+  dashboard and carriers already understand.
+- **An order is either a basket or a single product.** `items[]` supersedes the
+  flat `productId`/`productName`/`pricePerUnit`, which are optional only when
+  `items[]` is present. `cod-shared/queries/cart.ts` (`normalizeOrderLines`) is
+  the single place the shapes meet — do not branch on them anywhere else.
+- **The basket lives in the shopper's browser, never in D1.** The client's
+  `pricePerUnit` is display-only; every line is re-priced from the catalog
+  server-side. Never trust a cart total that arrived over the wire.
+- The mock db in cod-server's unit tests maps a full-table `select()`
+  **positionally by schema column order**. Adding a column to a table breaks
+  every fixture for it until the new field is inserted at the same position —
+  this is why those fixtures list columns in schema order with a comment.
 - cod-server tests run on miniflare + better-sqlite3 locally with no network
   or credentials required.
+- **A store is never born with its four legal pages automatically** — this
+  is single-tenant (one deployment per store), so there is no app-level
+  "create store" flow to hook a seed into. `npm run db:setup:local` /
+  `db:setup:remote` (cod-server) run `scripts/seed-store-pages.ts` as their
+  last step, which is idempotent (`INSERT OR IGNORE`) and safe to re-run.
+  A store that already existed before this feature shipped needs one manual
+  catch-up: `npm run db:seed:legal-pages:remote -- --store-id=<id>` from
+  cod-server, or the dashboard's Pages screen → "Add Terms, Privacy, Refund &
+  Shipping" (calls the same `POST /api/store-pages/seed-defaults`). Without
+  this, Meta Ads rejects the store's ads for missing policy pages — see
+  `report-md/LEGAL_PAGES_PLAN.md`.
 
 ## Skills
 
@@ -186,7 +222,8 @@ router.openapi(myRoute.route, myRoute.handler);
 | `improve-codebase-architecture` | Refactoring or architecture changes |
 | `tdd` | Test-driven development |
 | `wayfinder` | Navigating the codebase |
-| `codflow-setup` | Setting up the project |
+| `codflow-setup` | Setting up the project (Cloudflare + Vercel) |
+| `storefront-vercel` | Deploying or configuring the customer storefront on Vercel |
 | `whatsapp-otp` | WhatsApp OTP verification feature (dzverify) |
 | `Ecotrack` | EcoTrack carrier integration |
 | `zr-express` | ZR Express delivery platform integration (129 endpoints, organized per domain) |

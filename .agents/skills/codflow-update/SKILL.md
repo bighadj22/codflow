@@ -344,7 +344,7 @@ rebuilt from the freshly merged code before it is deployed:
 
 | Package | Rebuild before deploy | Why |
 | :--- | :--- | :--- |
-| cod-client-astro (dashboard) | `npm run build` — **mandatory separate step** | Its `deploy` script (`wrangler deploy`) does NOT build; it ships whatever is in `dist/`. Deploying without building ships the OLD dashboard. `PUBLIC_API_URL` is baked into the client bundle at build time. |
+| cod-client-astro (dashboard) | handled by `npm run deploy` | Its deploy script builds first, parks `.dev.vars` so the production `PUBLIC_API_URL` from `wrangler.toml [vars]` is the one inlined, and aborts if the built bundle still contains a loopback URL. Run `npm run build` separately only to surface a build failure before deploying — that bare build uses the local API origin and must not be the artifact you ship. |
 | cod-astro/theme01 (storefront) | `npm run build` | Its deploy script does build first, but run the build explicitly anyway so a build failure surfaces BEFORE any deploy attempt. |
 | cod-server (API) | bundled by `wrangler deploy` itself | `wrangler deploy` compiles `src/index.ts` from source on every deploy — there is no stale `dist/` to worry about. Still verify the deploy output references the NEW commit's code. |
 
@@ -358,9 +358,12 @@ A build that fails means the deploy must NOT proceed — report the error to
 the user, fix or stop. After each deploy, report to the user which worker was
 updated and to what version (per the reporting rule at the top).
 
-- **The dashboard deploy does NOT build first** — `npm run build` is a
-  separate step and `PUBLIC_API_URL` is baked into the client bundle at build
-  time. Skipping the build ships the OLD dashboard code with the new worker.
+- **The dashboard deploy builds, and the build is where `PUBLIC_API_URL` is
+  decided** — it is inlined into the client bundle. `npm run deploy` parks
+  `.dev.vars` so the production value from `wrangler.toml [vars]` wins, and
+  refuses to upload a bundle that still contains a loopback URL. Never deploy a
+  `dist/` produced by a bare `npm run build` on a developer machine: `.dev.vars`
+  outranks every `.env` file, so that artifact points at localhost.
 - theme01's deploy reads `COD_SERVER_URL` from the root `.env`; it refuses a
   loopback value unless `--force-local` is passed (a deployed Worker can
   never reach `http://localhost:8787`).
@@ -420,7 +423,8 @@ Print:
 | Merge conflicts on tracked files | Tracked files were locally modified | Resolve from the stash taken in Prerequisites, or with the developer. Never `reset --hard` without explicit confirmation. |
 | Sign-in returns 500 `field "alg" does not exist in "jwkss"` (or similar missing-column errors) | New code deployed before its migration ran | Run `npm run db:migrate:remote` in cod-server (Step 5); the error names the missing column → find its migration file. |
 | New feature 500s or "… is not set" | A new secret or var from the update was never set | Re-check the `cod-server/src/types/env.ts` diff and Step 4; set the missing secret/var, redeploy. |
-| Dashboard still shows the old UI | `npm run deploy` ran without `npm run build` | `cd cod-client-astro && npm run build && npm run deploy` — `PUBLIC_API_URL` is baked at build time. |
+| Dashboard still shows the old UI | A stale `dist/` was shipped | `cd cod-client-astro && npm run deploy` — it rebuilds before uploading. |
+| Live dashboard calls `http://localhost:8787` | A bare `npm run build` artifact was deployed; `.dev.vars` outranks every `.env` file | `cd cod-client-astro && npm run deploy` — it parks `.dev.vars` for the build and aborts on a loopback URL. |
 | Dev server dies with `Missing field 'moduleType'` | Two Vite majors after a dependency update | `rm -rf node_modules && npm ci` at the root; `npm ls vite` must show one major. |
 | theme01 deploy refuses: loopback `COD_SERVER_URL` | Root `.env` still has the localhost default | Set the real deployed cod-server origin in `.env`, retry. `--force-local` only for intentional local deploys. |
 | Storefront renders but products empty | Worker→Worker fetch between two `*.workers.dev` hosts is blocked (CF error 1042), or `COD_SERVER_URL` points at the wrong origin | Put cod-server on a custom domain/route, set `COD_SERVER_URL`, redeploy theme01. |

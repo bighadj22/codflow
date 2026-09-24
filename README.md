@@ -87,6 +87,7 @@ CodFlow v1.1.0 — here's what works today:
 - ✅ Abandoned cart telemetry for recovery campaigns
 - ✅ Optional WhatsApp phone verification at checkout ([DZVerify](https://dzverify.com), off by default)
 - ✅ Optional Cloudflare Turnstile bot protection on the checkout form ([Turnstile](https://www.cloudflare.com/products/turnstile/), off by default)
+- ✅ Legal pages (`/pages/[slug]`) — Terms, Privacy, Refund/Return, Shipping (pre-seeded, merchant-editable) and any custom page, with a checkout consent line linking to them
 
 ### Merchant Dashboard (`cod-client-astro`)
 - ✅ Order management with full COD lifecycle tracking
@@ -103,6 +104,7 @@ CodFlow v1.1.0 — here's what works today:
 - ✅ Meta Pixel & CAPI configuration UI
 - ✅ Abandoned order recovery
 - ✅ MCP agent connection management
+- ✅ Legal pages editor — TipTap rich-text, per-locale (store's own language first), one-click reset to the current CodFlow template, and the business-details form templates render from
 - ✅ Trilingual: Arabic (RTL), French, English
 
 ### Delivery Engine
@@ -257,14 +259,15 @@ wrangler secret put STORE_API_KEY
 
 # 2. Dashboard
 cd ../cod-client-astro
-npm run build && npm run deploy
+# Production PUBLIC_API_URL comes from wrangler.toml [vars]; deploy builds with it
+npm run deploy
 wrangler secret put BETTER_AUTH_SECRET         # same value as cod-server's
 wrangler secret put MCP_LOGIN_TICKET_SECRET    # same value as cod-server's
 
 # 3. Storefront
 cd ../cod-astro/theme01
-# Set COD_SERVER_URL in wrangler.jsonc to your deployed backend URL
-npm run build && npm run deploy
+# COD_SERVER_URL comes from the repo-root .env — deploy injects it, never wrangler.jsonc
+npm run deploy
 wrangler secret put STORE_API_KEY
 ```
 
@@ -346,6 +349,8 @@ astro check + tests for theme01.
 | **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** | System map and data flows |
 | **[docs/CONFIGURATION.md](./docs/CONFIGURATION.md)** | All environment variables and configs |
 | **[docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md)** | Incomplete features and platform constraints |
+| **[docs/SHOPPING-CART.md](./docs/SHOPPING-CART.md)** | Shopping cart, checkout page, free-delivery threshold |
+| **[docs/LEGAL-PAGES.md](./docs/LEGAL-PAGES.md)** | Terms, Privacy, Refund and Shipping pages — pre-seeded, merchant-editable |
 | **[docs/WHATSAPP-OTP-VERIFICATION.md](./docs/WHATSAPP-OTP-VERIFICATION.md)** | WhatsApp OTP verification feature |
 | **[docs/TURNSTILE.md](./docs/TURNSTILE.md)** | Cloudflare Turnstile checkout bot protection |
 | **[docs/EMAIL-SENDING.md](./docs/EMAIL-SENDING.md)** | Transactional email feature (Sendili) |
@@ -369,6 +374,7 @@ astro check + tests for theme01.
 
 ### Recently Shipped
 
+- ✅ **Legal Pages** — Terms, Privacy, Refund/Return, Shipping pre-seeded per store from Algeria-COD-grounded templates, merchant-editable with the dashboard's TipTap editor, and any custom page on the same rails
 - ✅ **Yalidine Hardening** — full 36-status webhook mapping (live-verified return flows), HMAC-SHA256 signature verification, per-carrier delivery-zone name sync, dispatch-time delivery-type switching, and a webhook events log for every webhook-capable carrier
 - ✅ **Landing Pages** — one-product marketing pages (image stack + COD order form) with the Studio builder, per-link stats, A/B comparison, order attribution, and 7 MCP tools
 - ✅ **Astro Dashboard** — the merchant dashboard now runs on Astro (was Next.js)
