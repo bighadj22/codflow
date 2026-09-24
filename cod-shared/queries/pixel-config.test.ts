@@ -162,3 +162,74 @@ describe("upsertPixelConfig", () => {
     expect(setCall.accessToken).toBe("EAAG-new");
   });
 });
+
+describe("upsertPixelConfig — the per-page tracking master switch", () => {
+  it("defaults to off on a brand-new configuration", async () => {
+    // Every store that exists today must read as "store pixel everywhere"
+    // until a merchant deliberately asks for per-page pixels.
+    const { db } = makeDb(undefined);
+    await upsertPixelConfig(db, "store-1", {
+      pixelId: "123",
+      accessToken: "EAAG-1",
+      conversionEvent: "Purchase",
+    });
+
+    const valuesCall = (db.insert.mock.results[0].value as any).values.mock.calls[0][0];
+    expect(valuesCall.perPageTrackingEnabled).toBe(false);
+  });
+
+  it("stores the switch when the merchant turns it on", async () => {
+    const { db } = makeDb(undefined);
+    await upsertPixelConfig(db, "store-1", {
+      pixelId: "123",
+      accessToken: "EAAG-1",
+      conversionEvent: "Purchase",
+      perPageTrackingEnabled: true,
+    });
+
+    const valuesCall = (db.insert.mock.results[0].value as any).values.mock.calls[0][0];
+    expect(valuesCall.perPageTrackingEnabled).toBe(true);
+  });
+
+  it("keeps the switch when an unrelated setting is edited", async () => {
+    // Renaming an ad account must not silently return every landing page to
+    // the store pixel.
+    const { db } = makeDb({
+      id: "row-1",
+      accessToken: "EAAG-stored",
+      conversionEvent: "Purchase",
+      testMode: false,
+      enabled: true,
+      perPageTrackingEnabled: true,
+    });
+
+    await upsertPixelConfig(db, "store-1", {
+      pixelId: "123",
+      adAccountName: "Renamed",
+      conversionEvent: "Purchase",
+    });
+
+    const setCall = (db.update.mock.results[0].value as any).set.mock.calls[0][0];
+    expect(setCall.perPageTrackingEnabled).toBe(true);
+  });
+
+  it("turns the switch off when the merchant asks — the feature's rollback", async () => {
+    const { db } = makeDb({
+      id: "row-1",
+      accessToken: "EAAG-stored",
+      conversionEvent: "Purchase",
+      testMode: false,
+      enabled: true,
+      perPageTrackingEnabled: true,
+    });
+
+    await upsertPixelConfig(db, "store-1", {
+      pixelId: "123",
+      conversionEvent: "Purchase",
+      perPageTrackingEnabled: false,
+    });
+
+    const setCall = (db.update.mock.results[0].value as any).set.mock.calls[0][0];
+    expect(setCall.perPageTrackingEnabled).toBe(false);
+  });
+});

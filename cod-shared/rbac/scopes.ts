@@ -114,6 +114,12 @@ export const SCOPES = {
   /** Create, update, and delete promotional offers */
   OFFERS_MANAGE: "offers:manage",
 
+  // Store Pages (legal pages: Terms, Privacy, Refund, Shipping, and custom pages)
+  /** View store pages list, content, and the legal profile */
+  STORE_PAGES_READ: "store_pages:read",
+  /** Create, edit, publish, delete store pages; manage the legal profile */
+  STORE_PAGES_MANAGE: "store_pages:manage",
+
   // Abandoned Orders
   /** View abandoned orders list and stats */
   ABANDONED_ORDERS_READ: "abandoned_orders:read",
@@ -222,6 +228,10 @@ export const SCOPE_CATEGORIES = {
   offers: {
     label: "Offers",
     scopes: [SCOPES.OFFERS_READ, SCOPES.OFFERS_MANAGE],
+  },
+  storePages: {
+    label: "Store Pages",
+    scopes: [SCOPES.STORE_PAGES_READ, SCOPES.STORE_PAGES_MANAGE],
   },
   abandonedOrders: {
     label: "Abandoned Orders",

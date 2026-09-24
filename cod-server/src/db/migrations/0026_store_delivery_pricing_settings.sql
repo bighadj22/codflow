@@ -1,0 +1,22 @@
+-- Per-store delivery pricing controls (report-md/SHOPPING_CART_PLAN.md Q1, Q2, D8).
+--
+-- Both columns are additive and default to today's behaviour, so a merchant
+-- who never opens Settings sees no change whatsoever.
+--
+-- free_shipping_threshold: order subtotal (DZD) at or above which delivery is
+--   free. NULL = the feature is OFF. This must stay distinct from 0, because a
+--   threshold of 0 would make EVERY order ship free — "off" and "free for
+--   everyone" are different intentions and the column has to be able to say so.
+--   Applies to every order, cart or single product.
+--
+-- cart_shipping_mode: which rate a basket spanning several shipping profiles
+--   pays.
+--     'highest'         (default) — the dearest applicable rate, so a cheap
+--                        item never subsidises an expensive one's shipping
+--     'default_profile' — always the store default profile's rate, for shops
+--                        where everything ships the same way
+--   A single-product order resolves identically under both values, so this
+--   only takes effect once the cart is in use.
+ALTER TABLE `stores` ADD COLUMN `free_shipping_threshold` integer;
+--> statement-breakpoint
+ALTER TABLE `stores` ADD COLUMN `cart_shipping_mode` text NOT NULL DEFAULT 'highest';

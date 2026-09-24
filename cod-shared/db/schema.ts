@@ -599,6 +599,9 @@ export const products = sqliteTable("products", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
+  descriptionFormat: text("description_format", { enum: ["text", "html"] })
+    .notNull()
+    .default("text"), // 'text' renders literally (legacy rows); 'html' is sanitised at write
   handle: text("handle").notNull().unique(), // URL slug (was "slug")
   currency: text("currency").notNull().default("DZD"),
   price: integer("price").notNull(), // base price in DZD (whole number)
@@ -827,8 +830,15 @@ export const stores = sqliteTable("stores", {
   fontUrl: text("font_url"),
 
   // ── Locale ────────────────────────────────────────────────────────────────
-  /** Store UI language: "ar" | "en" */
-  lang: text("lang", { enum: ["ar", "en"] }).notNull().default("ar"),
+  /**
+   * Store UI language. Drives `<html lang>`/`dir` in the storefront layout and
+   * selects which locale of a store page the shopper is served.
+   *
+   * `fr` is a type-only widening: the column is plain `text` with no CHECK
+   * constraint (0000_complete.sql), and theme01 has always shipped an `fr`
+   * content pack that nothing could reach.
+   */
+  lang: text("lang", { enum: ["ar", "en", "fr"] }).notNull().default("ar"),
   currency: text("currency").notNull().default("DZD"),
   currencySymbol: text("currency_symbol").notNull().default("دج"),
 
@@ -850,6 +860,29 @@ export const stores = sqliteTable("stores", {
   announcementBar: text("announcement_bar"),
   /** When false, reviews are hidden on the storefront and submission is disabled. */
   reviewsEnabled: integer("reviews_enabled", { mode: "boolean" }).notNull().default(true),
+  /**
+   * Shopping cart opt-in. False (the default) keeps the storefront exactly as
+   * it is: the direct one-click order form, no cart. True adds "Add to cart"
+   * alongside it — the direct form is never replaced.
+   */
+  cartEnabled: integer("cart_enabled", { mode: "boolean" }).notNull().default(false),
+
+  // ── Delivery pricing ──────────────────────────────────────────────────────
+  /**
+   * Order subtotal (DZD) at or above which delivery is free.
+   * NULL = feature off. Distinct from 0, which would make EVERY order free.
+   * Applies to every order — cart or single product.
+   */
+  freeShippingThreshold: integer("free_shipping_threshold"),
+  /**
+   * Which rate a basket spanning several shipping profiles pays.
+   *   "highest"         — the dearest applicable rate (default)
+   *   "default_profile" — always the store default profile's rate
+   * A single-product order resolves identically under both.
+   */
+  cartShippingMode: text("cart_shipping_mode", { enum: ["highest", "default_profile"] })
+    .notNull()
+    .default("highest"),
 
   status: text("status", { enum: ["active", "inactive"] }).notNull().default("active"),
   /** Plaintext storefront API key — written on every provision so the merchant can view it in settings. */
@@ -1210,6 +1243,53 @@ export const storePixelConfig = sqliteTable("store_pixel_config", {
   /** When true, CAPI events carry test_event_code to Meta's test stream instead of production measurement. */
   testMode: integer("test_mode", { mode: "boolean" }).notNull().default(false),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  /**
+   * The master switch for per-landing-page tracking.
+   *
+   * While false, `landing_page_pixel_config` rows are ignored entirely and
+   * every page reports to this pixel — which is both the default for every
+   * store and the feature's rollback. It is honoured inside
+   * `resolveTrackingConfig` and nowhere else, so the browser and the
+   * Conversions API can never disagree about whether the feature is on.
+   */
+  perPageTrackingEnabled: integer("per_page_tracking_enabled", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/**
+ * A landing page's own Meta Pixel + Conversions API configuration, which
+ * REPLACES the store's for that page's visitors and for the orders attributed
+ * to it. No row = inherit the store, which is every landing page today.
+ *
+ * Deliberately a mirror of `store_pixel_config`: the identical shape is what
+ * lets one resolver serve both sources, so precedence is the only thing this
+ * feature adds rather than a second set of rules.
+ *
+ * Kept off `landing_pages` on purpose. That table is read with a full-table
+ * `select()` on the public storefront path, where an `access_token` column
+ * would be one careless spread away from shipping a credential to every
+ * visitor's browser.
+ */
+export const landingPagePixelConfig = sqliteTable("landing_page_pixel_config", {
+  id: text("id").primaryKey(),
+  landingPageId: text("landing_page_id")
+    .notNull()
+    .unique()
+    .references(() => landingPages.id, { onDelete: "cascade" }),
+  pixelId: text("pixel_id").notNull(),
+  /** Merchant's label for the Meta ad account this pixel belongs to — reference only, never sent to Meta. */
+  adAccountName: text("ad_account_name"),
+  accessToken: text("access_token").notNull(),
+  /** Meta test event code — used during integration testing only. */
+  testEventCode: text("test_event_code"),
+  /** This page's own conversion choice: a product with a 40% confirmation rate may deserve a different optimisation event from one at 80%. */
+  conversionEvent: text("conversion_event", { enum: ["Lead", "Purchase", "Purchase_Confirmed", "Purchase_Delivered"] }).notNull().default("Purchase"),
+  testMode: integer("test_mode", { mode: "boolean" }).notNull().default(false),
+  /** Switched off = fall back to the store pixel, without losing what was configured. */
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -1286,6 +1366,114 @@ export const storeTurnstileConfig = sqliteTable("store_turnstile_config", {
  * status: 'sent' | 'failed' | 'skipped'
  * metaEventId: fbtrace_id from Meta response (present on success only).
  */
+/**
+ * Merchant-owned content pages: Terms, Privacy, Refund/Return, Shipping, and
+ * any custom page the merchant adds later.
+ *
+ * These exist because Meta Ads rejects a storefront with no policy pages, which
+ * blocks an Algerian COD merchant from advertising at all. They are seeded from
+ * the template pack in `cod-shared/legal/` at store provision, then owned
+ * outright by the merchant — the storefront renders these rows and holds no
+ * copy of its own.
+ *
+ * The page row is identity and publication state; the words live in
+ * `storePageTranslations`, one row per locale.
+ */
+export const storePages = sqliteTable("store_pages", {
+  id: text("id").primaryKey(),
+  storeId: text("store_id")
+    .notNull()
+    .references(() => stores.id),
+  /**
+   * What this page *is*, independent of what it is called or where it lives.
+   * The storefront resolves Terms by kind, never by slug, so a merchant may
+   * rename `/pages/terms` to `/pages/conditions-generales` freely.
+   */
+  kind: text("kind", {
+    enum: ["terms", "privacy", "refund", "shipping", "custom"],
+  }).notNull(),
+  /** Public URL segment under `/pages/`: [a-z0-9-]{3,60}, unique per store. */
+  slug: text("slug").notNull(),
+  /** Draft pages 404 on the storefront and are never indexed. */
+  status: text("status", { enum: ["published", "draft"] })
+    .notNull()
+    .default("published"),
+  showInFooter: integer("show_in_footer", { mode: "boolean" }).notNull().default(true),
+  position: integer("position").notNull().default(0),
+  /** Which template revision seeded this page; null for merchant-created pages. */
+  templateVersion: integer("template_version"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (t) => ({
+  slugUnique: uniqueIndex("idx_store_pages_slug").on(t.storeId, t.slug),
+  footerIdx: index("idx_store_pages_footer").on(t.storeId, t.status, t.position),
+}));
+
+/**
+ * One locale of one page. Composite primary key `(pageId, locale)`.
+ *
+ * A store serves exactly one locale — `stores.lang` — but all three are seeded
+ * so switching the store language never reveals a blank policy page.
+ */
+export const storePageTranslations = sqliteTable("store_page_translations", {
+  pageId: text("page_id")
+    .notNull()
+    .references(() => storePages.id, { onDelete: "cascade" }),
+  locale: text("locale", { enum: ["ar", "en", "fr"] }).notNull(),
+  title: text("title").notNull(),
+  /**
+   * Sanitised at the write chokepoint (`cod-shared/queries/store-pages.ts`).
+   * Rendered with `set:html` and never re-parsed downstream — the same
+   * contract as a product's rich-text description.
+   */
+  bodyHtml: text("body_html").notNull(),
+  /** Derived from bodyHtml via toPlainText(): meta-description fallback. */
+  bodyPlain: text("body_plain").notNull(),
+  metaTitle: text("meta_title"),
+  metaDescription: text("meta_description"),
+  /**
+   * 'template' = still the untouched seed, 'merchant' = edited at least once.
+   * Flipped by the write chokepoint, so the dashboard can tell a merchant
+   * which pages still need five minutes of their attention without parsing
+   * any HTML.
+   */
+  source: text("source", { enum: ["template", "merchant"] })
+    .notNull()
+    .default("template"),
+  updatedAt: text("updated_at").notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.pageId, t.locale] }),
+}));
+
+/**
+ * The merchant facts a legal document cannot be written without.
+ *
+ * Substituted into the templates at seed time; a clause whose fact is missing
+ * is omitted rather than rendered with a placeholder, so a seeded page is
+ * always publishable as-is. The public subset (contact + windows) is exposed
+ * through `/store/config` because Meta requires visible contact details on the
+ * storefront as well as the policy pages themselves. Legal identity (RC, NIF)
+ * appears only inside the documents.
+ */
+export const storeLegalProfile = sqliteTable("store_legal_profile", {
+  storeId: text("store_id")
+    .primaryKey()
+    .references(() => stores.id, { onDelete: "cascade" }),
+  legalName: text("legal_name"),
+  /** Registre de Commerce number. */
+  rcNumber: text("rc_number"),
+  /** Numéro d'Identification Fiscale. */
+  nif: text("nif"),
+  address: text("address"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  /** 0 = no post-delivery return window offered; the clause is then omitted. */
+  returnWindowDays: integer("return_window_days").notNull().default(0),
+  deliveryMinDays: integer("delivery_min_days").notNull().default(2),
+  deliveryMaxDays: integer("delivery_max_days").notNull().default(7),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const capiEventLog = sqliteTable(
   "capi_event_log",
   {
@@ -1296,6 +1484,12 @@ export const capiEventLog = sqliteTable(
     eventName: text("event_name").notNull(),
     stage: text("stage").notNull().default("delivered"),
     status: text("status").notNull(),
+    /**
+     * Which Meta pixel this event was sent to — the first question asked when
+     * a merchant running several pixels says an event is missing. Nullable:
+     * rows written before migration 0029 genuinely do not know.
+     */
+    pixelId: text("pixel_id"),
     metaEventId: text("meta_event_id"),
     error: text("error"),
     sentAt: text("sent_at").notNull(),
@@ -1483,11 +1677,22 @@ export const abandonedOrders = sqliteTable("abandoned_orders", {
   wilayaName:            text("wilaya_name"),
   communeName:           text("commune_name"),
 
+  /**
+   * The first line of the basket, or the only product of a single-product
+   * checkout. Always populated, so every existing reader — the dashboard
+   * column, the search, the analytics query — works for both shapes.
+   */
   productId:             text("product_id"),
   productName:           text("product_name"),
   variantId:             text("variant_id"),
   variantLabel:          text("variant_label"),
+  /** Cart value at abandonment: the basket subtotal, or one unit's price. */
   price:                 real("price"),
+
+  /** The whole basket. NULL for a single-product checkout. See migration 0028. */
+  itemsJson:             text("items_json"),
+  /** Distinct lines in the basket, so the list can say "and 4 more" cheaply. */
+  itemCount:             integer("item_count"),
 
   deliveryType: text("delivery_type", { enum: ["home", "stop_desk"] }),
 
