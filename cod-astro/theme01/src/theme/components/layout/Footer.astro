@@ -54,8 +54,8 @@ const badges = [
             {[
               { label: content?.navHome, href: "/" },
               { label: content?.navProducts, href: "/products" },
-              { label: content?.navNewArrivals, href: "/products" },
-              { label: content?.navBestSellers, href: "/products" },
+              { label: content?.navBestSellers, href: "/#best-sellers" },
+              { label: content?.navNewArrivals, href: "/#new-arrivals" },
             ].map((link) => (
               <li>
                 <a href={link.href} class="text-[0.8125rem] sm:text-[0.875rem] font-bold transition-all hover:text-primary" style="color: var(--clr-text-2)">
@@ -78,11 +78,6 @@ const badges = [
                 </a>
               </li>
             ))}
-            <li>
-              <span class="text-[0.8125rem] sm:text-[0.875rem] font-bold" style="color: var(--clr-text-2)">
-                {content?.navContact}
-              </span>
-            </li>
           </ul>
         </div>
 

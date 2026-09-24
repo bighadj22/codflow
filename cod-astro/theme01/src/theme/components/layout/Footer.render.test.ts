@@ -61,9 +61,9 @@ describe("Footer — the policy links column", () => {
     expect(html).not.toContain("Returns & Exchange");
   });
 
-  it("still renders the contact line even with no pages configured", async () => {
+  it("renders no dead contact span when pages are empty", async () => {
     const html = await render({ ...DEFAULT_CONFIG, pages: [] });
-    expect(html).toContain(en.navContact);
+    expect(html).not.toContain("Contact");
   });
 
   it("titles links exactly as the server resolved them — no client-side relabeling", async () => {
