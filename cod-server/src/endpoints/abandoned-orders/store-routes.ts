@@ -18,12 +18,29 @@ import {
   upsertAbandonedOrder,
   markAbandonedOrderConverted,
 } from "../../../../cod-shared/queries/abandoned-orders";
+import { MAX_CART_LINES, MAX_LINE_QUANTITY } from "../../../../cod-shared/queries/cart";
 
 const jsonContent = <T extends z.ZodType>(schema: T) => ({
   "application/json": { schema },
 });
 
 // ─── Request schemas ──────────────────────────────────────────────────────────
+
+/**
+ * One line of an abandoned basket.
+ *
+ * Bounded exactly like an order's cart line: this is the same untrusted
+ * browser input, and it must not be able to write a bigger row here than it
+ * could order. Prices are display-only — nothing is charged from this table.
+ */
+const abandonedItemSchema = z.object({
+  productId: z.string().min(1).max(200),
+  productName: z.string().min(1).max(200),
+  variantId: z.string().max(200).nullish(),
+  variantLabel: z.string().max(200).nullish(),
+  quantity: z.number().int().min(1).max(MAX_LINE_QUANTITY),
+  unitPrice: z.number().nonnegative(),
+});
 
 const upsertSchema = z.object({
   sessionId: z.string().uuid(),
@@ -42,6 +59,12 @@ const upsertSchema = z.object({
   variantId: z.string().max(200).optional(),
   variantLabel: z.string().max(200).optional(),
   price: z.number().positive().optional(),
+  /**
+   * The whole basket, when the shopper walked away from a cart checkout.
+   * Absent for a single-product checkout, which keeps using the flat fields
+   * above and is stored exactly as it was before carts existed.
+   */
+  items: z.array(abandonedItemSchema).min(1).max(MAX_CART_LINES).optional(),
   deliveryType: z.enum(["home", "stop_desk"]).optional(),
   fbc: z.string().max(500).optional(),
   fbp: z.string().max(500).optional(),

@@ -76,10 +76,13 @@ function makeApp() {
 }
 
 function stubSuccessfulOrderFlow() {
-  vi.mocked(storeQueries.validateOrderSkus).mockResolvedValue(null as any);
-  vi.mocked(storeQueries.checkStoreOrderStock).mockResolvedValue(null as any);
+  vi.mocked(storeQueries.loadCatalogSnapshot).mockResolvedValue({
+    products: new Map(), variants: new Map(), offers: [],
+  } as any);
+  vi.mocked(storeQueries.findMissingSku).mockReturnValue(null as any);
+  vi.mocked(storeQueries.findStockShortfall).mockReturnValue(null as any);
   vi.mocked(storeQueries.findOrCreateCustomer).mockResolvedValue({ id: "cust-1", name: "Karim Benali" } as any);
-  vi.mocked(storeQueries.getDeliveryFee).mockResolvedValue(600 as any);
+  vi.mocked(storeQueries.resolveDeliveryFee).mockResolvedValue(600 as any);
   vi.mocked(storeQueries.createStoreOrder).mockResolvedValue({
     id: "ord-1",
     orderNumber: "ORD-20260901-0001",
@@ -165,7 +168,7 @@ describe("createStoreOrder turnstile gate", () => {
       expect.objectContaining({ remoteip: undefined })
     );
     expect(vi.mocked(turnstileLib.verifyTurnstileToken).mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(storeQueries.validateOrderSkus).mock.invocationCallOrder[0]
+      vi.mocked(storeQueries.findMissingSku).mock.invocationCallOrder[0]
     );
   });
 

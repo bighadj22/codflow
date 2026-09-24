@@ -96,11 +96,16 @@ export async function verifySessionJwt(token: string, env: Env): Promise<Session
   if (payload.aud) {
     const auds = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
     const selfBase = (env.WORKER_SELF_URL ?? "").replace(/\/+$/, "");
+    const selfHttp = selfBase.replace(/^https:/, "http:");
     // Dashboard-originated JWTs carry the auth server's own origin as audience
     // (better-auth jwt() default). Same trust realm as WORKER_SELF_URL.
+    // Local dev serves the API over http:// while WORKER_SELF_URL must stay
+    // https:// (workers-oauth-provider rejects http issuers), so tokens may
+    // carry the http twin of the self origin.
     const appOrigin = authBaseUrl(env);
     const acceptable = new Set([
       ...(selfBase ? [selfBase, `${selfBase}/`, `${selfBase}/mcp`] : []),
+      ...(selfHttp && selfHttp !== selfBase ? [selfHttp, `${selfHttp}/`] : []),
       appOrigin,
     ]);
     if (acceptable.size > 0 && !auds.some((a) => acceptable.has(String(a)))) {

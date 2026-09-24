@@ -117,7 +117,24 @@ export {
   LandingPageImageSchema,
   LandingPageSchema,
   LandingPageListItemSchema,
+  LandingPageTrackingSchema,
+  LandingPageTrackingActivitySchema,
+  LandingPageTrackingStateSchema,
 } from "./schemas/landing-pages";
+
+// ─── Store Pages ──────────────────────────────────────────────────────────────
+
+export {
+  StorePageKindEnum,
+  StorePageStatusEnum,
+  PageLocaleEnum,
+  TranslationSourceEnum,
+  StorePageTranslationSummarySchema,
+  StorePageSummarySchema,
+  StorePageTranslationBodySchema,
+  StorePageDetailSchema,
+  StoreLegalProfileSchema,
+} from "./schemas/store-pages";
 
 // ─── Store & Storefront ───────────────────────────────────────────────────────
 
@@ -130,7 +147,10 @@ export {
   StoreOfferSummarySchema,
   StoreProductDetailSchema,
   StoreLandingPageSchema,
+  StorePublicTrackingSchema,
+  StoreOrderTrackingSchema,
   StoreConfigSchema,
+  StorePagePublicSchema,
 } from "./schemas/store";
 
 // ─── Orders ───────────────────────────────────────────────────────────────────

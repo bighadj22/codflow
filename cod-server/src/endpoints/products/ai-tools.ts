@@ -51,6 +51,12 @@ const productRowSchema = z.looseObject({
   status: z.string().optional().describe("DRAFT | ACTIVE | ARCHIVED"),
   visibility: z.boolean().optional().describe("Master internal switch — off means hidden everywhere"),
   hasVariants: z.boolean().optional().describe("True → stock and pricing live on variants"),
+  descriptionFormat: z.enum(["text", "html"]).describe(
+    "How description is stored: 'text' renders as literal text (legacy), 'html' is sanitised rich text"
+  ),
+  descriptionPlain: z.string().nullable().describe(
+    "Tag-free rendering of description for SEO/meta; identical to description for text rows"
+  ),
 });
 
 export const PRODUCT_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
@@ -214,7 +220,7 @@ export const getProductTools = (db: ReturnType<typeof getDb>) => ({
       "Creates a new product in the catalog. " +
       "SIMPLE PRODUCTS (hasVariants=false, the default): must include `sku` (unique), `name`, and `price` (integer DZD). " +
       "VARIANT PRODUCTS (hasVariants=true): omit `sku` here — each variant carries its own SKU added via createProductVariant. " +
-      "Optional: description, handle (auto-generated from name if omitted), compareAtPrice, costPrice, type (PHYSICAL|DIGITAL), " +
+      "Optional: description, descriptionFormat ('text'|'html'; 'text' renders literally, 'html' is sanitised server-side against the rich-text allow-list), handle (auto-generated from name if omitted), compareAtPrice, costPrice, type (PHYSICAL|DIGITAL), " +
       "variantOptions (array of {name, values}), inventory (default 0), lowStockThreshold (default 5), trackInventory (default true), " +
       "categoryId, tags (string array), visibility (default true), status (DRAFT|ACTIVE|ARCHIVED, default ACTIVE), " +
       "showInStore (default true), storeFeatured (default false), shippingProfileId.",

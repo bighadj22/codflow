@@ -88,3 +88,26 @@ export function getCapiWorkflowId(
 ): string {
   return `capi-${orderId}-${stage}-${eventName}`;
 }
+
+/**
+ * The page Meta is told an event happened on.
+ *
+ * Meta matches `event_source_url` against the verified domain and shows it in
+ * Events Manager. For an order that came from a landing page, naming that page
+ * costs nothing — it is the same domain — and says which creative produced the
+ * sale, where "/thank-you" says nothing at all.
+ *
+ * Built in one place because both senders need it: the checkout handler at
+ * order time and the Workflow at every later stage. Two copies would drift,
+ * and an event's source URL changing between the checkout and the delivery
+ * mirror is the kind of inconsistency nobody notices until attribution is
+ * already wrong.
+ */
+export function conversionSourceUrl(
+  storeDomain: string | null | undefined,
+  landingPageSlug: string | null | undefined,
+): string | undefined {
+  if (!storeDomain) return undefined;
+  const path = landingPageSlug ? `/lp/${landingPageSlug}` : "/thank-you";
+  return `https://${storeDomain}${path}`;
+}

@@ -11,12 +11,14 @@ import { OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AppContext } from "@/types";
 import { defineRoute } from "@/lib/route-builder";
 import * as h from "./handlers";
-import { storeOrderSchema, storeReviewSchema } from "./validation";
+import { storeOrderSchema, storeReviewSchema, validateCartSchema } from "./validation";
 import {
   StoreConfigSchema,
   StoreProductListSchema,
   StoreProductDetailSchema,
   StoreLandingPageSchema,
+  StoreOrderTrackingSchema,
+  StorePagePublicSchema,
   ProductCategoryRowSchema,
   SuccessResponseSchema,
 } from "@/openapi/schemas";
@@ -52,6 +54,10 @@ const handleParams = z.object({
 
 const lpSlugParams = z.object({
   slug: z.string().openapi({ example: "lp-9f3a2b1c" }),
+});
+
+const pageSlugParams = z.object({
+  slug: z.string().openapi({ example: "refund-policy" }),
 });
 
 const wilayaIdParams = z.object({
@@ -158,6 +164,53 @@ const getStoreLandingPageRoute = defineRoute({
   handler: h.getStoreLandingPage,
 });
 
+const getStorePageRoute = defineRoute({
+  method: "get",
+  path: "/pages/{slug}",
+  auth: "store",
+  tags: ["Store API"],
+  summary: "Get a published store page",
+  description:
+    "Get a Terms/Privacy/Refund/Shipping/custom page by its public slug, resolved to the store's own language — the storefront serves exactly one locale per store (stores.lang). Falls back to the platform default locale, then to whichever locale exists, only when the store's own language has no translation for this page; the actual locale served is in the response's `locale` field. Draft or unknown slugs return 404 — never a soft 200 with empty content.",
+  operationId: "getStorePage",
+  params: pageSlugParams,
+  responses: {
+    200: {
+      description: "The resolved page, already-sanitised HTML — render with set:html, never re-sanitise",
+      content: jsonContent(SuccessResponseSchema(StorePagePublicSchema)),
+    },
+    404: { description: "Page not found, or exists only as a draft" },
+  },
+  handler: h.getStorePage,
+});
+
+const getStoreOrderTrackingRoute = defineRoute({
+  method: "get",
+  path: "/orders/{id}/tracking",
+  auth: "store",
+  tags: ["Store API"],
+  summary: "Get an order's tracking destination",
+  description: `Which Meta pixel this order belongs to, and which browser event the thank-you page should fire for it.
+
+The thank-you page cannot work this out for itself: it knows the order id and nothing about which landing page the shopper came from, and landing-page attribution is best-effort — an unknown, draft or archived slug leaves the order unattributed. A browser deciding independently would fire at a pixel the Conversions API never mirrors to, and Meta deduplicates per pixel, so that produces two conversions in two ad accounts instead of one.
+
+Returns the decision, not the configuration. \`event\` is null when no browser event should fire — either tracking is off, or the merchant's conversion fires further down the funnel (phone confirmation, delivery) from the server only.
+
+Deliberately narrow: nothing about the order itself is returned, and never an access token.`,
+  operationId: "getStoreOrderTracking",
+  params: z.object({
+    id: z.string().openapi({ description: "Order UUID", example: "ord_abc123" }),
+  }),
+  responses: {
+    200: {
+      description: "The order's tracking destination",
+      content: jsonContent(SuccessResponseSchema(StoreOrderTrackingSchema)),
+    },
+    404: { description: "Order not found" },
+  },
+  handler: h.getStoreOrderTracking,
+});
+
 const listStoreCategoriesRoute = defineRoute({
   method: "get",
   path: "/categories",
@@ -249,13 +302,21 @@ const createStoreOrderRoute = defineRoute({
   auth: "store",
   tags: ["Store API"],
   summary: "Create store order",
-  description: `Submit a customer order from the public storefront. Finds or creates the customer by phone number. Delivery fee is resolved from the default shipping profile.
+  description: `Submit a customer order from the public storefront. Finds or creates the customer by phone number.
 
-**Offer selection:** send \`offerId\` to explicitly select the tier the customer chose. The server validates the offer is still active and the quantity qualifies; otherwise it falls back to auto-detecting the best applicable offer. Without \`offerId\`, the server picks the highest \`triggerQuantity\` satisfied.
+**Basket (\`items\`):** send \`items\` to order several products in one go — up to 20 distinct lines, each up to 100 units. Lines with the same product AND variant are merged and their quantities summed. When \`items\` is absent the flat \`productId\`/\`quantity\` fields are used, so existing integrations are unaffected.
 
-**Buy X Get Y (\`discountType: "free"\`):** the reward product is appended as a \`$0\` line item. If the reward stock is unavailable, the offer is silently skipped and the order still succeeds.
+**Pricing is server-authoritative.** \`pricePerUnit\` is accepted for UI continuity and never trusted; every line is priced from the catalog row.
 
-**Free Shipping (\`discountType: "free_shipping"\`):** the delivery fee is overridden to 0 — reflected in both \`deliveryFee\` and \`total\`.
+**All or nothing.** If any line cannot be satisfied — insufficient stock, missing SKU — the whole order is refused and nothing is written.
+
+**Delivery fee** is resolved per basket: a product's own shipping profile overrides the store default, a commune-level override beats the wilaya rule, and a basket spanning two profiles pays the highest applicable rate. Delivery is refused (not silently free) when any product cannot be shipped to the destination.
+
+**Offer selection:** send \`offerId\` to explicitly select the tier the customer chose. It is honoured only if it independently qualifies; otherwise the server picks the highest \`triggerQuantity\` actually satisfied. Trigger quantity counts a product across all its lines, so two variants of one shirt are two shirts.
+
+**Buy X Get Y (\`discountType: "free"\`):** the reward product is appended as a \`$0\` line item. If the reward stock is unavailable, the offer is silently skipped and the order still succeeds. Reward lines never trigger further offers.
+
+**Free Shipping (\`discountType: "free_shipping"\`):** the delivery fee is overridden to 0 — reflected in both \`deliveryFee\` and \`total\`. This applies only when the basket holds a **single distinct product**; in a multi-product basket free delivery is earned by the store's basket threshold instead, so one cheap promotional item cannot ship an expensive basket for free.
 
 **Multi-unit variant orders:** when different variants are selected per unit, send \`variantSelections\` — one entry per unit. Identical variants are grouped into a single line and inventory deducts per-variant.`,
   operationId: "createStoreOrder",
@@ -283,6 +344,75 @@ const createStoreOrderRoute = defineRoute({
     },
   },
   handler: h.createStoreOrder,
+});
+
+// ─── Cart ─────────────────────────────────────────────────────────────────────
+
+const validateCartRoute = defineRoute({
+  method: "post",
+  path: "/cart/validate",
+  auth: "store",
+  tags: ["Store API"],
+  summary: "Re-price and check a basket",
+  description: [
+    "Read-only. Returns what the catalog says about a basket right now, so the cart can show the truth before the shopper commits. Nothing is written and no stock is reserved.",
+    "",
+    "Every line comes back with its CURRENT catalog price, the units still available (`maxQuantity`, null when the product is not stock-tracked), and a `blocker` when it cannot be ordered as requested:",
+    "",
+    "- `missing`: the product no longer exists",
+    "- `unlisted`: it is no longer on sale (draft, hidden or removed)",
+    "- `out_of_stock`: fewer units are available than requested",
+    "",
+    "Blocked lines are excluded from `subtotal`, from offer evaluation and from the free-delivery calculation, so the basket never promises something checkout would refuse.",
+    "",
+    "`freeDelivery` is subtotal-based and therefore answerable before the shopper types an address: use `remaining` for a \"spend X more\" prompt. The delivery fee itself depends on the wilaya and is resolved at checkout.",
+  ].join("\n"),
+  operationId: "validateStoreCart",
+  body: validateCartSchema,
+  responses: {
+    200: {
+      description: "Basket priced and checked against the live catalog",
+      content: jsonContent(
+        z.object({
+          success: z.boolean().openapi({ example: true }),
+          data: z.object({
+            lines: z.array(
+              z.object({
+                productId: z.string(),
+                variantId: z.string().nullable(),
+                variantLabel: z.string().nullable(),
+                productName: z.string(),
+                quantity: z.number().int(),
+                unitPrice: z.number(),
+                lineTotal: z.number(),
+                maxQuantity: z.number().int().nullable(),
+                blocker: z
+                  .enum(["missing", "unlisted", "out_of_stock"])
+                  .nullable(),
+              }),
+            ),
+            subtotal: z.number(),
+            rewards: z.array(
+              z.object({
+                offerId: z.string(),
+                productId: z.string().nullable(),
+                productName: z.string().nullable(),
+                quantity: z.number().int(),
+              }),
+            ),
+            freeDelivery: z.object({
+              fromOffer: z.boolean(),
+              threshold: z.number().int().nullable(),
+              qualified: z.boolean(),
+              remaining: z.number(),
+            }),
+          }),
+        }),
+      ),
+    },
+    400: { description: "Basket exceeds its bounds (VALUE_OUT_OF_RANGE)" },
+  },
+  handler: h.validateCart,
 });
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
@@ -353,10 +483,13 @@ router.openapi(getStoreConfigRoute.route, getStoreConfigRoute.handler);
 router.openapi(listStoreProductsRoute.route, listStoreProductsRoute.handler);
 router.openapi(getStoreProductRoute.route, getStoreProductRoute.handler);
 router.openapi(getStoreLandingPageRoute.route, getStoreLandingPageRoute.handler);
+router.openapi(getStorePageRoute.route, getStorePageRoute.handler);
+router.openapi(getStoreOrderTrackingRoute.route, getStoreOrderTrackingRoute.handler);
 router.openapi(listStoreCategoriesRoute.route, listStoreCategoriesRoute.handler);
 router.openapi(getShippingRatesRoute.route, getShippingRatesRoute.handler);
 router.openapi(communesRoute.route, communesRoute.handler);
 router.openapi(createStoreOrderRoute.route, createStoreOrderRoute.handler);
+router.openapi(validateCartRoute.route, validateCartRoute.handler);
 router.openapi(listStoreReviewsRoute.route, listStoreReviewsRoute.handler);
 router.openapi(submitStoreReviewRoute.route, submitStoreReviewRoute.handler);
 

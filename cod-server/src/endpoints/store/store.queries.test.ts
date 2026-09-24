@@ -1,38 +1,19 @@
 /**
- * findOrCreateCustomer + createStoreOrder — Slice 3 mock-queue coverage.
+ * findOrCreateCustomer — mock-queue coverage.
  *
- * findOrCreateCustomer contract (post-Slice 3):
- *   • resolves wilaya/commune names, then ONE upsert statement:
+ * The mock db is a call-ordered response queue, which makes it good at exactly
+ * one thing: pinning a function's query SEQUENCE. findOrCreateCustomer still
+ * has a sequential one, and that is what these tests hold in place:
+ *   • resolve wilaya/commune names, then ONE upsert statement:
  *     INSERT ... ON CONFLICT(phone) DO UPDATE ... RETURNING
- *   • returns the RETURNING row — new or existing, race-free
+ *   • return the RETURNING row — new or existing, race-free
  *
- * createStoreOrder contract (post-Slice 3):
- *   • resolve phase: offer select, SKU selects, trackInventory select,
- *     inventory reads for each deduction
- *   • commit phase: ONE db.batch() — order insert, line inserts, history,
- *     customer stats update, guarded deduction updates + movement inserts
+ * createStoreOrder's coverage moved to real D1 — see the note at the bottom.
  */
 
 import { describe, it, expect } from "vitest";
-import { makeMockDb, f, a, offerRow } from "@/test-utils/mock-db";
-import {
-  findOrCreateCustomer,
-  createStoreOrder,
-} from "../../../../cod-shared/queries/store";
-
-const baseOrder = {
-  customerName: "Fatima Zahra",
-  phone: "0661234567",
-  wilayaId: 16,
-  communeId: "c-16-001",
-  address: "Rue des Lilas",
-  deliveryType: "home" as const,
-  productId: "prod_1",
-  productName: "T-Shirt",
-  quantity: 2,
-  pricePerUnit: 1500,
-  notes: "call before delivery",
-};
+import { makeMockDb, f, a } from "@/test-utils/mock-db";
+import { findOrCreateCustomer } from "../../../../cod-shared/queries/store";
 
 describe("findOrCreateCustomer", () => {
   it("upserts by phone and returns the RETURNING row", async () => {
@@ -83,157 +64,33 @@ describe("findOrCreateCustomer", () => {
   });
 });
 
-describe("createStoreOrder", () => {
-  it("commits a simple tracked order in one batch (catalog price is authoritative)", async () => {
-    const db = makeMockDb([
-      f({ price: 1500, track_inventory: 1 }), // catalog price row (server-authoritative)
-      a([]),                             // selectApplicableOffer — no candidates
-      f({ sku: "TS-001" }),              // product SKU select
-      f({ track_inventory: 1 }),         // trackInventory select
-      f({ inventory: 10 }),              // readInventoryForDeduct
-    ]);
-
-    const result = await createStoreOrder(db, {
-      ...baseOrder,
-      variantId: undefined,
-      customerId: "cust_1",
-      customerName: "Fatima Zahra",
-      deliveryFee: 400,
-    });
-
-    // quantity 2 × catalog price 1500 — the client's pricePerUnit is ignored
-    expect(result).toMatchObject({ price: 3000, deliveryFee: 400 });
-    expect(result.orderNumber).toMatch(/^ORD-\d{8}-\d{4}$/);
-    expect(result.id).toBeTruthy();
-  });
-
-  it("commits a variant-selection order with grouped deductions (price = Σ lines)", async () => {
-    const db = makeMockDb([
-      f({ price: 1500, track_inventory: 1 }), // catalog price row
-      a([]),                             // offers
-      f({ sku: "TS-RED", price: 1500 }),  // variant row 1 (sku + price)
-      f({ sku: "TS-BLUE", price: 1500 }), // variant row 2
-      f({ track_inventory: 1 }),         // trackInventory
-      f({ inventory: 4 }),               // inventory variant 1
-      f({ inventory: 2 }),               // inventory variant 2
-    ]);
-
-    const result = await createStoreOrder(db, {
-      ...baseOrder,
-      variantSelections: [
-        { variantId: "var_1", variantLabel: "Red" },
-        { variantId: "var_1", variantLabel: "Red" },
-        { variantId: "var_2", variantLabel: "Blue" },
-      ],
-      customerId: "cust_1",
-      customerName: "Fatima Zahra",
-      deliveryFee: 400,
-    });
-
-    // 2 × 1500 + 1 × 1500 — the true sum of the lines, not quantity × unit
-    expect(result).toMatchObject({ price: 4500 });
-  });
-
-  it("skips deduction entirely for untracked products", async () => {
-    const db = makeMockDb([
-      f({ price: 1500, track_inventory: 0 }), // catalog price row
-      a([]),                             // offers
-      f({ sku: "TS-001" }),              // SKU
-      f({ track_inventory: 0 }),         // trackInventory — false
-    ]);
-
-    const result = await createStoreOrder(db, {
-      ...baseOrder,
-      customerId: "cust_1",
-      customerName: "Fatima Zahra",
-      deliveryFee: 400,
-    });
-
-    expect(result).toMatchObject({ price: 3000 });
-  });
-
-  it("applies a free-shipping offer (no reward line, fee zeroed)", async () => {
-    const offer = offerRow({
-      id: "offer_fs",
-      discount_type: "free_shipping",
-      reward_product_id: null,
-    });
-    const db = makeMockDb([
-      f({ price: 1500, track_inventory: 1 }), // catalog price row
-      f(offer),                          // explicit offerId select
-      f({ sku: "TS-001" }),              // SKU
-      f({ track_inventory: 1 }),         // trackInventory
-      f({ inventory: 10 }),              // inventory
-    ]);
-
-    const result = await createStoreOrder(db, {
-      ...baseOrder,
-      offerId: "offer_fs",
-      customerId: "cust_1",
-      customerName: "Fatima Zahra",
-      deliveryFee: 400,
-    });
-
-    expect(result).toMatchObject({ deliveryFee: 0, price: 3000 });
-  });
-
-  it("adds the reward line and reward deduction for a free-product offer", async () => {
-    const offer = offerRow({
-      id: "offer_b2g1",
-      reward_product_id: "prod_2",
-      reward_variant_id: "var_9",
-    });
-    const db = makeMockDb([
-      f({ price: 1500, track_inventory: 1 }), // catalog price row
-      f(offer),                          // explicit offer select
-      f({ sku: "TS-001" }),              // order line SKU
-      f({ variations: '{"Color":"Green"}' }), // reward variant variations
-      f({ name: "Socks", track_inventory: 1 }), // reward product
-      f({ inventory: 5 }),               // reward variant inventory (in stock)
-      f({ sku: "SOCK-G" }),              // reward SKU
-      f({ track_inventory: 1 }),         // main product trackInventory
-      f({ inventory: 10 }),              // main product inventory
-      f({ inventory: 5 }),               // reward inventory for deduction
-    ]);
-
-    const result = await createStoreOrder(db, {
-      ...baseOrder,
-      quantity: 2,
-      offerId: "offer_b2g1",
-      customerId: "cust_1",
-      customerName: "Fatima Zahra",
-      deliveryFee: 400,
-    });
-
-    expect(result).toMatchObject({ price: 3000, deliveryFee: 400 });
-  });
-
-  it("skips the reward line when the reward is out of stock", async () => {
-    const offer = offerRow({
-      id: "offer_b2g1",
-      reward_product_id: "prod_2",
-      reward_variant_id: "var_9",
-    });
-    const db = makeMockDb([
-      f({ price: 1500, track_inventory: 1 }), // catalog price row
-      f(offer),                          // offer
-      f({ sku: "TS-001" }),              // SKU
-      f({ variations: '{"Color":"Green"}' }), // reward variations
-      f({ name: "Socks", track_inventory: 1 }), // reward product
-      f({ inventory: 0 }),               // reward inventory — OUT OF STOCK
-      f({ track_inventory: 1 }),         // main product
-      f({ inventory: 10 }),              // main inventory
-    ]);
-
-    const result = await createStoreOrder(db, {
-      ...baseOrder,
-      quantity: 2,
-      offerId: "offer_b2g1",
-      customerId: "cust_1",
-      customerName: "Fatima Zahra",
-      deliveryFee: 400,
-    });
-
-    expect(result).toMatchObject({ price: 3000 });
-  });
-});
+// ─── createStoreOrder — coverage moved to real D1 ────────────────────────────
+//
+// These six cases used to live here as mock-queue tests. The queue is
+// call-ordered, so it encoded the engine's exact sequence of `.get()` calls —
+// and the engine no longer makes them: the resolve phase is now ONE batched
+// round trip (chunked `inArray` + `db.batch()`), because a sequential read per
+// product is pathological for a basket on a single-threaded D1.
+//
+// Rather than re-encode a batched query plan positionally — which would test
+// the mock rather than the system — each case now runs against Miniflare D1
+// with the real migrations:
+//
+//   catalog price is authoritative   → cart-orders-e2e: "ignores the client's
+//                                      price entirely" + "flat single product
+//                                      behaves exactly as before"
+//   variant selections, price = Σ    → cart-orders-e2e: "variantSelections
+//                                      groups per-unit picks into lines"
+//   untracked products skip stock    → cart-orders-e2e: "skips deduction for a
+//                                      product with tracking off"
+//   free-shipping offer zeroes fee   → cart-orders-e2e: "free shipping applies
+//                                      when the basket holds ONE product"
+//   reward line + reward deduction   → cart-orders-e2e: "adds a free reward
+//                                      line at zero price"
+//   reward skipped when out of stock → cart-orders-e2e: "skips the reward when
+//                                      its stock cannot cover it"
+//
+// The batching itself is asserted by checkout-query-budget.e2e, and atomicity
+// by store.queries-e2e. No assertion was dropped — each moved to stronger
+// evidence. findOrCreateCustomer keeps its mock-queue tests above: its
+// sequence is still sequential and is exactly what they are there to pin.

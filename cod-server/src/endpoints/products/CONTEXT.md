@@ -30,6 +30,24 @@ _Avoid_: Variation, option, child SKU
 The unique URL slug. Auto-generated from the name plus an ID suffix when not supplied.
 _Avoid_: Slug, URL path, SEO name
 
+### Description Content
+
+**Rich Description**:
+A description stored as sanitised HTML (`description_format = 'html'`), authored in the dashboard's rich-text editor or hand-written in its HTML view. It is trusted at render: the storefront inserts it with `set:html` and never parses or re-sanitises it, because it was sanitised once at the write chokepoint (`cod-shared/queries/products.ts` → `sanitizeRichText`).
+_Avoid_: WYSIWYG content, HTML body, formatted text
+
+**Description Format**:
+`text` or `html` — states what `products.description` holds. `text` renders literally, exactly as the storefront always has (every row predating rich descriptions keeps this value); `html` means the stored value passed the Allow-List at write.
+_Avoid_: Content type, mode, isRich
+
+**Allow-List**:
+The exact set of tags and per-tag attributes a Rich Description may keep. Unknown tags are unwrapped so their text survives; known-dangerous tags (`script`, `style`, `iframe`, `object`, `embed`, `svg`, `math`, `form`) are removed with their content. Single source of truth: `RICH_TEXT_TAGS` / `RICH_TEXT_ATTRS` in `cod-shared/lib/rich-text.ts`, plus `RICH_TEXT_STYLE_PATTERNS` and `RICH_TEXT_DATA_VALUES` for the three attributes the editor writes (text alignment, highlight colour, checklists).
+_Avoid_: Whitelist, filter rules, sanitising rules
+
+**Description Plain**:
+Tag-free rendering of a description for metadata — tags stripped, images dropped, entities decoded, whitespace collapsed. Returned by the API as `descriptionPlain` because the storefront theme is swappable and cannot derive it (it must never parse HTML). For `<meta>` and JSON-LD only; never rendered as HTML.
+_Avoid_: Excerpt, summary, text version
+
 ### Lifecycle & Exposure
 
 **Product Status**:

@@ -15,6 +15,44 @@ products/
 └── README.md       # This file
 ```
 
+## Description formats
+
+`description` holds either literal text or sanitised HTML, and
+`descriptionFormat` says which. Clients never infer it from the value.
+
+| Field | Meaning |
+|---|---|
+| `description` | For `html`, sanitised rich text. For `text`, literal text. |
+| `descriptionFormat` | `text` (the default, and every row that predates rich descriptions) or `html`. |
+| `descriptionPlain` | Read-only. Tag-free rendering for `<meta>` and JSON-LD: tags stripped, images dropped, entities decoded, whitespace collapsed. Null when `description` is null. |
+
+**Writing.** Send `description`, and `descriptionFormat: "html"` for rich text.
+Sanitisation is server-side at the write chokepoint (`cod-shared/queries/products.ts`
+→ `sanitizeRichText`) — the client is never trusted, and the MCP tools go through
+the same path. A stored `html` value is sanitised **once**; reads return it
+as-is and never re-sanitise it.
+
+**Caps.** `description` is limited to 100,000 characters.
+
+**Allow-list.** Unknown tags are unwrapped so their text survives;
+`script`, `style`, `iframe`, `object`, `embed`, `svg`, `math` and `form` are
+removed with their content. Every `on*`, `class`, `id` and `data-*` attribute
+is dropped, with three deliberate exceptions the editor writes as attributes:
+text alignment (an inline `text-align` on `p`/headings — the only `style` a
+description may keep), the highlight colour (`mark` with a hex or `rgb()`
+`background-color`), and checklists (`ul[data-type="taskList"]` /
+`li[data-checked]`). Each is pinned to a fixed pattern or value set. The full
+list is printed in `cod-astro/theme01/THEME_GUIDE.md` and a test compares it
+against `RICH_TEXT_TAGS` in `cod-shared/lib/rich-text.ts`, so the docs cannot
+drift.
+
+**Switching a row from `text` to `html`.** Send `descriptionFormat: "html"`.
+The stored `description` is re-sanitised even if the description itself did not
+change — legacy text is never reinterpreted as markup. Switching back to `text`
+changes only the interpretation: the stored bytes are kept and the markup is
+then rendered literally, which is why the dashboard editor confirms before it
+makes that change.
+
 ## API Endpoints
 
 ### GET /api/products

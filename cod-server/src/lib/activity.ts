@@ -62,6 +62,16 @@ export const ACTIONS = {
   LANDING_PAGE_ARCHIVED:   "landing_page.archived",
   LANDING_PAGE_DELETED:    "landing_page.deleted",
 
+  // Store Pages (legal pages + custom pages) — "who rewrote our refund
+  // policy, and when" is a question a merchant with staff will ask.
+  STORE_PAGE_CREATED:      "store_page.created",
+  STORE_PAGE_UPDATED:      "store_page.updated",
+  STORE_PAGE_TRANSLATION_SAVED: "store_page.translation_saved",
+  STORE_PAGE_TRANSLATION_RESET: "store_page.translation_reset",
+  STORE_PAGE_DELETED:      "store_page.deleted",
+  STORE_PAGES_SEEDED:      "store_page.seeded",
+  STORE_LEGAL_PROFILE_UPDATED: "store_page.legal_profile_updated",
+
   // Stock
   STOCK_ADJUSTED:          "stock.adjusted",
 

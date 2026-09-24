@@ -19,14 +19,15 @@ import { NonRetryableError } from "cloudflare:workflows";
 import { z } from "zod";
 import type { Env } from "@/types/env";
 import { getDb } from "@/db";
-import { orders, communes, orderProducts, stores, capiEventLog } from "@/db/schema";
+import { orders, communes, orderProducts, stores, capiEventLog, landingPages } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { getPixelConfig } from "../../../cod-shared/queries/pixel-config";
+import { resolveTrackingConfig } from "../../../cod-shared/queries/tracking-config";
 import { sendCapiEvent, type CapiResult } from "@/lib/capi";
 import {
   resolveCapiDispatch,
   resolveConversionForStage,
   getCapiWorkflowId,
+  conversionSourceUrl,
   shouldTriggerCapiPurchase,
   shouldTriggerCapiConfirmed,
   type ConversionStage,
@@ -82,12 +83,17 @@ export class CodCapiWorkflow extends WorkflowEntrypoint<Env, CodCapiParams> {
           city: orders.city,
           price: orders.price,
           deliveryFee: orders.deliveryFee,
+          landingPageId: orders.landingPageId,
+          // The page the ad actually pointed at — Events Manager shows this,
+          // and "/thank-you" says nothing about which creative sold.
+          landingPageSlug: landingPages.slug,
           fbc: orders.fbc,
           fbp: orders.fbp,
           ipAddress: orders.ipAddress,
           userAgent: orders.userAgent,
         })
         .from(orders)
+        .leftJoin(landingPages, eq(orders.landingPageId, landingPages.id))
         .where(eq(orders.id, orderId))
         .get();
 
@@ -111,7 +117,14 @@ export class CodCapiWorkflow extends WorkflowEntrypoint<Env, CodCapiParams> {
         .from(orderProducts)
         .where(eq(orderProducts.orderId, orderId));
 
-      const pixelConfig = await getPixelConfig(db, storeRow.id);
+      // The ORDER decides the destination, not the store: a sale that came
+      // from a landing page with its own pixel must mirror to that pixel, or
+      // Meta sees a browser event on one pixel and a server event on another
+      // and counts two conversions instead of merging them.
+      const pixelConfig = await resolveTrackingConfig(db, {
+        storeId: storeRow.id,
+        landingPageId: order.landingPageId,
+      });
 
       // Shared conversion model resolver check
       const decision = resolveConversionForStage(pixelConfig?.conversionEvent, stage);
@@ -142,6 +155,7 @@ export class CodCapiWorkflow extends WorkflowEntrypoint<Env, CodCapiParams> {
             eventName,
             stage,
             status: "skipped",
+            pixelId: data.pixelConfig?.pixelId ?? null,
             error: dispatch.message,
           });
         });
@@ -158,6 +172,7 @@ export class CodCapiWorkflow extends WorkflowEntrypoint<Env, CodCapiParams> {
           eventName,
           stage,
           status: "skipped",
+          pixelId: data.pixelConfig?.pixelId ?? null,
           error: `event_time expired: order ${orderId} is ${Math.round(ageSeconds / 3600)}h old — outside Meta 7-day window`,
         });
       });
@@ -169,11 +184,14 @@ export class CodCapiWorkflow extends WorkflowEntrypoint<Env, CodCapiParams> {
       const db = getDb(this.env.DB);
       const now = new Date().toISOString();
       const claimId = `claim-${orderId}-${stage}-${eventName}`;
+      // The destination is written with the claim, not with the result, so an
+      // event that never completes still says where it was headed.
+      const destination = data.pixelConfig!.pixelId;
 
       try {
         const res = await db.run(
-          sql`INSERT INTO capi_event_log (id, order_id, event_name, stage, status, sent_at)
-              VALUES (${claimId}, ${orderId}, ${eventName}, ${stage}, 'claimed', ${now})
+          sql`INSERT INTO capi_event_log (id, order_id, event_name, stage, status, pixel_id, sent_at)
+              VALUES (${claimId}, ${orderId}, ${eventName}, ${stage}, 'claimed', ${destination}, ${now})
               ON CONFLICT (order_id, stage, event_name) DO NOTHING`
         );
 
@@ -218,7 +236,7 @@ export class CodCapiWorkflow extends WorkflowEntrypoint<Env, CodCapiParams> {
 
     // Step 5 — Send CAPI Event to Meta
     const finalEventSourceUrl =
-      eventSourceUrl ?? (data.storeDomain ? `https://${data.storeDomain}/thank-you` : undefined);
+      eventSourceUrl ?? conversionSourceUrl(data.storeDomain, data.order.landingPageSlug);
 
     const { firstName, lastName } = splitName(data.order.customerName);
     let capiResult: CapiResult;

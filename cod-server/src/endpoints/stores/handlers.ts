@@ -6,12 +6,15 @@ import { updateStoreSchema } from "./validation";
 import { NotFoundError, SystemError, ValidationError, ExternalApiError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 import { getPixelConfig as queryPixelConfig, upsertPixelConfig } from "../../../../cod-shared/queries/pixel-config";
+import { maskApiKey } from "@/lib/mask";
 import { getOtpConfigRaw, upsertOtpConfig } from "../../../../cod-shared/queries/otp-config";
 import { getTurnstileConfigRaw, upsertTurnstileConfig } from "../../../../cod-shared/queries/turnstile-config";
 import { getEmailConfigRaw, upsertEmailConfig } from "../../../../cod-shared/queries/email-config";
 import { createDzverifyClient, DzverifyError, DZVERIFY_ERRORS } from "@/endpoints/store-otp/dzverify";
 import { createSendiliClient, SendiliError, SENDILI_ERRORS } from "../../../../cod-shared/lib/sendili";
-import { z } from "zod";
+// @hono/zod-openapi's `z` is zod plus `.openapi()`, which the shared
+// pixelConfigSchema needs because the route documents itself from it.
+import { z } from "@hono/zod-openapi";
 
 export async function getMyStore(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
@@ -41,14 +44,30 @@ export async function updateMyStore(c: Context<AppContext>) {
   return c.json({ success: true, data: updated }, 200);
 }
 
-const pixelConfigSchema = z.object({
+/**
+ * The store's tracking settings, as they arrive from the dashboard.
+ *
+ * Exported and used by the ROUTE as well, because a `defineRoute` body schema
+ * strips unknown keys before the handler runs: a second copy here that gained
+ * a field the route's had not would drop that field silently, with a 200 and
+ * no error anywhere. That is exactly how the per-page tracking switch came
+ * back off after every save. One schema, so the two cannot drift.
+ */
+export const pixelConfigSchema = z.object({
   pixelId: z.string().min(1),
   adAccountName: z.string().max(200).nullable().optional(),
-  accessToken: z.string().default(""),
+  accessToken: z.string().default("").openapi({
+    description:
+      "Meta access token. Empty string keeps the previously stored token (the token is never sent back to the client).",
+  }),
   testEventCode: z.string().nullable().optional(),
   conversionEvent: z.enum(["Purchase", "Purchase_Confirmed", "Purchase_Delivered", "Lead"]),
   testMode: z.boolean().optional(),
   enabled: z.boolean().optional(),
+  perPageTrackingEnabled: z.boolean().optional().openapi({
+    description:
+      "Master switch for per-landing-page pixels. Omitted keeps the stored value — an unrelated edit must not return every landing page to the store pixel.",
+  }),
 });
 
 /** Safe projection — the access token never leaves the API, only a masked hint. */
@@ -63,6 +82,7 @@ function pixelConfigResponse(row: NonNullable<Awaited<ReturnType<typeof queryPix
     conversionEvent: row.conversionEvent,
     testMode: row.testMode,
     enabled: row.enabled,
+    perPageTrackingEnabled: row.perPageTrackingEnabled,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -91,19 +111,46 @@ export async function savePixelConfig(c: Context<AppContext>) {
 
 // ─── WhatsApp OTP verification config (dzverify) ──────────────────────────────
 
-const otpConfigSchema = z.object({
-  /** Empty string = keep the existing stored key (dashboard never re-sends it). */
-  apiKey: z.string().default(""),
+/**
+ * Shared with the ROUTE that validates this body. A `defineRoute` body schema
+ * strips unknown keys before the handler runs, so a second copy here would
+ * drop any field the route's copy lacked — silently, with a 200. That is how
+ * the per-page tracking switch came back off after every save.
+ */
+export const testOtpConfigSchema = z.object({
+  apiKey: z.string().optional().openapi({
+    description: "Test this key instead of the stored one (pre-save validation).",
+  }),
+});
+
+/**
+ * Shared with the ROUTE that validates this body. A `defineRoute` body schema
+ * strips unknown keys before the handler runs, so a second copy here would
+ * drop any field the route's copy lacked — silently, with a 200. That is how
+ * the per-page tracking switch came back off after every save.
+ */
+export const testEmailConfigSchema = z.object({
+  apiKey: z.string().optional().openapi({
+    description: "Test this key instead of the stored one (pre-save validation).",
+  }),
+});
+
+/**
+ * Shared with the ROUTE that validates this body. A `defineRoute` body schema
+ * strips unknown keys before the handler runs, so a second copy here would
+ * drop any field the route's copy lacked — silently, with a 200. That is how
+ * the per-page tracking switch came back off after every save.
+ */
+export const otpConfigSchema = z.object({
+  apiKey: z.string().default("").openapi({
+    description:
+      "dzverify API key. Empty string keeps the previously stored key (the key is never sent back to the client).",
+  }),
   language: z.enum(["en", "fr", "ar"]).optional(),
   enabled: z.boolean().optional(),
 });
 
 /** Response shape: the safe config plus a masked key hint for the UI. */
-function maskApiKey(key: string): string {
-  if (key.length <= 4) return "••••";
-  return `••••${key.slice(-4)}`;
-}
-
 export async function getOtpConfig(c: Context<AppContext>) {
   const db = getDb(c.env.DB);
   const store = await queries.getStore(db);
@@ -242,10 +289,22 @@ export async function testOtpConnection(c: Context<AppContext>) {
 
 // ─── Cloudflare Turnstile config (checkout bot protection) ────────────────────
 
-const turnstileConfigSchema = z.object({
-  /** Empty string = keep the existing stored value (the secret never round-trips to clients). */
-  siteKey: z.string().default(""),
-  secretKey: z.string().default(""),
+/**
+ * Shared with the ROUTE that validates this body. A `defineRoute` body schema
+ * strips unknown keys before the handler runs, so a second copy here would
+ * drop any field the route's copy lacked — silently, with a 200. That is how
+ * the per-page tracking switch came back off after every save.
+ */
+export const turnstileConfigSchema = z.object({
+  siteKey: z.string().default("").openapi({
+    description:
+      "Public Turnstile site key. Empty string keeps the previously stored value.",
+  }),
+  secretKey: z.string().default("").openapi({
+    description:
+      "Siteverify secret key. Empty string keeps the previously stored secret " +
+      "(the secret is never sent back to the client).",
+  }),
   enabled: z.boolean().optional(),
 });
 
@@ -313,11 +372,25 @@ export async function saveTurnstileConfig(c: Context<AppContext>) {
 
 // ─── Sendili transactional email config ──────────────────────────────────────
 
-const emailConfigSchema = z.object({
-  /** Empty string = keep the existing stored key (dashboard never re-sends it). */
-  apiKey: z.string().default(""),
-  fromEmail: z.string().email(),
-  fromName: z.string().max(200).nullable().optional(),
+/**
+ * Shared with the ROUTE that validates this body. A `defineRoute` body schema
+ * strips unknown keys before the handler runs, so a second copy here would
+ * drop any field the route's copy lacked — silently, with a 200. That is how
+ * the per-page tracking switch came back off after every save.
+ */
+export const emailConfigSchema = z.object({
+  apiKey: z.string().default("").openapi({
+    description:
+      "Sendili API key. Empty string keeps the previously stored key (the key is never sent back to the client).",
+  }),
+  fromEmail: z.string().email().openapi({
+    description: "Sender address — its domain must be verified in the Sendili workspace.",
+    example: "noreply@acme.com",
+  }),
+  fromName: z.string().max(200).nullable().optional().openapi({
+    description: "Optional sender display name (e.g. the store name).",
+    example: "Acme Store",
+  }),
   enabled: z.boolean().optional(),
 });
 

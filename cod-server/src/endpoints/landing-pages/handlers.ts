@@ -7,7 +7,15 @@ import {
   updateLandingPageSchema,
   saveLandingPageImageSchema,
   reorderLandingPageImagesSchema,
+  landingPageTrackingSchema,
 } from "./validation";
+import { maskApiKey } from "@/lib/mask";
+import {
+  getLandingPageTracking,
+  upsertLandingPageTracking,
+  deleteLandingPageTracking,
+  lastCapiEventForLandingPage,
+} from "../../../../cod-shared/queries/landing-page-tracking";
 import { NotFoundError, SystemError, ValidationError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 import { logActivity, ACTIONS } from "@/lib/activity";
@@ -69,6 +77,117 @@ export async function getLandingPage(c: Context<AppContext>) {
   const data = await queries.getLandingPageById(db, id);
   if (!data) throw new NotFoundError("Landing Page", id);
   return c.json({ success: true, data: withPublicUrl(data) }, 200);
+}
+
+// ─── Tracking override ────────────────────────────────────────────────────────
+
+/**
+ * Safe projection. The access token goes in and never comes back out: it is a
+ * credential with spend attached, so the merchant gets only enough to
+ * recognise which one is stored.
+ */
+function trackingResponse(
+  row: NonNullable<Awaited<ReturnType<typeof getLandingPageTracking>>>,
+) {
+  return {
+    id: row.id,
+    landingPageId: row.landingPageId,
+    pixelId: row.pixelId,
+    adAccountName: row.adAccountName,
+    accessTokenMasked: maskApiKey(row.accessToken),
+    testEventCode: row.testEventCode,
+    conversionEvent: row.conversionEvent,
+    testMode: row.testMode,
+    enabled: row.enabled,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+/** The landing page must exist before anything is said about its tracking. */
+async function requireLandingPage(c: Context<AppContext>, db: ReturnType<typeof getDb>) {
+  const id = c.req.param("id")!;
+  const exists = await queries.getLandingPageById(db, id);
+  if (!exists) throw new NotFoundError("Landing Page", id);
+  return { id, landingPage: exists };
+}
+
+/**
+ * This page's tracking: what is configured, and proof of what it has done.
+ *
+ * Both in one response because they are one question. A merchant who has just
+ * pointed a campaign at a new pixel wants to know it is working, and a config
+ * panel that only echoes what they typed cannot tell them.
+ */
+export async function getLandingPageTrackingConfig(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const { id } = await requireLandingPage(c, db);
+  const [row, lastEvent] = await Promise.all([
+    getLandingPageTracking(db, id),
+    lastCapiEventForLandingPage(db, id),
+  ]);
+  return c.json(
+    {
+      success: true,
+      data: {
+        config: row ? trackingResponse(row) : null,
+        lastEvent: lastEvent ?? null,
+      },
+    },
+    200,
+  );
+}
+
+export async function saveLandingPageTrackingConfig(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const { id, landingPage } = await requireLandingPage(c, db);
+  const body: any = (c.req as any).valid?.("json");
+  const data = body ?? landingPageTrackingSchema.parse(await c.req.json());
+
+  // A pixel with no token would leave the browser firing at this page's pixel
+  // with no server mirror behind it — measurably worse than the store pixel it
+  // replaced. The schema cannot express "unless one is already stored", so the
+  // rule lives here, where that is known.
+  const existing = await getLandingPageTracking(db, id);
+  if (!existing && !data.accessToken?.trim()) {
+    throw new ValidationError(
+      "A Conversions API access token is required when giving a landing page its own pixel",
+      ERROR_CODES.VALIDATION_FAILED,
+      { field: "accessToken" },
+    );
+  }
+
+  const row = await upsertLandingPageTracking(db, id, data);
+  if (!row) throw new SystemError("Failed to save landing page tracking");
+
+  const actor = c.get("user");
+  await logActivity(
+    db,
+    actor,
+    ACTIONS.LANDING_PAGE_UPDATED,
+    { type: "landing_page", id, label: landingPage.name },
+    // The pixel id is public by definition; the token is never logged.
+    { tracking: "override", pixelId: row.pixelId, conversionEvent: row.conversionEvent },
+  );
+
+  return c.json({ success: true, data: trackingResponse(row) }, 200);
+}
+
+export async function deleteLandingPageTrackingConfig(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const { id, landingPage } = await requireLandingPage(c, db);
+  await deleteLandingPageTracking(db, id);
+
+  const actor = c.get("user");
+  await logActivity(
+    db,
+    actor,
+    ACTIONS.LANDING_PAGE_UPDATED,
+    { type: "landing_page", id, label: landingPage.name },
+    { tracking: "store" },
+  );
+
+  return c.json({ success: true }, 200);
 }
 
 export async function createLandingPage(c: Context<AppContext>) {

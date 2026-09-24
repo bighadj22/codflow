@@ -30,6 +30,28 @@ export const updateStoreSchema = z.object({
   ogImage: z.string().url().nullable().optional(),
   announcementBar: z.string().max(500).nullable().optional(),
   reviewsEnabled: z.boolean().optional(),
+  /**
+   * Shopping cart opt-in. Strictly boolean: a form posting the string "false"
+   * is truthy in JS, so the schema is what has to refuse it. Omit the field to
+   * leave the setting unchanged; null is not a way to say "off".
+   */
+  cartEnabled: z.boolean().optional(),
+  /**
+   * Order subtotal (DZD) at or above which delivery is free.
+   * null turns the feature OFF. A minimum of 1 is deliberate: 0 would mean
+   * every order ships free, which is a different intention and must be
+   * expressed by setting the threshold to 1, not by a value that reads as
+   * "unset". Guarding it here keeps the ambiguity out of the database.
+   */
+  freeShippingThreshold: z
+    .number()
+    .int()
+    .min(1, "Threshold must be at least 1 DZD — use null to turn it off")
+    .max(10_000_000)
+    .nullable()
+    .optional(),
+  /** Which rate a basket spanning several shipping profiles pays. */
+  cartShippingMode: z.enum(["highest", "default_profile"]).optional(),
   status: z.enum(["active", "inactive"]).optional(),
 });
 

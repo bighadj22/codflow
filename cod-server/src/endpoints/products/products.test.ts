@@ -149,6 +149,44 @@ describe("updateProductSchema", () => {
   });
 });
 
+describe("description validation (rich text, plan §7)", () => {
+  const validBase = { name: "قميص", price: 1500, sku: "CAP-1" };
+
+  it("accepts a description exactly at the 100,000-character cap", () => {
+    const result = createProductSchema.safeParse({
+      ...validBase,
+      description: "a".repeat(100_000),
+      descriptionFormat: "html",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a description over 100,000 characters with a clear message", () => {
+    const result = createProductSchema.safeParse({
+      ...validBase,
+      description: "a".repeat(100_001),
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find((i) => i.path[0] === "description");
+      expect(issue?.message).toContain("100,000");
+    }
+  });
+
+  it("rejects an unknown descriptionFormat", () => {
+    expect(createProductSchema.safeParse({ ...validBase, descriptionFormat: "rich" }).success).toBe(false);
+    expect(createProductSchema.safeParse({ ...validBase, descriptionFormat: "<script>" }).success).toBe(false);
+    expect(createProductSchema.safeParse({ ...validBase, descriptionFormat: "html" }).success).toBe(true);
+    expect(createProductSchema.safeParse({ ...validBase, descriptionFormat: "text" }).success).toBe(true);
+  });
+
+  it("updateProductSchema enforces the same cap and enum", () => {
+    expect(updateProductSchema.safeParse({ description: "a".repeat(100_001) }).success).toBe(false);
+    expect(updateProductSchema.safeParse({ descriptionFormat: "markdown" }).success).toBe(false);
+    expect(updateProductSchema.safeParse({ descriptionFormat: "html", description: "<p>x</p>" }).success).toBe(true);
+  });
+});
+
 describe("productFiltersSchema", () => {
   it("coerces visibility from string 'true' to boolean", () => {
     const result = productFiltersSchema.parse({ visibility: "true" });

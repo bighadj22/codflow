@@ -25,6 +25,7 @@ import deliveryCompaniesRoutes from "@/endpoints/delivery-companies/routes";
 import productsRoutes from "@/endpoints/products/routes";
 import productGroupsRoutes from "@/endpoints/product-groups/routes";
 import landingPagesRoutes from "@/endpoints/landing-pages/routes";
+import storePagesRoutes from "@/endpoints/store-pages/routes";
 import shippingProfilesRoutes from "@/endpoints/shipping-profiles/routes";
 import driverPaymentsRoutes from "@/endpoints/driver-payments/routes";
 import { uploadRouter, serveRouter } from "@/endpoints/images/routes";
@@ -42,6 +43,7 @@ import storeAbandonedRoutes from "@/endpoints/abandoned-orders/store-routes";
 import storeOtpRoutes from "@/endpoints/store-otp/store-routes";
 
 import { sweepAbandonedOrders } from "@/cron/sweep-abandoned-orders";
+import { runOrphanImageSweep } from "@/cron/sweep-orphan-images";
 
 // MCP remote server (remote Model Context Protocol endpoint for Claude / AI agents).
 // The OAuthProvider owns OAuth (discovery, client registration, tokens, revocation)
@@ -120,6 +122,7 @@ app.route("/api/delivery-companies", deliveryCompaniesRoutes);
 app.route("/api/products", productsRoutes);
 app.route("/api/product-groups", productGroupsRoutes);
 app.route("/api/landing-pages", landingPagesRoutes);
+app.route("/api/store-pages", storePagesRoutes);
 app.route("/api/shipping-profiles", shippingProfilesRoutes);
 app.route("/api/driver-payments", driverPaymentsRoutes);
 app.route("/api/stores", storesRoutes);
@@ -197,6 +200,7 @@ export default {
     ctx: ExecutionContext
   ): Promise<void> {
     ctx.waitUntil(sweepAbandonedOrders(env));
+    ctx.waitUntil(runOrphanImageSweep(env));
     ctx.waitUntil(getOAuthProvider(env).purgeExpiredData(env, { batchSize: 50 }));
   },
 };
