@@ -13,6 +13,7 @@ import { getProductJsonLd } from "@/theme/utils/seo";
 import { fetchProductByHandle } from "@/core/api/client";
 import { getThumbnailImage } from "@/core/utils/image-optimizer";
 import { productImageSource } from "@/theme/utils/product-image";
+import { Icon } from "astro-icon/components";
 
 interface Props {
   slug: string;
@@ -197,3 +198,45 @@ const jsonLd = getProductJsonLd(product, basePrice);
   content={content}
   server:defer
 />
+
+{/* ── STICKY ORDER CTA — fixed to the bottom on mobile while the order form is out of
+     view; sticky-cta.ts hides it via IntersectionObserver the moment the form enters the
+     viewport. Mobile-only: hidden on desktop where the form is already sticky in column 2. ── */}
+{!isOutOfStock && (
+  <a
+    href="#order-section"
+    id="product-sticky-cta"
+    class="btn-primary product-sticky-cta lg:hidden"
+  >
+    <span>{content.orderCta}</span>
+    <Icon name="heroicons:chevron-down" class="w-5 h-5 shrink-0" />
+  </a>
+)}
+
+<style>
+  /* Sticky CTA — floats above content on mobile until the form scrolls into
+     view (sticky-cta.ts toggles .is-hidden). Colors/radius/shadow come
+     from .btn-primary + tokens; sizes/offsets are layout, not design. */
+  .product-sticky-cta {
+    position: fixed;
+    bottom: calc(var(--safe-bottom) + 0.75rem);
+    inset-inline: 0;
+    margin-inline: auto;
+    width: min(24rem, calc(100% - 2rem));
+    z-index: 45;
+    box-shadow: var(--shadow-primary);
+    font-weight: 800;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .product-sticky-cta.is-hidden {
+    transform: translateY(150%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  @media (min-width: 1024px) {
+    .product-sticky-cta {
+      display: none !important;
+    }
+  }
+</style>
+
