@@ -242,6 +242,26 @@ mapped status equals or ranks below current.
   `isEcotrackCompany` + `getProvider` selection and credential guards for all
   four provider families (the non-EcoTrack cases double as leak canaries).
 
+## Slice 13: DHD host rebase (2026-09-15)
+
+- **Tenant quirk**: `https://dhd.ecotrack.dz` answers **HTTP 301 →**
+  `https://platform.dhd-dz.com/api/v1/create/order?…` (same path, query intact).
+  Verified by live probe 2026-09-15: a POST to `dhd.ecotrack.dz` is rebased to
+  the branded platform host; an unauthenticated POST there answers 401 (would-be
+  405 on GET). The catalog's pattern-derived `https://dhd.ecotrack.dz` base URL
+  stays correct — the host is authoritative, it just relocates.
+- **Impact on the adapter**: a POST through Workers' default `redirect: "follow"`
+  is rewritten to **GET** when a 301/302/303 relocates the request (fetch spec),
+  so create/order came back as the Laravel 405 "The GET method is not supported
+  for route api/v1/create/order. Supported methods: POST." No adapter call made
+  the GET — the redirect did.
+- **Fix (adapter.ts `request()`)**: `redirect: "manual"` + re-issue up to 5 hops
+  at the `Location` with the SAME method/headers/body, then a clear
+  "redirected too many times" guard. Any tenant that rebases its host (DHD, and
+  any future `*.ecotrack.dz` that 301s to a branded domain) works without
+  knowing the canonical host in advance. Pinned by 2 adapter tests
+  (single-order POST + JSON-body bulk).
+
 ## Verification checklist (run for every EcoTrack change)
 
 ```sh

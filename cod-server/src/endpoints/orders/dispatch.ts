@@ -223,6 +223,17 @@ export async function dispatchToCompany(c: Context<AppContext>) {
     );
   }
 
+  // Every carrier needs a real customer address on home-delivery parcels.
+  // An empty one reaches EcoTrack as `adresse=` and answers a cryptic 422 at
+  // DHD ("Le champ adresse est obligatoire") — block it with a clear error.
+  if (effectiveDeliveryType === "home" && !(order.address ?? "").trim()) {
+    throw new ValidationError(
+      "Home delivery requires a customer address. Add the address to the order before dispatching.",
+      ERROR_CODES.REQUIRED_FIELD_MISSING,
+      { orderId }
+    );
+  }
+
   // Get provider adapter (throws if unsupported or missing credentials)
   let provider;
   try {
@@ -581,6 +592,13 @@ export async function bulkDispatch(c: Context<AppContext>) {
       ]);
       if (carrierWilaya) wilayaName = carrierWilaya;
       if (carrierCommune) communeName = carrierCommune;
+    }
+
+    // Every carrier needs a real customer address on home-delivery parcels —
+    // an empty one fails EcoTrack's required `adresse` at dispatch.
+    if (order.deliveryType !== "stop_desk" && !(order.address ?? "").trim()) {
+      orderResults.push({ orderId, orderNumber: order.orderNumber, error: "Home delivery requires a customer address" });
+      continue;
     }
 
     validOrders.push({

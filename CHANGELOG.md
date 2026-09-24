@@ -123,6 +123,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the carrier
 - webhooks: late `Tentative échouée` events no longer increment
   deliveryAttempts on terminal orders
+- delivery: EcoTrack dispatches survive carrier host rebases —
+  `dhd.ecotrack.dz` answers 301 → `platform.dhd-dz.com`, and Workers' default
+  redirect-following rewrote the create/order POST into a GET the carrier
+  rejected with 405; the adapter now re-issues redirects with the same
+  method/headers/body
+- delivery: EcoTrack `adresse` is required on every create — stop-desk orders
+  (no street address) now send the pickup-point commune, and home deliveries
+  missing an address are rejected locally with a clear message before any
+  carrier call
 
 ### Known Limitations
 

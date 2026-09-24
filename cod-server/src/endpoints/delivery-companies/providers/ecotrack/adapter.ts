@@ -73,6 +73,19 @@ export class EcotrackProvider implements DeliveryProvider {
   }
 
   /**
+   * `adresse` is REQUIRED by every EcoTrack create (single + bulk) — DHD
+   * answers HTTP 422 "Le champ adresse est obligatoire" for an empty string.
+   * Stop-desk orders legitimately carry no street address in CodFlow, so the
+   * pickup-point commune substitutes. Home parcels without an address are
+   * blocked upstream in the dispatch flow and keep arriving empty here.
+   */
+  private transportAddress(input: Pick<CreateShipmentInput, "address" | "commune" | "stopDesk">): string {
+    const address = input.address?.trim();
+    if (address) return address.slice(0, 255);
+    return input.stopDesk ? `Retrait bureau — ${input.commune}`.slice(0, 255) : "";
+  }
+
+  /**
    * Single HTTP entry point for every EcoTrack endpoint.
    * Single-order endpoints pass only `pathWithQuery` (query params, no body);
    * `body` is set exclusively by the JSON-body endpoints (create/orders,
@@ -84,10 +97,33 @@ export class EcotrackProvider implements DeliveryProvider {
     pathWithQuery: string,
     body?: string
   ): Promise<TRes> {
-    const init: RequestInit = { method, headers: this.headers() };
+    // redirect: "manual" + manual re-issue below. fetch's default "follow"
+    // rewrites POST to GET whenever a 301/302/303 relocates the request —
+    // dhd.ecotrack.dz 301s to platform.dhd-dz.com exactly like that, so a
+    // create/order POST came back as GET and the carrier answered 405
+    // "The GET method is not supported". Re-issue at the Location with the
+    // SAME method/headers/body so host rebases keep every endpoint working.
+    const init: RequestInit = { method, headers: this.headers(), redirect: "manual" };
     if (body !== undefined) init.body = body;
 
-    const res = await fetch(`${this.baseUrl}${pathWithQuery}`, init);
+    let requestUrl = `${this.baseUrl}${pathWithQuery}`;
+    let res = await fetch(requestUrl, init);
+    for (let hop = 0; hop < 5; hop++) {
+      if (res.status < 300 || res.status >= 400) break;
+      const location = res.headers.get("location");
+      if (!location) break;
+      const redirectInit: RequestInit = { method, headers: this.headers(), redirect: "manual" };
+      if (body !== undefined) redirectInit.body = body;
+      requestUrl = new URL(location, requestUrl).toString();
+      res = await fetch(requestUrl, redirectInit);
+    }
+    if (res.status >= 300 && res.status < 400) {
+      throw new EcoTrackApiError(
+        `EcoTrack HTTP ${res.status} — request redirected too many times`,
+        { statusCode: res.status }
+      );
+    }
+
     let json: unknown;
     try {
       json = await res.json();
@@ -368,7 +404,7 @@ export class EcotrackProvider implements DeliveryProvider {
     const params = new URLSearchParams();
     params.set("nom_client",  input.customerName);
     params.set("telephone",   input.phone);
-    params.set("adresse",     input.address);
+    params.set("adresse",     this.transportAddress(input));
     params.set("code_wilaya", String(input.wilayaId));
     params.set("commune",     input.commune);
     params.set("montant",     String(input.amount));
@@ -558,7 +594,7 @@ export class EcotrackProvider implements DeliveryProvider {
       const order: Record<string, unknown> = {
         nom_client:  input.customerName,
         telephone:   input.phone,
-        adresse:     input.address,
+        adresse:     this.transportAddress(input),
         code_wilaya: String(input.wilayaId),
         commune:     input.commune,
         montant:     String(input.amount),

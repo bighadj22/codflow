@@ -468,6 +468,65 @@ describe("Orders — targeted business-logic tests", () => {
       const body: any = await res.json();
       expect(body.code).toBe(ERROR_CODES.MISSING_STATION_CODE);
     });
+  it("returns 400 for home delivery with no address (carriers reject adresse= empty)", async () => {
+      vi.mocked(queries.getOrderById).mockResolvedValue(
+        orderRow({ deliveryType: "home", address: "" }) as any
+      );
+      vi.mocked(deliveryCompanyQueries.getDeliveryCompanyRaw).mockResolvedValue(
+        companyRow() as any
+      );
+      mockDb = {
+        select: vi.fn(() => ({
+          from: vi.fn(() => ({
+            where: vi.fn(() => ({
+              get: vi.fn(async () => ({ name: "Alger", nameAr: "الجزائر" })),
+            })),
+          })),
+        })),
+      };
+
+      const res = await app.request("/api/orders/ord_1/dispatch", { method: "POST" });
+
+      expect(res.status).toBe(400);
+      const body: any = await res.json();
+      expect(body.code).toBe(ERROR_CODES.REQUIRED_FIELD_MISSING);
+    });
+
+    it("allows stop_desk dispatch with no address (adapter fills the required adresse)", async () => {
+      vi.mocked(queries.getOrderById).mockResolvedValue(
+        orderRow({ deliveryType: "stop_desk", stationCode: "16001", address: "" }) as any
+      );
+      vi.mocked(deliveryCompanyQueries.getDeliveryCompanyRaw).mockResolvedValue(
+        companyRow() as any
+      );
+      mockDb = {
+        select: vi.fn(() => ({
+          from: vi.fn(() => ({
+            where: vi.fn(() => ({
+              get: vi.fn(async () => ({ name: "Alger", nameAr: "الجزائر" })),
+            })),
+          })),
+        })),
+        insert: vi.fn(() => ({ values: vi.fn(async () => undefined) })),
+        update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(async () => undefined) })) })),
+      };
+      vi.mocked(shipments.createShipmentRecord).mockResolvedValue("shp_1" as any);
+      vi.mocked(shipments.logApiCall).mockResolvedValue(undefined as any);
+      vi.mocked(queries.updateOrderTracking).mockResolvedValue(undefined as any);
+      vi.mocked(registry.isEcotrackCompany).mockReturnValue(false);
+      vi.mocked(registry.getProvider).mockReturnValue({
+        createShipment: vi.fn(async () => ({
+          trackingNumber: "TRK001",
+          labelUrl: null,
+          rawResponse: "{}",
+        })),
+      } as any);
+
+      const res = await app.request("/api/orders/ord_1/dispatch", { method: "POST" });
+
+      expect(res.status).toBe(201);
+      expect(registry.getProvider).toHaveBeenCalled();
+    });
   });
 
   // ─── 5. autoValidate: validation failure silently advances status ──────────

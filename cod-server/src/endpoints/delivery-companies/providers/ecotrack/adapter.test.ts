@@ -94,6 +94,17 @@ describe("EcotrackProvider.createShipment", () => {
     expect(call.searchParams.get("code_postal")).toBe("16001");
   });
 
+  it("stop-desk order with no street address fills adresse with the pickup-point commune (required field)", async () => {
+    await provider.createShipment({
+      ...baseInput,
+      address: "",
+      stopDesk: true,
+      stationCode: "16001",
+    });
+
+    expect(server.callsFor("/api/v1/create/order")[0].searchParams.get("adresse")).toBe("Retrait bureau — Alger Centre");
+  });
+
   it("sends stop_desk=0 for home delivery", async () => {
     await provider.createShipment({ ...baseInput, stopDesk: false });
 
@@ -146,6 +157,74 @@ describe("EcotrackProvider.createShipment", () => {
     await expect(
       provider.createShipment({ ...baseInput, customerName: "" })
     ).rejects.toThrow("The given data was invalid.");
+  });
+});
+
+describe("EcotrackProvider host redirect (dhd.ecotrack.dz → platform.dhd-dz.com)", () => {
+  let server: EcotrackMockServer;
+  let provider: EcotrackProvider;
+  let originalFetch: typeof fetch;
+
+  beforeEach(() => {
+    server = createEcotrackMockServer({ token: TOKEN });
+    provider = new EcotrackProvider(TOKEN, server.baseUrl);
+    originalFetch = global.fetch;
+    global.fetch = server.fetch as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it("re-issues the redirected POST (never a GET) and keeps query params + Bearer auth", async () => {
+    let hits = 0;
+    server.override("/api/v1/create/order", (req) => {
+      hits += 1;
+      if (hits === 1) {
+        return new Response(null, {
+          status: 301,
+          headers: { location: `/api/v1/create/order?${req.searchParams.toString()}` },
+        });
+      }
+      return new Response(JSON.stringify({ success: true, tracking: "ECMOCK0000000042" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    const result = await provider.createShipment(baseInput);
+
+    const calls = server.callsFor("/api/v1/create/order");
+    expect(calls).toHaveLength(2);
+    for (const call of calls) expect(call.method).toBe("POST");
+    expect(calls[1].headers["authorization"]).toBe(`Bearer ${TOKEN}`);
+    expect(calls[1].searchParams.get("nom_client")).toBe("Karim Benali");
+    expect(calls[1].searchParams.get("montant")).toBe("4500");
+    expect(result.trackingNumber).toBe("ECMOCK0000000042");
+  });
+
+  it("re-issues a JSON-body redirect with the body intact (bulk create)", async () => {
+    let hits = 0;
+    server.override("/api/v1/create/orders", (req) => {
+      hits += 1;
+      if (hits === 1) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: "/api/v1/create/orders" },
+        });
+      }
+      return new Response(JSON.stringify({ results: {} }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    await provider.createShipmentsBulk([baseInput]);
+
+    const calls = server.callsFor("/api/v1/create/orders");
+    expect(calls).toHaveLength(2);
+    for (const call of calls) expect(call.method).toBe("POST");
+    expect(calls[1].body).toBe(calls[0].body);
   });
 });
 
