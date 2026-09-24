@@ -213,7 +213,6 @@ export const fr: StoreFrontContent = {
   ariaBrowseCategoryProducts: "Parcourir les produits {category}",
   ariaProductCard: "{name} - {price} {currency}",
   ariaStarRating: "{n} étoile{s}",
-  navContact: "Contactez-nous",
   thankYouPageTitle: "Commande reçue",
   defaultMetaDescription: "Achetez chez {storeName} - Les meilleurs produits à des prix abordables avec livraison dans toutes les wilayas",
 

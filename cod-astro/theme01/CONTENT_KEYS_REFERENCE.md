@@ -169,7 +169,6 @@ updating **all three** files — TypeScript fails the build otherwise.
 | `reviewFormMinLengthError`, `reviewFormRatingRequired` | Review validation errors |
 | `offerSaveBadge`, `offerSavingsText`, `offerUnitLabel` | Offer savings UI (`offerSaveBadge` uses `{n}`; `offerSavingsText` uses `{amount}` + `{currency}`; `offerUnitLabel` uses `{n}`) |
 | `ariaMainNavigation`, `ariaQuantity`, `ariaGoToImage`, `ariaBrowseAllProducts`, `ariaBrowseCategoryProducts`, `ariaProductCard`, `ariaStarRating` | Accessibility labels |
-| `navContact` | Contact nav label |
 | `thankYouPageTitle` | `<title>` for the thank-you page |
 | `defaultMetaDescription` | Default meta description — uses `{storeName}` |
 
