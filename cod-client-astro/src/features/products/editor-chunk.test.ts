@@ -1,9 +1,10 @@
 import { execSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const root = process.cwd();
+const root = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
 const clientDir = join(root, "dist/client");
 const astroDir = join(clientDir, "_astro");
 
@@ -42,7 +43,15 @@ describe("description editor lazy-mount (ADR 0002, locked decision #1)", () => {
     let chunks = chunkFiles();
     const hasEditorChunk = chunks.some((c) => EDITOR_CHUNK_RE.test(c.split("/").pop() as string));
     if (!hasEditorChunk) {
-      execSync("npm run build", { cwd: root, stdio: "inherit", timeout: 15 * 60_000 });
+      execSync("npm run build", {
+        cwd: root,
+        stdio: "inherit",
+        timeout: 15 * 60_000,
+        env: {
+          ...process.env,
+          PUBLIC_API_URL: process.env.PUBLIC_API_URL || "http://localhost:8787",
+        },
+      });
       chunks = chunkFiles();
     }
     expect(chunks.length, "client build produced no chunks").toBeGreaterThan(0);
