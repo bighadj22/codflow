@@ -152,6 +152,18 @@ describe("clauses appear only when the merchant fact behind them exists", () => 
       expect(html, locale).toContain("5");
     }
   });
+
+  it("orders the delivery window even when the profile stores it backwards", () => {
+    const facts: StoreLegalFacts = {
+      ...BARE,
+      deliveryMinDays: 8,
+      deliveryMaxDays: 3,
+    };
+    const html = renderLegalTemplate("shipping", "en", facts).bodyHtml;
+    expect(html).toContain("3");
+    expect(html).toContain("8");
+    expect(html).not.toContain("8 to 3");
+  });
 });
 
 describe("the three locales stay one policy in three languages", () => {

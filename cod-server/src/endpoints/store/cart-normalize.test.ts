@@ -266,6 +266,18 @@ describe("normalizeOrderLines — bounds", () => {
       expect((err as CartValidationError).detail).toMatchObject({ quantity: 120 });
     }
   });
+
+  it("rejects zero and negative quantities even before the cap check", () => {
+    for (const bad of [0, -1, Number.NaN]) {
+      expect(() => normalizeOrderLines({ ...base, quantity: bad })).toThrow(CartValidationError);
+    }
+    expect(() =>
+      normalizeOrderLines({
+        ...base,
+        items: [{ productId: "prod_1", productName: "T", quantity: 0 }],
+      }),
+    ).toThrow(CartValidationError);
+  });
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

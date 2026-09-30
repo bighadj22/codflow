@@ -30,12 +30,27 @@ export interface RenderedLegalPage {
   readonly templateVersion: number;
 }
 
+function normalizeDeliveryWindow(facts: StoreLegalFacts): StoreLegalFacts {
+  const sanitize = (value: number): number => {
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(0, Math.trunc(value));
+  };
+  const minDays = sanitize(facts.deliveryMinDays);
+  const maxDays = sanitize(facts.deliveryMaxDays);
+  return {
+    ...facts,
+    deliveryMinDays: Math.min(minDays, maxDays),
+    deliveryMaxDays: Math.max(minDays, maxDays),
+  };
+}
+
 export function renderLegalTemplate(
   kind: LegalPageKind,
   locale: PageLocale,
   facts: StoreLegalFacts,
 ): RenderedLegalPage {
-  const document = TEMPLATES[locale][kind](facts);
+  const normalizedFacts = normalizeDeliveryWindow(facts);
+  const document = TEMPLATES[locale][kind](normalizedFacts);
   return {
     title: document.title,
     metaDescription: document.metaDescription,
@@ -76,6 +91,8 @@ export function legalFactsFrom(
     if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
     return Math.max(0, Math.trunc(value));
   };
+  const minDays = days(profile?.deliveryMinDays, 2);
+  const maxDays = days(profile?.deliveryMaxDays, 7);
 
   return {
     storeName: store.name,
@@ -86,7 +103,7 @@ export function legalFactsFrom(
     contactEmail: text(profile?.contactEmail),
     contactPhone: text(profile?.contactPhone),
     returnWindowDays: days(profile?.returnWindowDays, 0),
-    deliveryMinDays: days(profile?.deliveryMinDays, 2),
-    deliveryMaxDays: days(profile?.deliveryMaxDays, 7),
+    deliveryMinDays: Math.min(minDays, maxDays),
+    deliveryMaxDays: Math.max(minDays, maxDays),
   };
 }
