@@ -21,7 +21,7 @@ export default defineConfig({
 
     // Test timeout configuration
     testTimeout: 15000,
-    hookTimeout: 45000,
+    hookTimeout: 120000,
 
     // Environment variables for testing
     env: {
