@@ -13,5 +13,16 @@
   },
   "overrides": {
     "vite": "^8.2.2"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.3": true,
+    "core-js-pure@3.50.0": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.18.20": true,
+    "esbuild@0.28.1": true,
+    "workerd@1.20260820.1": true,
+    "workerd@1.20260730.1": true,
+    "@parcel/watcher@2.6.0": true
   }
 }
