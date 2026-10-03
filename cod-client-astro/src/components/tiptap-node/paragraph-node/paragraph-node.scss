@@ -30,6 +30,8 @@
      ===================== */
 .tiptap.ProseMirror {
   white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   outline: none;
   caret-color: var(--tt-cursor-color);
 
@@ -39,6 +41,8 @@
     line-height: 1.6;
     font-weight: normal;
     margin-top: 20px;
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   // Selection styles

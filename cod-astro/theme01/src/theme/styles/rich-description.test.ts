@@ -90,6 +90,12 @@ describe("rich-description styles", () => {
     const section = cssNoComments.slice(cssNoComments.indexOf(SECTION_START));
     expect(section).toMatch(/\.rich-description table\s*\{[^}]*overflow-x:\s*auto/);
   });
+
+  it("wraps long continuous words and unbroken phrases to prevent page overflow", () => {
+    const section = cssNoComments.slice(cssNoComments.indexOf(SECTION_START));
+    expect(section).toMatch(/\.rich-description[^{}]*\{[^}]*overflow-wrap:\s*anywhere/);
+    expect(section).toMatch(/\.rich-description[^{}]*\{[^}]*word-break:\s*break-word/);
+  });
 });
 
 /**

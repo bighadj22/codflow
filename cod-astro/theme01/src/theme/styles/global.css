@@ -436,6 +436,21 @@ body.has-mobile-nav[data-sticky-cta="visible"] .wa-widget {
 .rich-description > :first-child { margin-top: 0; }
 .rich-description > :last-child { margin-bottom: 0; }
 
+.rich-description {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.rich-description p,
+.rich-description div,
+.rich-description span,
+.rich-description li {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
 .rich-description p { margin: 0 0 0.85em; }
 .rich-description strong, .rich-description b { font-weight: 800; color: var(--clr-text); }
 .rich-description em, .rich-description i { font-style: italic; }
