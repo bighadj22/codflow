@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { extname, join, relative } from "node:path";
+import { extname, join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const SOURCE_ROOT = join(import.meta.dirname, "..");
@@ -18,7 +18,7 @@ describe("toast feedback", () => {
   it("keeps react-hot-toast behind the shared host and adapter", () => {
     const imports = sourceFiles(SOURCE_ROOT)
       .filter((path) => /from\s+["']react-hot-toast["']/.test(readFileSync(path, "utf8")))
-      .map((path) => relative(SOURCE_ROOT, path))
+      .map((path) => relative(SOURCE_ROOT, path).split(sep).join("/"))
       .sort();
 
     expect(imports).toEqual(["components/ui/ToastHost.tsx", "lib/notify.ts"]);
