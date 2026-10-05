@@ -29,7 +29,7 @@
     "@tiptap/extension-highlight": "3.31.3",
     "@tiptap/extension-horizontal-rule": "3.31.3",
     "@tiptap/extension-image": "3.31.3",
-    "@tiptap/extension-list": "3.31.3",
+    "@tiptap/extension-list": "3.31.4",
     "@tiptap/extension-subscript": "3.31.3",
     "@tiptap/extension-superscript": "3.31.3",
     "@tiptap/extension-text-align": "3.31.3",
