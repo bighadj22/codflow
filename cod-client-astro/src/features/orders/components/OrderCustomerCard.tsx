@@ -2,11 +2,18 @@ import { Mail, MapPin, Phone, UserRound } from "lucide-react";
 import { Card } from "@/components/ui";
 import { useT } from "@/i18n/react";
 import type { OrderDetail } from "@/features/orders/types";
+import { CustomerHistoryBadge } from "@/features/orders/components/CustomerHistoryBadge";
 
 interface OrderCustomerCardProps {
   order: Pick<
     OrderDetail,
-    "customerName" | "phone" | "wilaya" | "commune" | "address" | "customerEmail"
+    | "customerName"
+    | "phone"
+    | "wilaya"
+    | "commune"
+    | "address"
+    | "customerEmail"
+    | "customerHistory"
   >;
 }
 
@@ -44,6 +51,9 @@ export function OrderCustomerCard({ order }: OrderCustomerCardProps) {
                 <Mail size={13} />
                 {order.customerEmail}
               </a>
+            )}
+            {order.customerHistory && (
+              <CustomerHistoryBadge history={order.customerHistory} />
             )}
           </div>
         </div>

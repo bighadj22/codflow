@@ -16,6 +16,7 @@ import {
   shipmentUpdateFieldSupport,
   sortOrders,
   abandonedBasketView,
+  customerHistoryTone,
 } from "./model";
 import type { OrderListItem } from "./types";
 
@@ -373,5 +374,34 @@ describe("abandonedBasketView", () => {
     expect(abandonedBasketView({ items: null, productName: null, variantLabel: null })).toEqual({
       kind: "unknown",
     });
+  });
+});
+
+describe("customerHistoryTone", () => {
+  const history = (delivered: number, returned: number, cancelled = 0, inProgress = 0) => ({
+    total: delivered + returned + cancelled + inProgress,
+    delivered,
+    returned,
+    cancelled,
+  });
+
+  it("flags a first-time customer as new", () => {
+    expect(customerHistoryTone(history(0, 0))).toBe("new");
+  });
+
+  it("is pending while no past order reached the carrier outcome", () => {
+    expect(customerHistoryTone(history(0, 0, 0, 2))).toBe("pending");
+    // Cancellations may be the merchant's call — they never colour the badge.
+    expect(customerHistoryTone(history(0, 0, 3))).toBe("pending");
+  });
+
+  it("is reliable when deliveries outnumber returns", () => {
+    expect(customerHistoryTone(history(3, 1))).toBe("reliable");
+    expect(customerHistoryTone(history(1, 0, 4))).toBe("reliable");
+  });
+
+  it("is risky when returns match or exceed deliveries", () => {
+    expect(customerHistoryTone(history(1, 1))).toBe("risky");
+    expect(customerHistoryTone(history(0, 2))).toBe("risky");
   });
 });

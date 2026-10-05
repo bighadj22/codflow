@@ -97,10 +97,19 @@ export interface OrderListItem extends OrderBase {
   lastUpdatedBy?: string | null;
 }
 
+/** How the same customer's OTHER orders ended (current order excluded). */
+export interface CustomerHistory {
+  total: number;
+  delivered: number;
+  returned: number;
+  cancelled: number;
+}
+
 export interface OrderDetail extends OrderBase {
   products: OrderProduct[];
   statusHistory: StatusHistoryItem[];
   labelUrl?: string | null;
+  customerHistory?: CustomerHistory;
 }
 
 export interface Driver {

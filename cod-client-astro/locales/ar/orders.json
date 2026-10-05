@@ -205,7 +205,14 @@
     "tracking_encaissed": "تم تحصيل المبلغ",
     "tracking_payed": "تم الدفع",
     "custom_answers": "إجابات العميل",
-    "custom_answers_note": "إجابات أسئلتك الخاصة في نموذج الطلب. لا تُرسل أبداً لشركات التوصيل."
+    "custom_answers_note": "إجابات أسئلتك الخاصة في نموذج الطلب. لا تُرسل أبداً لشركات التوصيل.",
+    "customer_history": {
+      "new": "زبون جديد",
+      "pending": "طلبات سابقة قيد المعالجة",
+      "reliable": "زبون موثوق",
+      "risky": "إرجاع متكرر",
+      "summary": "طلبات سابقة: {total} · سُلّمت: {delivered} · أُرجعت: {returned} · أُلغيت: {cancelled}"
+    }
   },
   "next_status": {
     "new": "تأكيد الطلب",

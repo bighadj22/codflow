@@ -25,6 +25,7 @@ import {
 import type { OrderStatus } from "../db/schema";
 import {
   eq,
+  ne,
   desc,
   and,
   like,
@@ -138,6 +139,55 @@ export async function getAllOrders(db: AppDb, filters: OrderFilters = {}) {
     .all();
 }
 
+// ─── Customer delivery history (order detail badge) ──────────────────────────
+
+/**
+ * How this customer's OTHER orders ended. Customers are unique per phone
+ * (idx_customers_phone_unique), so customer_id is the phone's identity and
+ * the lookup rides idx_orders_customer.
+ *
+ * `total` counts every other order; the three outcome counts cover only
+ * terminal orders, so `total - delivered - returned - cancelled` is the
+ * number still in progress.
+ */
+export interface CustomerOrderHistory {
+  total: number;
+  delivered: number;
+  returned: number;
+  cancelled: number;
+}
+
+/** Per-status counts of the customer's orders, excluding `excludeOrderId`. */
+export function customerOrderStatusCountsQuery(
+  db: AppDb,
+  customerId: string,
+  excludeOrderId: string,
+) {
+  return db
+    .select({
+      status: orders.status,
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(orders)
+    .where(and(eq(orders.customerId, customerId), ne(orders.id, excludeOrderId)))
+    .groupBy(orders.status);
+}
+
+/** Fold per-status count rows into the history summary. */
+export function summarizeCustomerHistory(
+  rows: Array<{ status: OrderStatus; count: number }>,
+): CustomerOrderHistory {
+  const history: CustomerOrderHistory = { total: 0, delivered: 0, returned: 0, cancelled: 0 };
+  for (const row of rows) {
+    const count = Number(row.count) || 0;
+    history.total += count;
+    if (row.status === "delivered") history.delivered += count;
+    else if (row.status === "returned") history.returned += count;
+    else if (row.status === "cancelled") history.cancelled += count;
+  }
+  return history;
+}
+
 export async function getOrderById(db: AppDb, orderId: string) {
   const order = await db
     .select({
@@ -159,7 +209,7 @@ export async function getOrderById(db: AppDb, orderId: string) {
 
   if (!order) return null;
 
-  const [orderProductsList, historyRows] = await db.batch([
+  const [orderProductsList, historyRows, customerStatusRows] = await db.batch([
     db.select().from(orderProducts).where(eq(orderProducts.orderId, orderId)),
     db
       .select({
@@ -174,10 +224,12 @@ export async function getOrderById(db: AppDb, orderId: string) {
       .leftJoin(users, eq(orderStatusHistory.by, users.id))
       .where(eq(orderStatusHistory.orderId, orderId))
       .orderBy(desc(orderStatusHistory.timestamp)),
+    customerOrderStatusCountsQuery(db, order.customerId, orderId),
   ]);
 
   return {
     ...order,
+    customerHistory: summarizeCustomerHistory(customerStatusRows),
     products: orderProductsList,
     statusHistory: historyRows.map((h) => ({
       id: h.id,
