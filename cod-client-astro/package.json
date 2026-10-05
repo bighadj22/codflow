@@ -36,7 +36,7 @@
     "@tiptap/extension-typography": "3.31.3",
     "@tiptap/extensions": "3.31.3",
     "@tiptap/pm": "3.31.3",
-    "@tiptap/react": "3.31.3",
+    "@tiptap/react": "3.31.4",
     "@tiptap/starter-kit": "3.31.3",
     "astro": "^7.3.2",
     "better-auth": "^1.7.1",
