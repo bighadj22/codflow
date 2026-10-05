@@ -2,6 +2,7 @@ import type { Locale } from "@/i18n/config";
 import type {
   AbandonedOrder,
   AbandonedOrderStatus,
+  CustomerHistory,
   OrderListItem,
   OrderStatus,
 } from "./types";
@@ -465,4 +466,23 @@ export function filterAbandonedOrders(
       return false;
     return true;
   });
+}
+
+// ─── Customer delivery history badge ────────────────────────────────────────
+
+export type CustomerHistoryTone = "new" | "pending" | "reliable" | "risky";
+
+/**
+ * Classify a customer's past orders for the order detail badge.
+ * Only carrier outcomes judge the customer: a cancellation may be the
+ * merchant's own call, so it is shown but never colours the badge.
+ *   new      → no other orders
+ *   pending  → other orders exist but none delivered or returned yet
+ *   risky    → returns at least match deliveries
+ *   reliable → more deliveries than returns
+ */
+export function customerHistoryTone(history: CustomerHistory): CustomerHistoryTone {
+  if (history.total === 0) return "new";
+  if (history.delivered === 0 && history.returned === 0) return "pending";
+  return history.returned >= history.delivered ? "risky" : "reliable";
 }

@@ -209,6 +209,20 @@ export const OrderListItemSchema = OrderBaseSchema.extend({
 // ─── Detail View (for GET /orders/{id}) ───────────────────────────────────────
 
 /**
+ * How the same customer's OTHER orders ended (the current order excluded).
+ * Outcome counts cover terminal orders only; total minus the three outcome
+ * counts = orders still in progress.
+ */
+export const CustomerHistorySchema = z
+  .object({
+    total: z.number().int().openapi({ description: "Other orders by this customer", example: 5 }),
+    delivered: z.number().int().openapi({ example: 3 }),
+    returned: z.number().int().openapi({ example: 1 }),
+    cancelled: z.number().int().openapi({ example: 0 }),
+  })
+  .openapi("CustomerHistory");
+
+/**
  * Full order detail - includes products and status history
  */
 export const OrderDetailSchema = OrderBaseSchema.extend({
@@ -217,6 +231,10 @@ export const OrderDetailSchema = OrderBaseSchema.extend({
   }),
   statusHistory: z.array(StatusHistoryItemSchema).optional().openapi({
     description: "Full status change log. Included in GET /api/orders/{id} (detail view only).",
+  }),
+  customerHistory: CustomerHistorySchema.optional().openapi({
+    description:
+      "How this customer's other orders ended. Included in GET /api/orders/{id} (detail view only).",
   }),
 }).openapi("Order", {
   description: "Complete order record with products and status history",

@@ -205,7 +205,14 @@
     "tracking_encaissed": "Montant encaissé",
     "tracking_payed": "Paiement effectué",
     "custom_answers": "Réponses du client",
-    "custom_answers_note": "Réponses à vos propres questions de commande. Elles ne sont jamais envoyées aux transporteurs."
+    "custom_answers_note": "Réponses à vos propres questions de commande. Elles ne sont jamais envoyées aux transporteurs.",
+    "customer_history": {
+      "new": "Nouveau client",
+      "pending": "Commandes précédentes en cours",
+      "reliable": "Client fiable",
+      "risky": "Retours fréquents",
+      "summary": "Commandes précédentes : {total} · livrées : {delivered} · retournées : {returned} · annulées : {cancelled}"
+    }
   },
   "next_status": {
     "new": "Confirmer la commande",

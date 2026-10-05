@@ -205,7 +205,14 @@
     "tracking_encaissed": "Payment collected",
     "tracking_payed": "Paid out",
     "custom_answers": "Customer answers",
-    "custom_answers_note": "Answers to your own checkout questions. They are never sent to carriers."
+    "custom_answers_note": "Answers to your own checkout questions. They are never sent to carriers.",
+    "customer_history": {
+      "new": "New customer",
+      "pending": "Previous orders in progress",
+      "reliable": "Reliable customer",
+      "risky": "Frequent returns",
+      "summary": "Previous orders: {total} · delivered: {delivered} · returned: {returned} · cancelled: {cancelled}"
+    }
   },
   "next_status": {
     "new": "Confirm Order",
