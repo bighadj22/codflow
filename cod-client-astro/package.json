@@ -27,7 +27,7 @@
     "@radix-ui/react-popover": "^1.1.23",
     "@tailwindcss/vite": "^4.3.3",
     "@tiptap/extension-highlight": "3.31.3",
-    "@tiptap/extension-horizontal-rule": "3.31.3",
+    "@tiptap/extension-horizontal-rule": "3.31.4",
     "@tiptap/extension-image": "3.31.3",
     "@tiptap/extension-list": "3.31.3",
     "@tiptap/extension-subscript": "3.31.3",
