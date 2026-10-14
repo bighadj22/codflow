@@ -74,6 +74,19 @@ describe("pages that take an order", () => {
 
     expect(missing).toEqual([]);
   });
+
+  it("every one of them submits over fetch so a failure keeps every answer", () => {
+    // Without order-submit.ts the form posts natively: any rejection
+    // (mistyped digit, policy refusal, transient API error) re-renders the
+    // page from scratch with every field empty and no order created. The
+    // landing page shipped exactly that way once — ad traffic filled the
+    // form, tapped once, and got a blank form back.
+    const missing = checkoutPages()
+      .filter((page) => !page.scripts.has("order-submit"))
+      .map((page) => relative(PAGES, page.file));
+
+    expect(missing).toEqual([]);
+  });
 });
 
 describe("the checkout page", () => {
