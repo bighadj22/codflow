@@ -28,6 +28,12 @@ generic key and name the tenant yourself — it must be a `*.ecotrack.dz` host:
   "options": { "baseUrl": "https://yourname.ecotrack.dz" } }
 ```
 
+Caveat: the `courier` key is **not always** the tenant host. 48Hr Livraison's
+key is `e48hrlivraison`, but its API host is `https://48hr.ecotrack.dz`
+(verified 2026-10-08 — `GET /api/v1/validate/token` answers `VALID_TOKEN`).
+Never guess a URL from the key: probe `GET /api/v1/validate/token` first and
+record any mismatch in `CONFORMANCE.md`.
+
 ## The 82 Ecotrack couriers
 
 

@@ -139,7 +139,21 @@ function initAbandonmentTracking() {
     return isValidName(data.customerName) && isValidPhone(data.phone);
   }
 
+  /**
+   * Set the moment the order form is submitted.
+   *
+   * A submit is a navigation: the page unloads and `pagehide` would fire the
+   * exit beacon, recording an abandonment for a shopper who is actually
+   * buying. Worse, that beacon races the thank-you page's convert call — if it
+   * lands after it, the freshly placed order is left recorded as a `pending`
+   * abandoned checkout, i.e. it shows up in the merchant's callback list. Once
+   * the shopper commits, this session is no longer an abandonment, so all
+   * capture stops.
+   */
+  let submitted = false;
+
   async function sendAbandonment() {
+    if (submitted) return;
     const data = collectFormData();
     if (!isCapturable(data)) return;
 
@@ -161,6 +175,7 @@ function initAbandonmentTracking() {
    * and survives navigation/tab close where fetch would be killed.
    */
   function sendBeaconOnExit() {
+    if (submitted) return;
     const data = collectFormData();
     if (!isCapturable(data)) return;
     try {
@@ -202,6 +217,33 @@ function initAbandonmentTracking() {
       if (hasSentInitial) void sendAbandonment();
     });
   }
+
+  /**
+   * Whether this submit is still parked on the OTP step.
+   *
+   * `otp-step.ts` intercepts the first submit (capture-phase `preventDefault`)
+   * to show the code step, and copies its verified/bypass token into
+   * `#otp-token-input` only when the order may proceed. `#otp-step` renders
+   * only when the store enables verification; the token field always exists,
+   * so the step is the on/off signal and the token is the verified signal.
+   */
+  function otpPending(form: HTMLFormElement): boolean {
+    if (!form.querySelector("#otp-step")) return false;
+    const token = form.querySelector<HTMLInputElement>("#otp-token-input");
+    return !token || token.value.trim() === "";
+  }
+
+  // The shopper committed: stop capturing. Bubble phase, because the OTP gate
+  // is a capture-phase listener on the form: by the time the event reaches the
+  // document it has either let the order through (token present) or parked it
+  // on the code step (token empty, no order placed).
+  document.addEventListener("submit", (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.querySelector("#f-phone")) return;
+    if (otpPending(form)) return;
+    submitted = true;
+    if (debounceTimer) clearTimeout(debounceTimer);
+  });
 
   // Capture shoppers who close the tab or navigate away mid-checkout
   window.addEventListener("pagehide", sendBeaconOnExit);

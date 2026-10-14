@@ -69,6 +69,8 @@ vi.mock("@/endpoints/products/ai-tools", () => ({
     "updateProductDetails",
     "updateProductStatus",
     "deleteProduct",
+    "uploadProductImage",
+    "uploadProductImage",
   ),
 }));
 
@@ -330,6 +332,7 @@ const ALL_TOOLS = [
   "updateVariant",
   "updateVariantStockThreshold",
   "uploadLandingPageImage",
+  "uploadProductImage",
 ];
 
 describe("buildToolsForUser — scope gating", () => {
@@ -418,6 +421,12 @@ describe("buildToolsForUser — scope gating", () => {
       "updateLandingPage",
       "uploadLandingPageImage",
     ]);
+  });
+
+  it("PRODUCTS_MANAGE grants the product image upload tool", () => {
+    expect(names(makeProps({ scopes: [SCOPES.PRODUCTS_MANAGE] }))).toContain(
+      "uploadProductImage",
+    );
   });
 
   it("passes (env, props) through to factory build calls — identity and bindings reach tool domains", () => {

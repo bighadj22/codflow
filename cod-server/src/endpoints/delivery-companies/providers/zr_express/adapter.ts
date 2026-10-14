@@ -26,17 +26,19 @@
  *  getTrackingInfo       → GET /v1/parcels/{trackingNumber} → GET /v1/parcels/{id}/state-history
  *  getStopDesks          → POST /v1/hubs/search (+ territory wilaya map)
  *  getLabelUrl           → POST /v1/parcels/labels/individual/pdf
+ *  verifyConnection      → GET /v1/users/profile (auth probe + tenant memberships)
  */
 
 import type {
   DeliveryProvider,
+  ConnectionCheck,
   CreateShipmentInput,
   CreateShipmentResult,
   StopDesk,
   TrackingEvent,
   UpdateShipmentInput,
 } from "../types";
-import { flattenErrorBag } from "../utils";
+import { CarrierHttpError, bodySnippet, flattenErrorBag, nonBlank } from "../utils";
 import type {
   ZrCreateCustomerRequest,
   ZrCreateCustomerResponse,
@@ -58,6 +60,8 @@ import type {
   ZrGenerateLabelResponse,
   ZrHubItem,
   ZrPagedListHubs,
+  ZrUserProfile,
+  ZrTenantMembership,
 } from "./types";
 import { stripAccents } from "./text";
 
@@ -85,7 +89,7 @@ export class ZrExpressProvider implements DeliveryProvider {
   // ─── HTTP helpers ──────────────────────────────────────────────────────────
 
   private parseError(json: unknown, status: number): Error {
-    const j = json as {
+    const j = (json ?? {}) as {
       title?: string;
       detail?: string;
       message?: string;
@@ -93,9 +97,56 @@ export class ZrExpressProvider implements DeliveryProvider {
     };
     const fieldErrors = flattenErrorBag(j.errors);
     const msg = [j.title, j.detail, fieldErrors].filter(Boolean).join(" — ")
-      || j.message
+      || nonBlank(j.message)
       || `ZR Express HTTP ${status}`;
-    return new Error(msg);
+    return new CarrierHttpError(msg, status);
+  }
+
+  /**
+   * Shared response reader. ZR answers some failures as plain text (an invalid
+   * key returns `Invalid API Key` with no JSON), and some endpoints (PATCH
+   * /amount) return 204 with no body — both are surfaced instead of being
+   * swallowed by a blanket `res.json()`.
+   */
+  private async readJson<TRes>(res: Response, allowEmptyBody = false): Promise<TRes> {
+    const rawText = await res.text();
+    const trimmed = rawText.trim();
+
+    if (!trimmed) {
+      if (allowEmptyBody) {
+        if (!res.ok) throw this.parseError(null, res.status);
+        return {} as TRes;
+      }
+      throw new CarrierHttpError(
+        `ZR Express HTTP ${res.status} — empty response body`,
+        res.status
+      );
+    }
+
+    let json: unknown = null;
+    let parsed = false;
+    try {
+      json = JSON.parse(rawText);
+      parsed = true;
+    } catch {
+      // Non-JSON body — handled below.
+    }
+    if (!parsed) {
+      if (!res.ok) {
+        const snippet = nonBlank(bodySnippet(rawText));
+        throw new CarrierHttpError(
+          `ZR Express HTTP ${res.status}${snippet ? ` (body: ${snippet})` : ""}`,
+          res.status
+        );
+      }
+      throw new CarrierHttpError(
+        `ZR Express HTTP ${res.status} — response is not valid JSON (body: ${bodySnippet(rawText)})`,
+        res.status
+      );
+    }
+
+    if (!res.ok) throw this.parseError(json, res.status);
+    return json as TRes;
   }
 
   private headers(): HeadersInit {
@@ -112,14 +163,7 @@ export class ZrExpressProvider implements DeliveryProvider {
       method: "GET",
       headers: this.headers(),
     });
-    let json: unknown;
-    try {
-      json = await res.json();
-    } catch {
-      throw new Error(`ZR Express HTTP ${res.status} — response is not valid JSON`);
-    }
-    if (!res.ok) throw this.parseError(json, res.status);
-    return json as TRes;
+    return this.readJson<TRes>(res);
   }
 
   private async post<TReq, TRes>(path: string, body: TReq): Promise<TRes> {
@@ -128,14 +172,7 @@ export class ZrExpressProvider implements DeliveryProvider {
       headers: this.headers(),
       body: JSON.stringify(body),
     });
-    let json: unknown;
-    try {
-      json = await res.json();
-    } catch {
-      throw new Error(`ZR Express HTTP ${res.status} — response is not valid JSON`);
-    }
-    if (!res.ok) throw this.parseError(json, res.status);
-    return json as TRes;
+    return this.readJson<TRes>(res);
   }
 
   /**
@@ -153,17 +190,7 @@ export class ZrExpressProvider implements DeliveryProvider {
       headers: this.headers(),
       body: JSON.stringify(body),
     });
-    const text = await res.text();
-    let json: unknown = text ? undefined : {};
-    if (text) {
-      try {
-        json = JSON.parse(text);
-      } catch {
-        throw new Error(`ZR Express HTTP ${res.status} — response is not valid JSON`);
-      }
-    }
-    if (!res.ok) throw this.parseError(json, res.status);
-    return (json ?? {}) as TRes;
+    return this.readJson<TRes>(res, true);
   }
 
   private async delete<TReq, TRes>(path: string, body: TReq): Promise<TRes> {
@@ -172,17 +199,70 @@ export class ZrExpressProvider implements DeliveryProvider {
       headers: this.headers(),
       body: JSON.stringify(body),
     });
-    const text = await res.text();
-    let json: unknown = text ? undefined : {};
-    if (text) {
-      try {
-        json = JSON.parse(text);
-      } catch {
-        throw new Error(`ZR Express HTTP ${res.status} — response is not valid JSON`);
+    return this.readJson<TRes>(res, true);
+  }
+
+  // ─── Connection check ────────────────────────────────────────────────────────
+
+  /**
+   * GET /users/profile — ZR's documented auth probe (200 when X-Api-Key and
+   * X-Tenant are both accepted). A refused key is a negative check outcome,
+   * not a transport failure, so it answers ok:false carrying ZR's own wording;
+   * network and 5xx errors are rethrown and reported as 502.
+   * The profile's memberships list the tenants the key may reach, which is
+   * what tells a wrong X-Tenant apart from a wrong key.
+   */
+  async verifyConnection(): Promise<ConnectionCheck> {
+    try {
+      const profile = await this.get<ZrUserProfile>(`/api/v${API_VERSION}/users/profile`);
+      const memberships = (profile.memberships ?? []).filter((m) =>
+        Boolean(m && nonBlank(m.tenantId))
+      );
+      const displayName = [profile.firstName, profile.lastName]
+        .map((part) => nonBlank(part))
+        .filter((part): part is string => Boolean(part))
+        .join(" ");
+      const user = nonBlank(displayName, profile.email);
+      const details: Record<string, unknown> = {};
+      if (user) details.user = user;
+      if (memberships.length > 0) {
+        details.tenants = memberships.map((m) => ({
+          tenantId: m.tenantId,
+          tenantName: nonBlank(m.tenantName) ?? null,
+          isActive: m.isActive ?? null,
+        }));
       }
+
+      if (memberships.length > 0 && !memberships.some((m) => m.tenantId === this.tenantId)) {
+        return {
+          ok: false,
+          code: "tenant_mismatch",
+          message: `API key is valid, but it does not belong to tenant ${this.tenantId}`,
+          details,
+        };
+      }
+
+      return {
+        ok: true,
+        code: "valid",
+        message: user ? `Connected as ${user}` : "API key is valid",
+        ...(Object.keys(details).length > 0 ? { details } : {}),
+      };
+    } catch (err) {
+      if (
+        err instanceof CarrierHttpError &&
+        typeof err.statusCode === "number" &&
+        err.statusCode >= 400 &&
+        err.statusCode < 500
+      ) {
+        return {
+          ok: false,
+          code: err.statusCode === 401 ? "invalid_token" : "rejected",
+          message: nonBlank(err.message) ?? `ZR Express HTTP ${err.statusCode}`,
+        };
+      }
+      throw err;
     }
-    if (!res.ok) throw this.parseError(json, res.status);
-    return (json ?? {}) as TRes;
   }
 
   // ─── Territory resolution ──────────────────────────────────────────────────

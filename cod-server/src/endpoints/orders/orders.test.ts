@@ -607,6 +607,50 @@ describe("Orders — targeted business-logic tests", () => {
       );
     });
 
+    it("logs the carrier's HTTP status and message when createShipment fails", async () => {
+      vi.mocked(queries.getOrderById).mockResolvedValue(orderRow({ status: "ready" }) as any);
+      vi.mocked(deliveryCompanyQueries.getDeliveryCompanyRaw).mockResolvedValue(
+        companyRow({ autoValidate: false }) as any
+      );
+      vi.mocked(shipments.logApiCall).mockResolvedValue(undefined as any);
+
+      const carrierError = Object.assign(
+        new Error("ZR Express HTTP 401 (body: Invalid API Key)"),
+        { statusCode: 401 }
+      );
+      vi.mocked(registry.getProvider).mockReturnValue({
+        createShipment: vi.fn(async () => {
+          throw carrierError;
+        }),
+      } as any);
+      vi.mocked(registry.isEcotrackCompany).mockReturnValue(false);
+
+      mockDb = {
+        select: vi.fn(() => ({
+          from: vi.fn(() => ({
+            where: vi.fn(() => ({
+              get: vi.fn(async () => ({ name: "Alger", nameAr: "الجزائر" })),
+            })),
+          })),
+        })),
+        insert: vi.fn(() => ({ values: vi.fn(async () => undefined) })),
+        update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(async () => undefined) })) })),
+      };
+
+      const res = await app.request("/api/orders/ord_1/dispatch", { method: "POST" });
+
+      expect(res.status).toBeGreaterThanOrEqual(400);
+
+      const failureCall = vi
+        .mocked(shipments.logApiCall)
+        .mock.calls.find(([, payload]) => (payload as { success?: boolean }).success === false);
+      expect(failureCall).toBeTruthy();
+
+      const payload = failureCall![1] as { errorMessage?: string; httpStatus?: number };
+      expect(payload.errorMessage).toContain("Invalid API Key");
+      expect(payload.httpStatus).toBe(401);
+    });
+
     it("sends the COD total (price + deliveryFee) as the carrier amount", async () => {
       // orderRow: price 9000, deliveryFee 600 → carrier must collect 9600
       vi.mocked(queries.getOrderById).mockResolvedValue(orderRow({ status: "ready" }) as any);

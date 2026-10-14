@@ -1,0 +1,5 @@
+interface:
+  display_name: "WhatsApp OTP"
+  short_description: "Handle CodFlow checkout OTP verification through the dzverify flow"
+policy:
+  allow_implicit_invocation: false

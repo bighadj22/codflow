@@ -2,7 +2,11 @@ import { z } from "zod";
 import { CUSTOMER_TOOL_SCHEMAS, CUSTOMER_TOOL_OUTPUT_SCHEMAS } from "@/endpoints/customers/ai-tools";
 import { DRIVER_TOOL_SCHEMAS, DRIVER_TOOL_OUTPUT_SCHEMAS } from "@/endpoints/drivers/ai-tools";
 import { DRIVER_PAYMENT_TOOL_SCHEMAS, DRIVER_PAYMENT_TOOL_OUTPUT_SCHEMAS } from "@/endpoints/driver-payments/ai-tools";
-import { PRODUCT_TOOL_SCHEMAS, PRODUCT_TOOL_OUTPUT_SCHEMAS } from "@/endpoints/products/ai-tools";
+import {
+  PRODUCT_TOOL_SCHEMAS,
+  PRODUCT_TOOL_META,
+  PRODUCT_TOOL_OUTPUT_SCHEMAS,
+} from "@/endpoints/products/ai-tools";
 import { PRODUCT_GROUP_TOOL_SCHEMAS, PRODUCT_GROUP_TOOL_OUTPUT_SCHEMAS } from "@/endpoints/product-groups/ai-tools";
 import { OFFER_TOOL_SCHEMAS, OFFER_TOOL_OUTPUT_SCHEMAS } from "@/endpoints/offers/ai-tools";
 import {
@@ -93,7 +97,10 @@ export const TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = Object.assign(
  * tool call, since arguments are model-generated JSON and can never carry
  * image bytes.
  */
-const META_SOURCES: Record<string, Record<string, unknown>>[] = [LANDING_PAGE_TOOL_META];
+const META_SOURCES: Record<string, Record<string, unknown>>[] = [
+  PRODUCT_TOOL_META,
+  LANDING_PAGE_TOOL_META,
+];
 
 export const TOOL_META: Record<string, Record<string, unknown>> = Object.assign(
   {},

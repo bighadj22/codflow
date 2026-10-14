@@ -33,6 +33,16 @@ import {
 export const DEFERRED_LABEL_MARKER = "deferred";
 
 /**
+ * Carrier HTTP status carried by provider errors (CarrierHttpError,
+ * EcoTrackApiError) so failure logs keep `company_api_logs.http_status` filled
+ * instead of only the message text.
+ */
+function carrierHttpStatus(err: unknown): number | undefined {
+  const status = (err as { statusCode?: number } | null)?.statusCode;
+  return typeof status === "number" && Number.isInteger(status) ? status : undefined;
+}
+
+/**
  * Parcel weight summed from the order's variants.
  *
  * Only consulted when neither the dispatch modal nor the order itself carries
@@ -383,6 +393,7 @@ export async function dispatchToCompany(c: Context<AppContext>) {
       endpoint: logEndpoint,
       success: false,
       errorMessage,
+      httpStatus: carrierHttpStatus(err),
       durationMs,
     });
 
@@ -489,6 +500,7 @@ export async function validateShipmentManually(c: Context<AppContext>) {
       endpoint: resolveValidateLog(company.code),
       success: false,
       errorMessage,
+      httpStatus: carrierHttpStatus(err),
       durationMs,
     });
     throw new ExternalApiError(company.code, errorMessage, { orderId });
@@ -645,6 +657,7 @@ export async function bulkDispatch(c: Context<AppContext>) {
       endpoint: `${company.apiEndpoint ?? ""}/create/orders`,
       success: false,
       errorMessage,
+      httpStatus: carrierHttpStatus(err),
       durationMs: Date.now() - startMs,
     });
     throw new BusinessLogicError(errorMessage, ERROR_CODES.SHIPMENT_CREATION_FAILED, { provider: company.code });

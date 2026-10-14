@@ -93,7 +93,10 @@ check this table first when debugging "did we even call the carrier".
 - One adapter serves every `*.ecotrack.dz` tenant; onboarding a courier = a
   `delivery_companies` row, no code.
 - Courier key table lives in `about.md` (dzship keys like `dhd`, `conexlog`,
-  `msmgo`). Our code = `{key}_ecotrack`; base URL = `https://{key}.ecotrack.dz`.
+  `msmgo`). Our code = `{key}_ecotrack`; base URL = `https://{key}.ecotrack.dz`
+  for most tenants — **but the key is not always the URL** (48Hr Livraison:
+  key `e48hrlivraison`, host `https://48hr.ecotrack.dz`). Read the live host
+  from `delivery_companies.api_endpoint`, never from the code.
 - Generic fallback: code `ecotrack` + `apiEndpoint` = any `*.ecotrack.dz` host.
 - Capabilities may differ per tenant in PRACTICE (e.g. Packers bulk-create 500,
   forced-update fields) even though the platform API is identical. Record

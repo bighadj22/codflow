@@ -225,7 +225,7 @@ export const getOrderTools = (db: ReturnType<typeof getDb>) => ({
             driverName: o.driverName,
             trackingNumber: o.trackingNumber,
             companyId: o.companyId,
-            hasReview: o.hasReview,
+            hasReview: Boolean(o.hasReview),
             createdAt: o.createdAt,
             updatedAt: o.updatedAt,
           })),

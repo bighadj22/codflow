@@ -36,6 +36,7 @@ export const TOOL_TITLES: Record<string, string> = {
   updateProductDetails: "Update product details",
   updateProductStatus: "Update product status",
   deleteProduct: "Delete product",
+  uploadProductImage: "Upload product image",
 
   // ─── Product groups ───────────────────────────────────────────────────────
   listProductGroups: "List product groups",

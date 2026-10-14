@@ -1,0 +1,5 @@
+interface:
+  display_name: "Yalidine Integration"
+  short_description: "Use the official Yalidine/Guepex API docs and webhook guidance to implement delivery integration correctly"
+policy:
+  allow_implicit_invocation: false

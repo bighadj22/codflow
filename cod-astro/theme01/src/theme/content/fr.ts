@@ -106,6 +106,8 @@ export const fr: StoreFrontContent = {
   formRequiredField: "Veuillez choisir une option",
   formSubmit: "Confirmer la commande",
   formConfirmNote: "Notre équipe vous contactera pour confirmer votre commande dans les 24 heures",
+  formSubmitting: "Confirmation en cours...",
+  formErrorGeneric: "Impossible de finaliser la commande. Vérifiez vos informations et réessayez.",
 
   checkoutConsentText: "En passant cette commande, vous acceptez nos {terms} et notre {refund}.",
   // ── WhatsApp OTP verification ─────────────────────────────────────────────

@@ -81,8 +81,9 @@ describe("TOOL_ANNOTATIONS", () => {
     expect(TOOL_ANNOTATIONS["updateOrderStatus"]?.readOnlyHint).toBe(false);
   });
 
-  it("the upload tool is the only open-world tool (it fetches public image URLs)", () => {
+  it("the two image-upload tools are the only open-world tools (they fetch public image URLs)", () => {
     expect(TOOL_ANNOTATIONS["uploadLandingPageImage"]?.openWorldHint).toBe(true);
+    expect(TOOL_ANNOTATIONS["uploadProductImage"]?.openWorldHint).toBe(true);
     for (const name of TOOL_NAMES) {
       if (!OPEN_WORLD_TOOLS.has(name)) {
         expect(TOOL_ANNOTATIONS[name]?.openWorldHint, `${name} is not open-world`).toBe(false);

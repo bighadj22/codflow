@@ -21,10 +21,13 @@
 
 import { execSync } from "child_process";
 import { readFileSync } from "fs";
-import { createHash } from "crypto";
 import { fileURLToPath } from "url";
 import path from "path";
 import { getCloudEnv } from "./cloud-env.mjs";
+import {
+  storeApiKeyHashStatement,
+  storeApiKeyPlaintextStatement,
+} from "./lib/store-key.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -50,12 +53,8 @@ if (!rawKey) {
   rawKey = "codflow-dev-store-key";
 }
 
-// ── 2. Compute SHA-256 hash (matches storeAuthMiddleware) ─────────────────────
-const keyHash = createHash("sha256").update(rawKey).digest("hex");
-
 const ts      = new Date().toISOString();
 const storeId = "store-local-dev";
-const keyId   = "key-local-dev";
 
 // ── 3. Seed data ──────────────────────────────────────────────────────────────
 // Real UUIDs — deterministic per run is unnecessary; readability comes from
@@ -74,7 +73,7 @@ const MEDIA = "https://media.codflow.store/seed";
 const products = [
   // ── cat-accessories: إكسسوارات ──
   {
-    id: uuid(), name: "حقيبة يد بيج", handle: "haqiba-yad-beige",
+    id: uuid(), name: "حقيبة يد بيج", handle: "haqiba-yad-beige", sku: "haqiba-yad-beige",
     description: "حقيبة يد بيج أنيقة وعملية، مناسبة لجميع المناسبات.",
     price: 3800, compareAtPrice: 4500, categoryId: "cat-accessories",
     hasVariants: 1, inventory: 0, trackInventory: 0,
@@ -85,7 +84,7 @@ const products = [
     images: [`${MEDIA}/beige_crossbody_bag_option_1.webp`, `${MEDIA}/beige_crossbody_bag_option_2.webp`],
   },
   {
-    id: uuid(), name: "قارورة حرارية بيضاء", handle: "qarorra-harariya-baida",
+    id: uuid(), name: "قارورة حرارية بيضاء", handle: "qarorra-harariya-baida", sku: "qarorra-harariya-baida",
     description: "قارورة حرارية بيضاء تحفظ حرارة المشروبات لساعات طويلة.",
     price: 2200, compareAtPrice: null, categoryId: "cat-accessories",
     hasVariants: 0, inventory: 30, trackInventory: 1,
@@ -95,7 +94,7 @@ const products = [
   },
   // ── cat-electronics: إلكترونيات ──
   {
-    id: uuid(), name: "ساعة أنيقة", handle: "saaa-aniqa",
+    id: uuid(), name: "ساعة أنيقة", handle: "saaa-aniqa", sku: "saaa-aniqa",
     description: "ساعة أنيقة بتصميم عصري تناسب الإطلالات اليومية والرسمية.",
     price: 7500, compareAtPrice: 9000, categoryId: "cat-electronics",
     hasVariants: 1, inventory: 0, trackInventory: 0,
@@ -106,7 +105,7 @@ const products = [
     images: [`${MEDIA}/watch_product_option_2.webp`, `${MEDIA}/watch_product_option_2%20(1).webp`],
   },
   {
-    id: uuid(), name: "سماعات أنيقة", handle: "samaat-aniqa",
+    id: uuid(), name: "سماعات أنيقة", handle: "samaat-aniqa", sku: "samaat-aniqa",
     description: "سماعات لاسلكية بتصميم أنيق وجودة صوت عالية وبطارية طويلة.",
     price: 3200, compareAtPrice: 4000, categoryId: "cat-electronics",
     hasVariants: 0, inventory: 12, trackInventory: 1,
@@ -141,7 +140,8 @@ const statements = [];
 
 // Store + API key
 statements.push(`INSERT OR REPLACE INTO stores (id, name, domain, theme_id, primary_color, accent_color, bg_color, font_family, lang, currency, currency_symbol, reviews_enabled, status, created_at, updated_at) VALUES ('${storeId}', 'متجر التطوير', NULL, 'theme01', '#7c3aed', '#f59e0b', '#f8f8f8', 'Cairo, sans-serif', 'ar', 'DZD', 'دج', 1, 'active', '${ts}', '${ts}')`);
-statements.push(`INSERT OR REPLACE INTO store_api_keys (id, store_id, key_hash, name, created_at) VALUES ('${keyId}', '${storeId}', '${keyHash}', 'default', '${ts}')`);
+statements.push(storeApiKeyHashStatement({ storeId, rawKey, ts }));
+statements.push(storeApiKeyPlaintextStatement({ storeId, rawKey, ts }));
 
 // Categories
 for (const c of categories) {
@@ -155,8 +155,9 @@ for (const p of products) {
   const tags    = p.tags.replace(/'/g, "''");
   const varOpts = p.variantOptions ? `'${p.variantOptions.replace(/'/g, "''")}'` : "NULL";
   const compAt  = p.compareAtPrice !== null ? p.compareAtPrice : "NULL";
+  const sku     = p.sku.replace(/'/g, "''");
   statements.push(
-    `INSERT OR REPLACE INTO products (id, name, description, handle, currency, price, compare_at_price, cost_price, has_variants, variant_options, sku, inventory, track_inventory, category_id, tags, visibility, status, show_in_store, store_featured, deleted_at, created_at, updated_at) VALUES ('${p.id}', '${name}', '${desc}', '${p.handle}', 'DZD', ${p.price}, ${compAt}, NULL, ${p.hasVariants}, ${varOpts}, NULL, ${p.inventory}, ${p.trackInventory}, '${p.categoryId}', '${tags}', 1, 'ACTIVE', 1, ${p.storeFeatured}, NULL, '${ts}', '${ts}')`
+    `INSERT OR REPLACE INTO products (id, name, description, handle, currency, price, compare_at_price, cost_price, has_variants, variant_options, sku, inventory, track_inventory, category_id, tags, visibility, status, show_in_store, store_featured, deleted_at, created_at, updated_at) VALUES ('${p.id}', '${name}', '${desc}', '${p.handle}', 'DZD', ${p.price}, ${compAt}, NULL, ${p.hasVariants}, ${varOpts}, '${sku}', ${p.inventory}, ${p.trackInventory}, '${p.categoryId}', '${tags}', 1, 'ACTIVE', 1, ${p.storeFeatured}, NULL, '${ts}', '${ts}')`
   );
 }
 
@@ -206,5 +207,5 @@ console.log(`  categories : ${categories.length}`);
 console.log(`  products   : ${products.length} (${products.filter(p => p.storeFeatured).length} featured)`);
 console.log(`  variants   : ${variants.length}`);
 console.log(`  images     : ${images.length}`);
-console.log(`\n  rawKey     : ${rawKey.slice(0, 24)}...`);
+console.log(`  store key  : provisioned (digest + plaintext; not printed)`);
 console.log(`\n  target     : ${remote ? `remote D1 (${dbName})` : "local D1 (.wrangler-shared)"}\n`);

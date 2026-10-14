@@ -22,7 +22,7 @@ import type {
   TrackingEvent,
   StopDesk,
 } from "../types";
-import { flattenErrorBag } from "../utils";
+import { CarrierHttpError, bodySnippet, flattenErrorBag, nonBlank } from "../utils";
 import type {
   NoestCreateOrderRequest,
   NoestCreateOrderResponse,
@@ -68,16 +68,7 @@ export class NoestProvider implements DeliveryProvider {
       headers: this.headers(),
       body: JSON.stringify(body),
     });
-    let json: unknown;
-    try {
-      json = await res.json();
-    } catch {
-      throw new Error(`NOEST HTTP ${res.status} — response is not valid JSON`);
-    }
-    if (!res.ok) {
-      throw new Error((json as { message?: string }).message ?? `NOEST HTTP ${res.status}`);
-    }
-    return json as TRes;
+    return this.readJson<TRes>(res);
   }
 
   private async get<TRes>(path: string): Promise<TRes> {
@@ -85,14 +76,33 @@ export class NoestProvider implements DeliveryProvider {
       method: "GET",
       headers: this.headers(),
     });
-    let json: unknown;
-    try {
-      json = await res.json();
-    } catch {
-      throw new Error(`NOEST HTTP ${res.status} — response is not valid JSON`);
+    return this.readJson<TRes>(res);
+  }
+
+  private async readJson<TRes>(res: Response): Promise<TRes> {
+    const rawText = await res.text();
+    let json: unknown = null;
+    let parsed = false;
+    if (rawText) {
+      try {
+        json = JSON.parse(rawText);
+        parsed = true;
+      } catch {
+        // Non-JSON body — the snippet goes into the error below.
+      }
+    }
+    if (!parsed) {
+      const snippet = bodySnippet(rawText);
+      throw new CarrierHttpError(
+        `NOEST HTTP ${res.status} — response is not valid JSON${snippet ? ` (body: ${snippet})` : ""}`,
+        res.status
+      );
     }
     if (!res.ok) {
-      throw new Error((json as { message?: string }).message ?? `NOEST HTTP ${res.status}`);
+      const message = json && typeof json === "object"
+        ? nonBlank((json as { message?: string }).message)
+        : undefined;
+      throw new CarrierHttpError(message ?? `NOEST HTTP ${res.status}`, res.status);
     }
     return json as TRes;
   }
@@ -129,8 +139,11 @@ export class NoestProvider implements DeliveryProvider {
     );
 
     if (!res.tracking) {
-      const detail = flattenErrorBag(res.errors);
-      throw new Error(detail ?? res.message ?? "NOEST did not return a tracking number");
+      throw new Error(
+        nonBlank(flattenErrorBag(res.errors)) ??
+          nonBlank(res.message) ??
+          "NOEST did not return a tracking number"
+      );
     }
 
     return {
@@ -200,7 +213,7 @@ export class NoestProvider implements DeliveryProvider {
       "/api/public/valid/order",
       { user_guid: this.userGuid, tracking: trackingNumber }
     );
-    if (res.success === false) throw new Error(res.message ?? "NOEST validate failed");
+    if (res.success === false) throw new Error(nonBlank(res.message) ?? "NOEST validate failed");
     return true;
   }
 
@@ -293,7 +306,7 @@ export class NoestProvider implements DeliveryProvider {
     );
     
     if (res.success === false) {
-      throw new Error(res.message ?? "NOEST: update order failed");
+      throw new Error(nonBlank(res.message) ?? "NOEST: update order failed");
     }
     
     return true;
@@ -335,7 +348,7 @@ export class NoestProvider implements DeliveryProvider {
     });
     
     if (res.success === false) {
-      throw new Error(res.message ?? "NOEST: failed to add remark");
+      throw new Error(nonBlank(res.message) ?? "NOEST: failed to add remark");
     }
     
     return true;

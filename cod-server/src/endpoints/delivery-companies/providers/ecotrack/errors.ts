@@ -15,7 +15,7 @@
  * company_api_logs) get structured, actionable failures.
  */
 
-import { flattenErrorBag } from "../utils";
+import { bodySnippet, flattenErrorBag, nonBlank } from "../utils";
 
 export interface EcoTrackApiErrorOptions {
   /** EcoTrack business error code (10001 / 10002 / 10003). */
@@ -56,8 +56,8 @@ export function ecotrackBusinessError(
   body: EcotrackBusinessErrorBody,
   fallback: string
 ): EcoTrackApiError {
-  const detail = flattenErrorBag(body.errors);
-  const message = detail ?? body.message ?? fallback;
+  const message =
+    nonBlank(flattenErrorBag(body.errors)) ?? nonBlank(body.message) ?? fallback;
   const prefix = body.error != null ? `EcoTrack ${body.error}: ` : "";
   return new EcoTrackApiError(`${prefix}${message}`, { errorCode: body.error });
 }
@@ -65,6 +65,9 @@ export function ecotrackBusinessError(
 /**
  * Build the typed error for a non-2xx response. Detects the rate limit and
  * appends flattened field details to Laravel 422 messages.
+ *
+ * A carrier body of `{"message": ""}` falls back to the status plus a bounded
+ * snippet of that body, never to an empty string.
  */
 export function ecotrackHttpError(status: number, json: unknown): EcoTrackApiError {
   const body = (json ?? {}) as { message?: string; errors?: unknown };
@@ -76,9 +79,17 @@ export function ecotrackHttpError(status: number, json: unknown): EcoTrackApiErr
     );
   }
 
-  const detail = flattenErrorBag(body.errors);
-  const message = detail
-    ? `${body.message ?? "EcoTrack request failed"} — ${detail}`
-    : body.message ?? `EcoTrack HTTP ${status}`;
-  return new EcoTrackApiError(message, { statusCode: status });
+  const detail = nonBlank(flattenErrorBag(body.errors));
+  const message = nonBlank(body.message);
+  const text = detail
+    ? `${message ?? "EcoTrack request failed"} — ${detail}`
+    : message ?? `EcoTrack HTTP ${status}${describeBody(json)}`;
+  return new EcoTrackApiError(text, { statusCode: status });
+}
+
+function describeBody(json: unknown): string {
+  if (json == null) return "";
+  const raw = JSON.stringify(json);
+  if (!raw || raw === "{}") return "";
+  return ` (body: ${bodySnippet(raw)})`;
 }

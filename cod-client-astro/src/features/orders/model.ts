@@ -238,6 +238,17 @@ export function canDispatchOrder(
   );
 }
 
+/**
+ * Toast text for a failed dispatch: the localized label plus the carrier's own
+ * message, so a dead API key or an unserved wilaya is named instead of a bare
+ * "Dispatch failed". An empty detail (a carrier that answered with nothing)
+ * falls back to the label alone.
+ */
+export function dispatchFailureMessage(label: string, detail: string): string {
+  const trimmed = detail.trim();
+  return trimmed ? `${label}: ${trimmed}` : label;
+}
+
 export function canDeleteOrderFromDetail(status: OrderStatus): boolean {
   return status === "new" || status === "preparing";
 }
@@ -441,6 +452,18 @@ export function abandonedBasketView(
     variantLabel: row.variantLabel ?? null,
   };
 }
+
+/**
+ * The status the abandoned-orders list opens on.
+ *
+ * That page is the merchant's callback queue for checkouts that died with no
+ * order, so it opens on `abandoned` — the leads that aged out unsold. A record
+ * the shopper *did* convert (they placed an order) must not appear here by
+ * default: it would show the same order number as the order itself in a list
+ * meant for orders that were never placed. Converted (and the other states)
+ * stay reachable through the status filter.
+ */
+export const DEFAULT_ABANDONED_STATUS = "abandoned";
 
 export interface AbandonedFilters {
   query: string;

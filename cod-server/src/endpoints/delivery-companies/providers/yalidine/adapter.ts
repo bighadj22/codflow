@@ -26,6 +26,7 @@ import type {
   UpdateShipmentInput,
   TrackingEvent,
 } from "../types";
+import { CarrierHttpError } from "../utils";
 import type {
   YalidineCreateParcelData,
   YalidineCreateParcelResponse,
@@ -103,7 +104,7 @@ export class YalidineProvider implements DeliveryProvider {
     if (j && typeof j === "object") {
       if (typeof j.message === "string" && j.message) return `Yalidine HTTP ${status}: ${j.message}`;
       if (typeof j.error === "string" && j.error) return `Yalidine HTTP ${status}: ${j.error}`;
-      if (j.error && typeof j.error === "object" && typeof j.error.message === "string") {
+      if (j.error && typeof j.error === "object" && typeof j.error.message === "string" && j.error.message) {
         return `Yalidine HTTP ${status}: ${j.error.message}`;
       }
     }
@@ -138,7 +139,7 @@ export class YalidineProvider implements DeliveryProvider {
         const snippet = rawText.replace(/\s+/g, " ").slice(0, 180);
         message = `Yalidine HTTP ${res.status} (body: ${snippet})`;
       }
-      throw new Error(message);
+      throw new CarrierHttpError(message, res.status);
     }
     return json as TRes;
   }

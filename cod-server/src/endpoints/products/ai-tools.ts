@@ -9,6 +9,88 @@ import {
 } from "./validation";
 import { getDb } from "@/db";
 import { toolOutput, timestampSchema } from "@/lib/tool-output-schema";
+import { eq } from "drizzle-orm";
+import { productImages } from "@/db/schema";
+import type { Env } from "@/types/env";
+import { sniffImageType } from "@/lib/image-dimensions";
+
+const MAX_PRODUCT_IMAGE_BYTES = 10 * 1024 * 1024;
+
+const productImageFileSchema = z.strictObject({
+  download_url: z
+    .url({ protocol: /^https?$/, message: "download_url must be an http(s) URL" })
+    .describe("Direct fetchable URL filled in by the chat client"),
+  file_id: z.string().min(1).describe("Client-side file identifier"),
+  mime_type: z.string().optional().describe("MIME type when known"),
+  file_name: z.string().optional().describe("Original file name when known"),
+});
+
+/**
+ * Chat clients deliver `image` in two shapes. The canonical one is the
+ * openai/fileParams file object — what ChatGPT dispatches at runtime. Some
+ * runtimes hand over the model-visible form instead: a bare string carrying
+ * the direct download URL (the file parameter is masked to `string` for the
+ * model). This normaliser rewrites that string into the file object BEFORE
+ * validation, so the JSON Schema clients scan keeps the canonical file object
+ * (all four properties, download_url + file_id required) while execution
+ * accepts both shapes.
+ */
+function normalizeProductImageInput(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return { download_url: trimmed, file_id: trimmed };
+}
+
+async function readImageResponse(response: Response): Promise<Uint8Array> {
+  const contentLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_PRODUCT_IMAGE_BYTES) {
+    await response.body?.cancel();
+    throw new Error("Image exceeds the 10 MB limit.");
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("The image response has no readable body.");
+
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_PRODUCT_IMAGE_BYTES) {
+        await reader.cancel();
+        throw new Error("Image exceeds the 10 MB limit.");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
+function productImageExtension(contentType: string): string {
+  switch (contentType) {
+    case "image/png":
+      return "png";
+    case "image/jpeg":
+      return "jpg";
+    case "image/webp":
+      return "webp";
+    case "image/gif":
+      return "gif";
+    default:
+      throw new Error(`Unsupported image type: ${contentType}`);
+  }
+}
 
 /**
  * Layer-2 validation schemas, hoisted to module level and exported so the MCP
@@ -32,6 +114,15 @@ export const updateProductStatusToolSchema = z.object({
 export const deleteProductSchema = z.object({
   productId: z.string().uuid().describe("The UUID of the product to delete"),
 });
+export const uploadProductImageSchema = z.strictObject({
+  productId: z.string().uuid().describe("The UUID of the product to receive this image"),
+  image: z.preprocess(normalizeProductImageInput, productImageFileSchema).describe(
+    "The conversation image: the chat client's file object ({download_url, file_id, mime_type?, file_name?}) " +
+      "or a directly-fetchable http(s) download URL string. The client fills download_url; do not inline image data.",
+  ),
+  altText: z.string().max(1000).optional().describe("Alt text for accessibility"),
+  position: z.number().int().min(1).optional().describe("Stack position; omit to append"),
+});
 
 export const PRODUCT_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   listProducts: listProductsSchema.shape,
@@ -40,6 +131,13 @@ export const PRODUCT_TOOL_SCHEMAS: Record<string, z.ZodRawShape> = {
   updateProductDetails: updateProductDetailsSchema.shape,
   updateProductStatus: updateProductStatusToolSchema.shape,
   deleteProduct: deleteProductSchema.shape,
+  uploadProductImage: uploadProductImageSchema.shape,
+};
+
+export const PRODUCT_TOOL_META: Record<string, Record<string, unknown>> = {
+  uploadProductImage: {
+    "openai/fileParams": ["image"],
+  },
 };
 
 const productRowSchema = z.looseObject({
@@ -102,6 +200,17 @@ export const PRODUCT_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
   deleteProduct: toolOutput({
     message: z.string(),
   }),
+  uploadProductImage: toolOutput({
+    image: z.looseObject({
+      id: z.string(),
+      productId: z.string(),
+      src: z.string(),
+      r2Key: z.string(),
+      altText: z.string().nullable(),
+      position: z.number().int(),
+    }),
+    message: z.string(),
+  }),
 };
 
 /**
@@ -123,7 +232,10 @@ export const PRODUCT_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
  * - Status values: DRAFT | ACTIVE | ARCHIVED. Setting ACTIVE auto-sets publishedAt.
  * - Delete is a soft-delete (sets deletedAt). Blocked if the product has existing orders.
  */
-export const getProductTools = (db: ReturnType<typeof getDb>) => ({
+export const getProductTools = (
+  db: ReturnType<typeof getDb>,
+  env?: Pick<Env, "IMAGES" | "MEDIA_DOMAIN">,
+) => ({
 
   listProducts: tool({
     description:
@@ -218,6 +330,7 @@ export const getProductTools = (db: ReturnType<typeof getDb>) => ({
   createNewProduct: tool({
     description:
       "Creates a new product in the catalog. " +
+      "To attach an image from this conversation, create the product first, then call uploadProductImage with its returned ID. " +
       "SIMPLE PRODUCTS (hasVariants=false, the default): must include `sku` (unique), `name`, and `price` (integer DZD). " +
       "VARIANT PRODUCTS (hasVariants=true): omit `sku` here — each variant carries its own SKU added via createProductVariant. " +
       "Optional: description, descriptionFormat ('text'|'html'; 'text' renders literally, 'html' is sanitised server-side against the rich-text allow-list), handle (auto-generated from name if omitted), compareAtPrice, costPrice, type (PHYSICAL|DIGITAL), " +
@@ -292,6 +405,147 @@ export const getProductTools = (db: ReturnType<typeof getDb>) => ({
           error: `Failed to create product: ${msg}`,
         };
       }
+    },
+  }),
+
+  uploadProductImage: tool({
+    description:
+      "Upload an image from this conversation and attach it to an existing product. " +
+      "Pass `image` as the chat client's file object ({download_url, file_id, mime_type?, file_name?}) — the client fills download_url — " +
+      "or as a directly-fetchable http(s) download URL string. Do not inline image data. " +
+      "After createNewProduct succeeds, call this tool with the returned product ID to add its image. " +
+      "Images must be PNG, JPEG, WebP, or GIF and at most 10 MB.",
+    inputSchema: z.object({}).passthrough(),
+    execute: async (args) => {
+      const parsed = uploadProductImageSchema.safeParse(args);
+      if (!parsed.success) {
+        const issues = parsed.error.issues
+          .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+          .join("; ");
+        return {
+          success: false,
+          error:
+            `Invalid image upload arguments: ${issues}. ` +
+            "Expected: productId (UUID), image (client file object with download_url and file_id, or a direct http(s) download URL string), optional altText and position.",
+        };
+      }
+
+      if (!env?.IMAGES || !env.MEDIA_DOMAIN) {
+        return {
+          success: false,
+          error: "Product image upload is unavailable because R2 storage or MEDIA_DOMAIN is not configured.",
+        };
+      }
+
+      const { productId, image, altText, position } = parsed.data;
+      try {
+        const product = await queries.getProductById(db, productId);
+        if (!product) return { success: false, error: `Product ${productId} not found.` };
+      } catch (error) {
+        return {
+          success: false,
+          error: `Failed to verify product ${productId}: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+
+      let bytes: Uint8Array;
+      try {
+        const response = await fetch(image.download_url, { redirect: "follow" });
+        if (!response.ok) {
+          return {
+            success: false,
+            error: `Could not download the image (HTTP ${response.status}). Re-attach the image and try again.`,
+          };
+        }
+        bytes = await readImageResponse(response);
+      } catch (error) {
+        return {
+          success: false,
+          error: `Failed to download the image: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+
+      const contentType = sniffImageType(bytes);
+      if (!contentType) {
+        return {
+          success: false,
+          error: "The downloaded file is not a supported PNG, JPEG, WebP, or GIF image.",
+        };
+      }
+
+      const r2Key = `products/${crypto.randomUUID().replace(/-/g, "")}.${productImageExtension(contentType)}`;
+      try {
+        await env.IMAGES.put(r2Key, bytes, {
+          httpMetadata: {
+            contentType,
+            cacheControl: "public, max-age=31536000, immutable",
+          },
+          customMetadata: {
+            source: "ai",
+            uploadedAt: new Date().toISOString(),
+          },
+        });
+      } catch (error) {
+        return {
+          success: false,
+          error: `Failed to store product image: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+
+      const src = `https://${env.MEDIA_DOMAIN}/${r2Key}`;
+      const now = new Date().toISOString();
+      const id = crypto.randomUUID();
+      let resolvedPosition = position;
+      try {
+        if (resolvedPosition === undefined) {
+          const existing = await db
+            .select({ position: productImages.position })
+            .from(productImages)
+            .where(eq(productImages.productId, productId))
+            .all();
+          resolvedPosition = existing.reduce(
+            (max, row) => Math.max(max, row.position),
+            0,
+          ) + 1;
+        }
+        await db.insert(productImages).values({
+          id,
+          productId,
+          src,
+          r2Key,
+          srcSm: null,
+          srcMd: null,
+          srcLg: null,
+          altText: altText ?? null,
+          width: null,
+          height: null,
+          type: 1,
+          position: resolvedPosition,
+          createdAt: now,
+          updatedAt: now,
+        });
+      } catch (error) {
+        try {
+          await env.IMAGES.delete(r2Key);
+        } catch (cleanupError) {
+          return {
+            success: false,
+            error:
+              `Failed to attach product image: ${error instanceof Error ? error.message : String(error)}. ` +
+              `R2 cleanup also failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}.`,
+          };
+        }
+        return {
+          success: false,
+          error: `Failed to attach product image: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+
+      return {
+        success: true,
+        image: { id, productId, src, r2Key, altText: altText ?? null, position: resolvedPosition },
+        message: "Product image uploaded and attached successfully.",
+      };
     },
   }),
 

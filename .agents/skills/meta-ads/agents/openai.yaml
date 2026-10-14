@@ -1,0 +1,5 @@
+interface:
+  display_name: "Meta Ads"
+  short_description: "Work from Meta Pixel and Conversions API docs for CodFlow tracking changes"
+policy:
+  allow_implicit_invocation: false

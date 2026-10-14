@@ -112,7 +112,7 @@ WHERE user_id = (SELECT id FROM users WHERE email = '${email}') AND provider_id 
 
     if (remote) {
       console.log("\n=== Seeding admin (remote) ===");
-      run(`npx wrangler d1 execute ${dbName} --remote --file "${tmpFile}"`);
+      run(`npx wrangler d1 execute ${dbName} --remote --yes --file "${tmpFile}"`);
     }
   } finally {
     unlinkSync(tmpFile);

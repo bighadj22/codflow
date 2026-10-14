@@ -28,6 +28,7 @@ import type {
   ConnectionCheck,
 } from "../types";
 import { EcoTrackApiError, ecotrackBusinessError, ecotrackHttpError } from "./errors";
+import { bodySnippet, nonBlank } from "../utils";
 import type {
   EcotrackCreateOrderResponse,
   EcotrackValidateOrderResponse,
@@ -88,12 +89,21 @@ export class EcotrackProvider implements DeliveryProvider {
     if (body !== undefined) init.body = body;
 
     const res = await fetch(`${this.baseUrl}${pathWithQuery}`, init);
-    let json: unknown;
-    try {
-      json = await res.json();
-    } catch {
+    const rawText = await res.text();
+    let json: unknown = null;
+    let parsed = false;
+    if (rawText) {
+      try {
+        json = JSON.parse(rawText);
+        parsed = true;
+      } catch {
+        // Non-JSON body — fall through, the snippet goes into the error.
+      }
+    }
+    if (!parsed) {
+      const snippet = bodySnippet(rawText);
       throw new EcoTrackApiError(
-        `EcoTrack HTTP ${res.status} — response is not valid JSON`,
+        `EcoTrack HTTP ${res.status} — response is not valid JSON${snippet ? ` (body: ${snippet})` : ""}`,
         { statusCode: res.status }
       );
     }
@@ -149,7 +159,7 @@ export class EcotrackProvider implements DeliveryProvider {
     return {
       ok: false,
       code: "invalid_token",
-      message: res.message ?? "Token is invalid",
+      message: nonBlank(res.message) ?? "Token is invalid",
     };
   }
 

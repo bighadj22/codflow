@@ -310,3 +310,24 @@ export interface ZrGenerateLabelResponse {
   parcelLabelFiles: ZrParcelLabelFile[] | null;
   failedTrackingNumbers: string[] | null;
 }
+
+// ─── User Profile (GET /users/profile — connection check) ────────────────────
+
+export interface ZrTenantMembership {
+  tenantId?: string | null;
+  tenantName?: string | null;
+  isActive?: boolean;
+  isDefault?: boolean;
+  type?: string | null;
+  supplierType?: string | null;
+  membership?: string | null;
+}
+
+export interface ZrUserProfile {
+  id?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  phoneNumber?: string | null;
+  memberships?: ZrTenantMembership[] | null;
+}

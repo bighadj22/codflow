@@ -106,6 +106,10 @@ export interface StoreFrontContent {
   formRequiredField: string;
   formSubmit: string;
   formConfirmNote: string;
+  /** Submit button label while the client-side handler is submitting. */
+  formSubmitting: string;
+  /** Fallback reason shown when an order fails and the server sent none. */
+  formErrorGeneric: string;
   /**
    * The pre-order consent line. Contains exactly two tokens, `{terms}` and
    * `{refund}`, which OrderForm.astro replaces with real links to the

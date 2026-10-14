@@ -55,6 +55,46 @@ function buildCheckoutPage(): void {
   `;
 }
 
+/** A form where the store enables WhatsApp OTP: the step and token both render. */
+function buildOtpProductPage(): void {
+  document.body.innerHTML = `
+    <form>
+      <input type="hidden" name="productId" value="p1" />
+      <input type="hidden" name="productName" value="Street Fighter 45" />
+      <input type="hidden" name="pricePerUnit" value="1000" />
+      ${customerFields()}
+      <input type="hidden" name="otpToken" id="otp-token-input" value="" />
+      <div id="otp-step"></div>
+    </form>
+  `;
+}
+
+/** The off-default form: the token field always renders, the OTP step does not. */
+function buildTokenOnlyProductPage(): void {
+  document.body.innerHTML = `
+    <form>
+      <input type="hidden" name="productId" value="p1" />
+      <input type="hidden" name="productName" value="Street Fighter 45" />
+      <input type="hidden" name="pricePerUnit" value="1000" />
+      ${customerFields()}
+      <input type="hidden" name="otpToken" id="otp-token-input" value="" />
+    </form>
+  `;
+}
+
+/** Mirrors otp-step.ts: block the submit until a token is present. */
+function otpGate(form: HTMLFormElement): void {
+  form.addEventListener(
+    "submit",
+    (event) => {
+      const token = form.querySelector<HTMLInputElement>("#otp-token-input");
+      if (token?.value) return;
+      event.preventDefault();
+    },
+    { capture: true },
+  );
+}
+
 function seedCart(lines: Array<Record<string, unknown>>): void {
   localStorage.setItem(CART_KEY, JSON.stringify(lines));
 }
@@ -104,6 +144,7 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
+  delete (window.navigator as { sendBeacon?: unknown }).sendBeacon;
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -267,5 +308,110 @@ describe("capture only happens when there is something to call back", () => {
     typeContact();
 
     await expect(vi.advanceTimersByTimeAsync(3000)).resolves.not.toThrow();
+  });
+});
+
+describe("a placed order is never recorded as an abandonment", () => {
+  /** The exit beacon is the only capture that fires on the submit navigation. */
+  function stubBeacon() {
+    const beacon = vi.fn(() => true);
+    Object.defineProperty(window.navigator, "sendBeacon", {
+      configurable: true,
+      writable: true,
+      value: beacon,
+    });
+    return beacon;
+  }
+
+  it("sends no exit beacon once the shopper submits the order", async () => {
+    buildProductPage();
+    await boot();
+    const beacon = stubBeacon();
+
+    typeContact();
+    // The shopper commits before the 3 s debounce ever fires, then the submit
+    // navigation unloads the page — exactly the fast test-order path.
+    document
+      .querySelector("form")!
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+    window.dispatchEvent(new window.Event("pagehide"));
+
+    expect(beacon).not.toHaveBeenCalled();
+    expect(sentPayloads()).toHaveLength(0);
+  });
+
+  it("still beacons on page exit when the shopper never submitted", async () => {
+    buildCheckoutPage();
+    seedCart([line()]);
+    await boot();
+    const beacon = stubBeacon();
+
+    typeContact();
+    window.dispatchEvent(new window.Event("pagehide"));
+
+    expect(beacon).toHaveBeenCalled();
+  });
+
+  it("keeps capturing while the order is parked on the OTP step", async () => {
+    buildOtpProductPage();
+    const form = document.querySelector("form") as HTMLFormElement;
+    otpGate(form);
+    await boot();
+    const beacon = stubBeacon();
+
+    typeContact();
+    // The OTP gate intercepts this submit and shows the code step — no order
+    // is placed yet, so this must not silence the exit capture.
+    form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+    window.dispatchEvent(new window.Event("pagehide"));
+
+    expect(beacon).toHaveBeenCalled();
+  });
+
+  it("stops capturing once OTP verification has succeeded", async () => {
+    buildOtpProductPage();
+    const form = document.querySelector("form") as HTMLFormElement;
+    otpGate(form);
+    await boot();
+    const beacon = stubBeacon();
+
+    typeContact();
+    const tokenInput = form.querySelector<HTMLInputElement>("#otp-token-input")!;
+    tokenInput.value = "otp-token";
+    form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+    window.dispatchEvent(new window.Event("pagehide"));
+
+    expect(beacon).not.toHaveBeenCalled();
+  });
+
+  it("stops capturing after a parked OTP submit later succeeds", async () => {
+    buildOtpProductPage();
+    const form = document.querySelector("form") as HTMLFormElement;
+    otpGate(form);
+    await boot();
+    const beacon = stubBeacon();
+
+    typeContact();
+    form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })); // parked
+    const tokenInput = form.querySelector<HTMLInputElement>("#otp-token-input")!;
+    tokenInput.value = "otp-token";
+    form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })); // verified
+    window.dispatchEvent(new window.Event("pagehide"));
+
+    expect(beacon).not.toHaveBeenCalled();
+  });
+
+  it("stops capturing when OTP is off even though the token field is present", async () => {
+    buildTokenOnlyProductPage();
+    await boot();
+    const beacon = stubBeacon();
+
+    typeContact();
+    document
+      .querySelector("form")!
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+    window.dispatchEvent(new window.Event("pagehide"));
+
+    expect(beacon).not.toHaveBeenCalled();
   });
 });

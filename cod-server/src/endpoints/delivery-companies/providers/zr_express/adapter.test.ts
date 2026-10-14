@@ -16,6 +16,7 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ZrExpressProvider } from "./adapter";
+import { CarrierHttpError } from "../utils";
 import type { CreateShipmentInput } from "../types";
 
 const TOKEN = "zr-secret";
@@ -107,6 +108,44 @@ describe("ZrExpressProvider.createShipment", () => {
     expect(result.trackingNumber).toBe("16-ABCDEF-ZR");
     const raw = result.rawResponse as { parcelId?: string };
     expect(raw.parcelId).toBe(PARCEL_UUID);
+  });
+
+  it("surfaces a plain-text 401 body (invalid API key) instead of a parse error", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("Invalid API Key", { status: 401 }));
+
+    const provider = new ZrExpressProvider(TOKEN, TENANT);
+    const err = await provider.createShipment(baseInput).catch((e) => e);
+
+    expect(err).toBeInstanceOf(CarrierHttpError);
+    expect((err as CarrierHttpError).statusCode).toBe(401);
+    expect((err as CarrierHttpError).message).toContain("Invalid API Key");
+    expect((err as CarrierHttpError).message).toContain("401");
+  });
+
+  it("falls back to status + body when the carrier answers {message:\"\"}", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "" }, 403));
+
+    const provider = new ZrExpressProvider(TOKEN, TENANT);
+    const err = await provider.createShipment(baseInput).catch((e) => e);
+
+    expect(err).toBeInstanceOf(CarrierHttpError);
+    expect((err as CarrierHttpError).statusCode).toBe(403);
+    expect((err as CarrierHttpError).message).toBe("ZR Express HTTP 403");
+    expect((err as CarrierHttpError).message.trim()).not.toBe("");
+  });
+
+  it("falls back to status when the carrier fails with an empty body", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 401 }));
+
+    const provider = new ZrExpressProvider(TOKEN, TENANT);
+    const err = await provider.createShipment(baseInput).catch((e) => e);
+
+    expect(err).toBeInstanceOf(CarrierHttpError);
+    expect((err as CarrierHttpError).statusCode).toBe(401);
+    expect((err as CarrierHttpError).message).toBe(
+      "ZR Express HTTP 401 — empty response body"
+    );
+    expect((err as CarrierHttpError).message).not.toMatch(/not valid JSON/);
   });
 
   it("sends hub id as hubId", async () => {
@@ -387,5 +426,71 @@ describe("ZrExpressProvider.getLabelUrl", () => {
 
     const provider = new ZrExpressProvider(TOKEN, TENANT);
     expect(await provider.getLabelUrl("16-ABCDEF-ZR")).toBeNull();
+  });
+});
+
+describe("ZrExpressProvider.verifyConnection", () => {
+  it("confirms the key and lists the tenants it can reach", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        id: "user-uuid",
+        firstName: "Amine",
+        lastName: "Benali",
+        email: "amine@example.com",
+        memberships: [{ tenantId: TENANT, tenantName: "Liniadz", isActive: true }],
+      })
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new ZrExpressProvider(TOKEN, TENANT);
+    const result = await provider.verifyConnection();
+
+    expect(result.ok).toBe(true);
+    expect(result.code).toBe("valid");
+    expect(result.message).toBe("Connected as Amine Benali");
+    expect(result.details?.user).toBe("Amine Benali");
+    expect(result.details?.tenants).toEqual([
+      { tenantId: TENANT, tenantName: "Liniadz", isActive: true },
+    ]);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://api.zrexpress.app/api/v1/users/profile"
+    );
+  });
+
+  it("reports a refused key as ok:false with the carrier's own wording", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("Invalid API Key", { status: 401 }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new ZrExpressProvider(TOKEN, TENANT);
+    const result = await provider.verifyConnection();
+
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("invalid_token");
+    expect(result.message).toContain("Invalid API Key");
+    expect(result.message).toContain("401");
+  });
+
+  it("separates a key bound to another tenant from a bad key", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        firstName: "Amine",
+        memberships: [
+          { tenantId: "another-tenant", tenantName: "Other Shop", isActive: true },
+        ],
+      })
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new ZrExpressProvider(TOKEN, TENANT);
+    const result = await provider.verifyConnection();
+
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("tenant_mismatch");
+    expect(result.message).toContain(TENANT);
+    expect(result.details?.tenants).toEqual([
+      { tenantId: "another-tenant", tenantName: "Other Shop", isActive: true },
+    ]);
   });
 });

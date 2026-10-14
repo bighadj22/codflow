@@ -1,0 +1,5 @@
+interface:
+  display_name: "Route Builder"
+  short_description: "Build and migrate CodFlow API routes to the defineRoute pattern"
+policy:
+  allow_implicit_invocation: false
