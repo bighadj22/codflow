@@ -30,9 +30,9 @@ const BUCKET_NAME      = process.env.R2_BUCKET_NAME       ?? CLOUD.bucketName;
 // Restrict AllowedOrigins to your specific domain in production if preferred.
 const CORS_RULES = [
   {
-    AllowedOrigins: ["*"],
-    AllowedMethods: ["PUT", "GET", "HEAD"],
-    AllowedHeaders: ["Content-Type", "Content-Length"],
+    AllowedOrigins: ["https://dash.liniadz.com", "https://liniadz.com", "http://localhost:4321"],
+    AllowedMethods: ["PUT", "GET", "HEAD", "OPTIONS"],
+    AllowedHeaders: ["*"],
     ExposeHeaders: ["ETag"],
     MaxAgeSeconds: 3600,
   },
