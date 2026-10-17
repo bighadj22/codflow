@@ -157,6 +157,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- deploy: `cod-server`'s `npm run deploy` now ships the `production`
+  environment (`wrangler deploy --env production`) — the one that serves
+  traffic. It used to run a bare `wrangler deploy`, which shipped the
+  development-flavored top level and silently ignored every `[env.production]`
+  binding a self-hoster had filled in, while that worker claimed the custom
+  domain and the hourly cron trigger with development variables.
+  `wrangler.toml.example` now declares the cron (and an optional custom domain)
+  under `[env.production]`, and `npm run deploy:dev` keeps the old target for
+  local/throwaway deploys
 - mcp: the remote MCP endpoint (`/mcp`) serves 2025-era clients again. The
   handler was built with `legacy: "reject"`, which does not mean "stateless"
   as the code assumed — it drops the Agents SDK's 2025-era lane and makes the
