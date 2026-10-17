@@ -157,6 +157,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- mcp: the remote MCP endpoint (`/mcp`) serves 2025-era clients again. The
+  handler was built with `legacy: "reject"`, which does not mean "stateless"
+  as the code assumed — it drops the Agents SDK's 2025-era lane and makes the
+  endpoint modern-only (2026-07-28), so every client in wide use died at the
+  `initialize` handshake with `-32022 Unsupported protocol version`. `legacy`
+  now keeps its `"stateless"` default, which serves both eras, and
+  `src/mcp/protocol-negotiation.test.ts` pins the handshake
 - delivery: carrier failures now carry an actionable message instead of an
   empty one — a body of `{"message": ""}` (EcoTrack, NOEST) falls through a
   `??` fallback because an empty string is not nullish, and ZR Express's

@@ -159,14 +159,18 @@ function registerTool(server: McpServer, registration: ToolRegistration): void {
  *
  * Identity is supplied by the OAuthProvider's verified context on each request
  * (`ctx.props` → `getMcpAuthContext()`); the handler is built per request to
- * capture `env`, and `legacy: "reject"` serves only stateless traffic.
+ * capture `env`.
+ *
+ * `legacy` stays at its default ("stateless") so the Agents SDK keeps serving
+ * 2025-era clients alongside the modern 2026-07-28 path. "reject" makes the
+ * endpoint modern-only and answers every 2025-era client at `initialize` with
+ * `-32022 Unsupported protocol version`.
  */
 export function createCodMcpHandler(env: Env) {
   return createMcpHandler(
     () => createCodMcpServer(env),
     {
       route: "/mcp",
-      legacy: "reject",
       // Browser Origin validation is wired in Slice 9.
       allowedOriginHostnames: "*",
     } satisfies CreateMcpHandlerOptions,
