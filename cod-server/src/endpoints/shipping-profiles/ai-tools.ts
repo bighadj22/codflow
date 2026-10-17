@@ -114,19 +114,21 @@ export const SHIPPING_PROFILE_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
     count: z.number().int(),
     communes: z.array(
       z.looseObject({
-        id: z.string().optional().describe("Commune ID (c-XX-YYY)"),
-        name: z.string().optional(),
-        rule: z
-          .looseObject({
-            id: z.string().optional().describe("The override row ID, or the inherited rule when no override exists"),
-            homeEnabled: z.boolean().optional(),
-            stopDeskEnabled: z.boolean().optional(),
-            homePrice: z.number().optional().nullable().describe("Effective home price — override where set, wilaya rule where null"),
-            stopDeskPrice: z.number().optional().nullable().describe("Effective stop-desk price — override where set, wilaya rule where null"),
-          })
-          .optional(),
+        communeId: z.string().describe("Commune ID (c-XX-YYY)"),
+        communeName: z.string().describe("Commune name (Latin)"),
+        communeNameAr: z.string().describe("Commune name (Arabic)"),
+        postalCode: z.string().nullable().describe("Postal code, or null when unset"),
+        homeEnabled: z.boolean().nullable().describe("Raw home override — null inherits the wilaya rule"),
+        stopDeskEnabled: z.boolean().nullable().describe("Raw stop-desk override — null inherits the wilaya rule"),
+        homePrice: z.number().nullable().describe("Raw home price override — null inherits the wilaya rule"),
+        stopDeskPrice: z.number().nullable().describe("Raw stop-desk price override — null inherits the wilaya rule"),
+        effectiveHomeEnabled: z.boolean().describe("Resolved home availability after applying the wilaya rule defaults"),
+        effectiveStopDeskEnabled: z.boolean().describe("Resolved stop-desk availability after applying the wilaya rule defaults"),
+        effectiveHomePrice: z.number().describe("Resolved home price — override where set, wilaya rule where null"),
+        effectiveStopDeskPrice: z.number().describe("Resolved stop-desk price — override where set, wilaya rule where null"),
+        hasOverride: z.boolean().describe("True when a custom override row exists for this commune"),
       }),
-    ).describe("The wilaya's communes with their override state"),
+    ).describe("The wilaya's communes with their raw override state and resolved effective values"),
   }),
   setShippingCommuneOverride: toolOutput({
     message: z.string(),

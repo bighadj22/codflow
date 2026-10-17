@@ -121,7 +121,7 @@ describe("executeMcpTool", () => {
     );
   });
 
-  it("omits structuredContent (but keeps the text result) when the result drifts from the tool's output schema", async () => {
+  it("falls back to the schema-valid failure envelope when the result drifts from the tool's output schema", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       const result = await executeMcpTool({
@@ -132,15 +132,48 @@ describe("executeMcpTool", () => {
         args: {},
       });
 
-      expect(result.isError).toBeUndefined();
-      expect(result.structuredContent).toBeUndefined();
+      // Drift is an error result, but it must still carry structuredContent —
+      // clients reject a call whose tool advertises an output schema and omits
+      // structuredContent.
+      expect(result.isError).toBe(true);
+      expect(result.structuredContent).toMatchObject({ success: false, error: expect.any(String) });
       expect(result).toMatchObject({
-        content: [{ type: "text", text: expect.stringContaining("42") }],
+        content: [
+          { type: "text", text: expect.stringContaining("does not match its declared output schema") },
+          { type: "text", text: expect.stringContaining("42") },
+        ],
       });
       expect(errorSpy).toHaveBeenCalledWith(
         expect.stringContaining("listCustomers"),
-        expect.any(String),
       );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("drift fallback is itself schema-valid for every registered tool", async () => {
+    // The fallback envelope is only safe because every output schema accepts
+    // `{ success: false, error }` — the invariant this test locks in.
+    const { TOOL_OUTPUT_SCHEMAS } = await import("./schemas");
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      for (const name of Object.keys(TOOL_OUTPUT_SCHEMAS)) {
+        const result = await executeMcpTool({
+          db,
+          actor,
+          name,
+          tool: stubTool(async () => ({ __drift: true })),
+          args: {},
+        });
+        expect(result.structuredContent, `${name} drift fallback`).toMatchObject({
+          success: false,
+          error: expect.any(String),
+        });
+        expect(
+          TOOL_OUTPUT_SCHEMAS[name]!.safeParse(result.structuredContent).success,
+          `${name} structuredContent must satisfy its own output schema`,
+        ).toBe(true);
+      }
     } finally {
       errorSpy.mockRestore();
     }

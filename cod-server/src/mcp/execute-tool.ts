@@ -62,9 +62,11 @@ export function redactForAudit(value: unknown, depth = 0): unknown {
  *     identically: an `isError: true` result plus an `ok: false` activity row;
  *   • when the tool declares an output schema, validates the result against
  *     it and attaches it as `structuredContent` (the spec-compliant form
- *     clients validate and models parse; the JSON text block stays for
- *     backwards compatibility). A validation failure means schema drift —
- *     logged loudly, structuredContent omitted, the text result still ships;
+ *     clients validate and models parse; the JSON text block also ships). A
+ *     validation failure means schema drift — logged loudly, then surfaced as
+ *     an `isError: true` result whose structuredContent is the schema-valid
+ *     failure envelope (an advertised outputSchema must always come with
+ *     structuredContent, or clients reject the call);
  *   • always writes exactly one `mcp.tool_called` audit row (best-effort,
  *     never throws when the log write fails).
  */
@@ -110,41 +112,90 @@ export async function executeMcpTool({
     },
   );
 
-  const structured = structuredContentFor(name, ok ? result : { success: false, error: errorMessage });
+  const outcome = structuredContentFor(name, ok ? result : { success: false, error: errorMessage });
 
   if (!ok) {
     return {
       content: [{ type: "text", text: JSON.stringify({ success: false, error: errorMessage }) }],
-      ...(structured !== undefined ? { structuredContent: structured } : {}),
+      ...(outcome.structuredContent !== undefined
+        ? { structuredContent: outcome.structuredContent }
+        : {}),
+      isError: true,
+    };
+  }
+
+  if (outcome.driftError !== undefined) {
+    // The tool declares an output schema but the result does not conform.
+    // MCP clients require structuredContent whenever an outputSchema is
+    // advertised, so a text-only fallback is a protocol violation
+    // ("Tool <name> has an output schema but no structured content was
+    // provided"). Ship the schema-valid failure envelope and keep the raw
+    // payload readable in a second text block.
+    const envelope = outcome.structuredContent ?? {
+      success: false,
+      error: outcome.driftError,
+    };
+    return {
+      content: [
+        { type: "text", text: safeJSON(envelope) },
+        { type: "text", text: `Raw tool output (did not match the declared schema):\n${safeJSON(result)}` },
+      ],
+      ...(outcome.structuredContent !== undefined
+        ? { structuredContent: outcome.structuredContent }
+        : {}),
       isError: true,
     };
   }
 
   return {
     content: [{ type: "text", text: safeJSON(result) }],
-    ...(structured !== undefined ? { structuredContent: structured } : {}),
+    ...(outcome.structuredContent !== undefined
+      ? { structuredContent: outcome.structuredContent }
+      : {}),
   };
 }
 
+interface StructuredOutcome {
+  /** Schema-valid value to attach as structuredContent, when any. */
+  structuredContent?: unknown;
+  /** Set when the tool declares an output schema the result fails to satisfy. */
+  driftError?: string;
+}
+
 /**
- * Validate a tool result against its declared output schema and return the
- * structuredContent value, or undefined when the tool declares no schema or
- * the result does not conform (drift — logged; the text fallback still ships
- * so a schema bug can never break a working tool).
+ * Validate a tool result against its declared output schema.
+ *
+ * Returns the value to attach as `structuredContent`:
+ *   • the result itself when it conforms;
+ *   • the tool's universal failure envelope `{ success: false, error }` when it
+ *     does not — that envelope validates against every `toolOutput()` schema,
+ *     so a tool that advertises an outputSchema always ships structuredContent
+ *     (see executeMcpTool's drift branch);
+ *   • nothing when the tool declares no schema (or a hand-rolled one rejects
+ *     the failure envelope too).
+ *
+ * Drift is logged loudly and surfaced as `driftError` so the caller can mark
+ * the call as an error instead of silently dropping the structured output.
  */
-function structuredContentFor(name: string, result: unknown): unknown {
+function structuredContentFor(name: string, result: unknown): StructuredOutcome {
   const schema = TOOL_OUTPUT_SCHEMAS[name];
-  if (!schema) return undefined;
+  if (!schema) return {};
   const parsed = schema.safeParse(result);
-  if (parsed.success) return result;
+  if (parsed.success) return { structuredContent: result };
+  const detail = parsed.error.issues
+    .slice(0, 5)
+    .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
+    .join("; ");
   console.error(
-    `[mcp] structuredContent validation failed for tool ${name} — result does not match its output schema (omitting structuredContent):`,
-    parsed.error.issues
-      .slice(0, 5)
-      .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
-      .join("; "),
+    `[mcp] structuredContent validation failed for tool ${name} — result does not match its output schema (falling back to the schema-valid failure envelope): ${detail}`,
   );
-  return undefined;
+  const driftError =
+    `Tool ${name} returned data that does not match its declared output schema (${detail}). ` +
+    `This is a server-side schema bug; the raw output is in the next text block.`;
+  const fallback = { success: false, error: driftError };
+  return schema.safeParse(fallback).success
+    ? { structuredContent: fallback, driftError }
+    : { driftError };
 }
 
 function safeJSON(value: unknown): string {

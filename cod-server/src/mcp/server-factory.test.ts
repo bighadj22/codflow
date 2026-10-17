@@ -80,8 +80,14 @@ function makeCtx(): ServerContext {
   } as unknown as ServerContext;
 }
 
-const safeTool = { description: "List customers", execute: vi.fn(async () => ({ success: true })) } as unknown as Tool;
-const dangerousTool = { description: "Delete customer", execute: vi.fn(async () => ({ success: true })) } as unknown as Tool;
+const safeTool = {
+  description: "List customers",
+  execute: vi.fn(async () => ({ success: true, count: 0, customers: [] })),
+} as unknown as Tool;
+const dangerousTool = {
+  description: "Delete customer",
+  execute: vi.fn(async () => ({ success: true, message: "Customer deleted" })),
+} as unknown as Tool;
 const dangerousArgs = { customerId: "c1" };
 
 describe("createCodMcpServer", () => {
@@ -181,7 +187,12 @@ describe("createCodMcpServer", () => {
     const result = await registeredHandler(server, "deleteCustomer")(dangerousArgs, makeCtx());
 
     expect(dangerousTool.execute).toHaveBeenCalledWith(dangerousArgs, { toolCallId: "" });
-    expect(result).toEqual({ content: [{ type: "text", text: JSON.stringify({ success: true }) }] });
+    expect(result).toEqual({
+      content: [
+        { type: "text", text: JSON.stringify({ success: true, message: "Customer deleted" }) },
+      ],
+      structuredContent: { success: true, message: "Customer deleted" },
+    });
     expect(mocks.logActivity).toHaveBeenCalledWith(
       expect.anything(),
       { id: "u1", name: "Ada", role: "staff" },
@@ -198,7 +209,12 @@ describe("createCodMcpServer", () => {
     const result = await registeredHandler(server, "listCustomers")({}, makeCtx());
 
     expect(safeTool.execute).toHaveBeenCalledWith({}, { toolCallId: "" });
-    expect(result).toEqual({ content: [{ type: "text", text: JSON.stringify({ success: true }) }] });
+    expect(result).toEqual({
+      content: [
+        { type: "text", text: JSON.stringify({ success: true, count: 0, customers: [] }) },
+      ],
+      structuredContent: { success: true, count: 0, customers: [] },
+    });
     expect(mocks.logActivity).toHaveBeenCalledWith(
       expect.anything(),
       { id: "u1", name: "Ada", role: "staff" },
