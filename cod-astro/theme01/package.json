@@ -31,7 +31,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@vitest/ui": "^5.0.0",
     "fast-check": "^4.6.0",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.4",
     "tailwindcss": "^4.0.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0",
