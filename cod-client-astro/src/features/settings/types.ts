@@ -87,6 +87,24 @@ export interface SavePixelConfigData {
   perPageTrackingEnabled?: boolean;
 }
 
+/** Conversions API delivery health, projected from the server's event log. */
+export interface CapiFailureSummary {
+  eventName: string;
+  stage: string;
+  httpStatus: number | null;
+  message: string | null;
+  at: string;
+}
+
+export interface CapiHealth {
+  lastAttemptAt: string | null;
+  lastSuccessAt: string | null;
+  lastFailure: CapiFailureSummary | null;
+  consecutiveFailures: number;
+  sentLast30Days: number;
+  failedLast30Days: number;
+}
+
 /** WhatsApp OTP verification configuration (dzverify). Absent until first saved — null = disabled. */
 export interface OtpConfig {
   language: "en" | "fr" | "ar";

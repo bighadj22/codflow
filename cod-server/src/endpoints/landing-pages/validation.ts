@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isMetaAccessToken } from "../../../../cod-shared/lib/meta-token";
 
 // Base object — no refinements so .partial() works cleanly for updates
 const landingPageBaseSchema = z.object({
@@ -68,6 +69,15 @@ export const landingPageTrackingSchema = z
         code: z.ZodIssueCode.custom,
         path: ["testEventCode"],
         message: "A test event code is required while test mode is on",
+      });
+    }
+    const token = value.accessToken?.trim();
+    if (token && !isMetaAccessToken(token)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["accessToken"],
+        message:
+          "This does not look like a Meta access token — paste the Conversions API token generated in Events Manager (it starts with EAA).",
       });
     }
   });

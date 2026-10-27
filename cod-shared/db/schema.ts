@@ -1554,6 +1554,13 @@ export const capiEventLog = sqliteTable(
     metaEventId: text("meta_event_id"),
     error: text("error"),
     sentAt: text("sent_at").notNull(),
+    /**
+     * HTTP status Meta answered with (401/403 auth, 429 rate limit, 5xx outage).
+     * NULL when the attempt never reached Meta, or for rows written before
+     * migration 0033. Appended last to match the physical column order — the
+     * unit-test mock db maps a full-table select positionally.
+     */
+    httpStatus: integer("http_status"),
   },
   (t) => ({
     orderIdx: index("idx_capi_event_log_order").on(t.orderId),

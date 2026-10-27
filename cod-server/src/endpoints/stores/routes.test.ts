@@ -380,6 +380,75 @@ describe("Stores routes (OpenAPIHono)", () => {
       });
     });
 
+    it("rejects a placeholder that cannot be a Meta token", async () => {
+      // The outage this guard exists for: "AAAA…" was accepted by the form,
+      // Meta answered "Cannot parse access token" on every send, and the only
+      // trace was the event log.
+      vi.mocked(queries.getStore).mockResolvedValue(storeRow());
+
+      const res = await app.request("/api/stores/pixel-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pixelId: "1234567890123456",
+          conversionEvent: "Purchase",
+          accessToken: "AAAAAAAAAAAAAAAA",
+        }),
+      });
+
+      expect(res.status).toBe(400);
+      const body: any = await res.json();
+      expect(body).toMatchObject({ category: ERROR_CATEGORIES.VALIDATION });
+      expect(JSON.stringify(body)).toMatch(/Meta access token/i);
+      expect(pixelConfigQueries.upsertPixelConfig).not.toHaveBeenCalled();
+    });
+
+    it("stores a token whose shape matches Meta's", async () => {
+      // Shape only — validity is proven by a real send, never by this check.
+      vi.mocked(queries.getStore).mockResolvedValue(storeRow());
+      vi.mocked(pixelConfigQueries.upsertPixelConfig).mockResolvedValue(pixelConfigRow());
+
+      const token = `EAA${"aB3dEf6h".repeat(8)}`;
+      const res = await app.request("/api/stores/pixel-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pixelId: "1234567890123456",
+          conversionEvent: "Purchase",
+          accessToken: token,
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(pixelConfigQueries.upsertPixelConfig).toHaveBeenCalledWith(
+        mockDb,
+        "store_1",
+        expect.objectContaining({ accessToken: token }),
+      );
+    });
+
+    it("keeps the stored token when the field is left empty", async () => {
+      vi.mocked(queries.getStore).mockResolvedValue(storeRow());
+      vi.mocked(pixelConfigQueries.upsertPixelConfig).mockResolvedValue(pixelConfigRow());
+
+      const res = await app.request("/api/stores/pixel-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pixelId: "1234567890123456",
+          conversionEvent: "Purchase",
+          accessToken: "",
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(pixelConfigQueries.upsertPixelConfig).toHaveBeenCalledWith(
+        mockDb,
+        "store_1",
+        expect.objectContaining({ accessToken: "" }),
+      );
+    });
+
     it("returns 404 when no store exists", async () => {
       vi.mocked(queries.getStore).mockResolvedValue(undefined);
 

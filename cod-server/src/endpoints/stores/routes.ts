@@ -118,6 +118,44 @@ const savePixelConfigRoute = defineRoute({
   handler: handlers.savePixelConfig,
 });
 
+const capiHealthResponse = z.object({
+  success: z.boolean().openapi({ example: true }),
+  data: z.object({
+    lastAttemptAt: z.string().datetime().nullable(),
+    lastSuccessAt: z.string().datetime().nullable(),
+    lastFailure: z
+      .object({
+        eventName: z.string().openapi({ example: "Purchase" }),
+        stage: z.string().openapi({ example: "checkout" }),
+        httpStatus: z.number().int().nullable().openapi({ example: 401 }),
+        message: z
+          .string()
+          .nullable()
+          .openapi({ example: "Invalid OAuth access token - Cannot parse access token" }),
+        at: z.string().datetime(),
+      })
+      .nullable(),
+    consecutiveFailures: z.number().int().openapi({ example: 12 }),
+    sentLast30Days: z.number().int().openapi({ example: 0 }),
+    failedLast30Days: z.number().int().openapi({ example: 12 }),
+  }),
+});
+
+const getPixelConfigHealthRoute = defineRoute({
+  method: "get",
+  path: "/pixel-config/health",
+  auth: "admin",
+  tags: ["Store Settings"],
+  summary: "Get Conversions API delivery health",
+  description:
+    "Last attempt, last success, last failure (Meta HTTP status and redacted message) and the consecutive-failure count, read from the event log. Never returns the access token, an order id or any customer field.",
+  operationId: "getPixelConfigHealth",
+  responses: {
+    200: { description: "CAPI delivery health", content: jsonContent(capiHealthResponse) },
+  },
+  handler: handlers.getPixelConfigHealth,
+});
+
 // ─── WhatsApp OTP verification config (dzverify) ──────────────────────────────
 
 const otpConfigResponse = z.object({
@@ -343,6 +381,7 @@ router.openapi(getMyStoreRoute.route, getMyStoreRoute.handler);
 router.openapi(updateMyStoreRoute.route, updateMyStoreRoute.handler);
 router.openapi(getPixelConfigRoute.route, getPixelConfigRoute.handler);
 router.openapi(savePixelConfigRoute.route, savePixelConfigRoute.handler);
+router.openapi(getPixelConfigHealthRoute.route, getPixelConfigHealthRoute.handler);
 router.openapi(getOtpConfigRoute.route, getOtpConfigRoute.handler);
 router.openapi(saveOtpConfigRoute.route, saveOtpConfigRoute.handler);
 router.openapi(testOtpConfigRoute.route, testOtpConfigRoute.handler);
