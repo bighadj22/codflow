@@ -98,6 +98,13 @@ other is how these drift.
   workspace members. It keeps a single Vite major across astro/vitest;
   removing it reintroduces the dual-Vite boot crash
   (`Missing field 'moduleType'`). Keep it in sync when astro bumps Vite.
+- Dependency install scripts are gated by `"allowScripts"` in the **root**
+  `package.json`, keyed by exact version (`"better-sqlite3@13.0.3": true`) —
+  better-sqlite3 is a native module and cod-server's tests need its binding.
+  The key is version-pinned on purpose: bumping the dependency leaves the pin
+  stale, so re-approve with `npm approve-scripts better-sqlite3` (or `all` to
+  record every dependency's policy). npm 11 only warns about uncovered
+  packages; npm 12 blocks their scripts outright.
 - `COD_SERVER_URL` defaults to `http://localhost:8787` so local dev works
   untouched. A deployed Worker can never reach that, so
   `cod-astro/theme01/scripts/deploy.mjs` refuses to deploy a loopback value

@@ -1,0 +1,5 @@
+interface:
+  display_name: "ZR Express"
+  short_description: "Integrate and verify ZR Express delivery APIs and webhook behavior"
+policy:
+  allow_implicit_invocation: false

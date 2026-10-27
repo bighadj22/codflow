@@ -1,0 +1,5 @@
+interface:
+  display_name: "CodFlow Setup"
+  short_description: "Set up a fresh CodFlow deployment in Cloudflare and verify it works"
+policy:
+  allow_implicit_invocation: false

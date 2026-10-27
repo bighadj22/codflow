@@ -11,6 +11,8 @@
  * returns { success: false } on 4xx (Meta rejects the whole batch).
  */
 
+import { sanitizeErrorForLog } from "./redact";
+
 const META_API_VERSION = "v26.0";
 const META_API_BASE = "https://graph.facebook.com";
 const DZ_COUNTRY_CODE = "213";
@@ -85,6 +87,22 @@ export interface CapiResult {
   success: boolean;
   fbtrace_id?: string;
   error?: string;
+  /** Meta's HTTP status — absent when the request never reached Meta. */
+  httpStatus?: number;
+}
+
+/**
+ * A response Meta answered with 5xx (retryable). Carries the status so the
+ * durable workflow can record it without re-parsing the message.
+ */
+export class CapiHttpError extends Error {
+  constructor(
+    message: string,
+    readonly httpStatus: number,
+  ) {
+    super(message);
+    this.name = "CapiHttpError";
+  }
 }
 
 export async function sendCapiEvent(
@@ -140,11 +158,14 @@ export async function sendCapiEvent(
   };
   if (payload.testEventCode) body.test_event_code = payload.testEventCode;
 
-  const url = `${META_API_BASE}/${META_API_VERSION}/${pixelId}/events?access_token=${accessToken}`;
+  const url = new URL(
+    `${META_API_BASE}/${META_API_VERSION}/${encodeURIComponent(pixelId)}/events`
+  );
+  url.searchParams.set("access_token", accessToken);
 
   let res: Response;
   try {
-    res = await fetch(url, {
+    res = await fetch(url.toString(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -155,11 +176,21 @@ export async function sendCapiEvent(
 
   const json = (await res.json().catch(() => null)) as any;
   if (res.status >= 500) {
-    throw new Error(`Meta CAPI server error ${res.status}: ${json?.error?.message ?? "no message"}`);
+    const detail =
+      sanitizeErrorForLog(json?.error?.message, accessToken) ?? "no message";
+    throw new CapiHttpError(`Meta CAPI server error ${res.status}: ${detail}`, res.status);
   }
   if (!res.ok) {
-    return { success: false, error: json?.error?.message ?? `HTTP ${res.status}` };
+    return {
+      success: false,
+      error: sanitizeErrorForLog(json?.error?.message, accessToken) ?? `HTTP ${res.status}`,
+      httpStatus: res.status,
+    };
   }
 
-  return { success: true, fbtrace_id: json?.events_received === 1 ? json?.fbtrace_id : undefined };
+  return {
+    success: true,
+    fbtrace_id: json?.events_received === 1 ? json?.fbtrace_id : undefined,
+    httpStatus: res.status,
+  };
 }

@@ -1,0 +1,5 @@
+interface:
+  display_name: "CodFlow Update"
+  short_description: "Upgrade an existing CodFlow install without resetting its live resources"
+policy:
+  allow_implicit_invocation: false

@@ -34,6 +34,7 @@ import {
   canDispatchOrder,
   canEditOrder,
   detailStatusActions,
+  dispatchFailureMessage,
   dispatchFieldSupport,
   orderStatusFlow,
   shipmentCapabilities,
@@ -124,7 +125,9 @@ export function OrderDetail({ orderId }: { orderId: string }) {
   async function run(
     action: () => Promise<unknown>,
     successMessage: string | (() => string),
-    errorMessage: string = common("feedback.action_failed"),
+    errorMessage: string | ((detail: string) => string) = common(
+      "feedback.action_failed",
+    ),
     after?: () => void,
   ) {
     setBusy(true);
@@ -132,8 +135,11 @@ export function OrderDetail({ orderId }: { orderId: string }) {
     try {
       await action();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-      notify.error(errorMessage);
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      setError(detail);
+      notify.error(
+        typeof errorMessage === "function" ? errorMessage(detail) : errorMessage,
+      );
       setBusy(false);
       return;
     }
@@ -386,7 +392,8 @@ export function OrderDetail({ orderId }: { orderId: string }) {
                   trackingNumber = response.data.trackingNumber;
                 },
                 () => `${t("dispatch_dialog.success")}${trackingNumber}`,
-                t("detail.dispatch_failed"),
+                (detail) =>
+                  dispatchFailureMessage(t("detail.dispatch_failed"), detail),
               );
             }}
             onValidateShipment={confirmShipmentValidation}

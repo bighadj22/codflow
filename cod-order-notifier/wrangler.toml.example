@@ -1,0 +1,18 @@
+name = "cod-order-notifier"
+main = "src/index.mjs"
+compatibility_date = "2026-10-09"
+
+# Poll every minute. Cloudflare Cron Triggers minimum granularity is 1 minute.
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+# Public API origin of your CodFlow store (no secret here).
+COD_SERVER_URL = "https://api.liniadz.com"
+
+# Dedup + first-run state. Create it with:
+#   npx wrangler kv namespace create ORDER_NOTIFY_KV
+# then paste the returned id below.
+[[kv_namespaces]]
+binding = "ORDER_NOTIFY_KV"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"

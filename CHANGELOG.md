@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- notifier: a standalone `cod-order-notifier/` Cloudflare Worker that polls the
+  orders API read-only (`orders:read`) every minute and forwards new orders to
+  Telegram. It seeds current orders silently on first run, records notified
+  order ids in a KV namespace so restarts/redeploys never re-alert, and keeps
+  its secrets in `wrangler secret` / `.dev.vars` (never logged)
+- delivery: the ZR Express connection test (`POST
+  /delivery-companies/:id/test-connection`) now works — it probes
+  `GET /users/profile` and names the failure: a dead API key (`invalid_token`),
+  a key bound to another tenant (`tenant_mismatch`, listing the tenants the key
+  may reach) or a valid key (`valid`, with the logged-in user)
 - checkout-form: the storefront order form is configurable per store (migration
   0031 + `stores.checkout_form_json`) — require or hide the address, notes and
   email, turn a delivery option off, and add up to 5 questions of the
@@ -147,6 +157,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- deploy: `cod-server`'s `npm run deploy` now ships the `production`
+  environment (`wrangler deploy --env production`) — the one that serves
+  traffic. It used to run a bare `wrangler deploy`, which shipped the
+  development-flavored top level and silently ignored every `[env.production]`
+  binding a self-hoster had filled in, while that worker claimed the custom
+  domain and the hourly cron trigger with development variables.
+  `wrangler.toml.example` now declares the cron (and an optional custom domain)
+  under `[env.production]`, and `npm run deploy:dev` keeps the old target for
+  local/throwaway deploys
+- mcp: the remote MCP endpoint (`/mcp`) serves 2025-era clients again. The
+  handler was built with `legacy: "reject"`, which does not mean "stateless"
+  as the code assumed — it drops the Agents SDK's 2025-era lane and makes the
+  endpoint modern-only (2026-07-28), so every client in wide use died at the
+  `initialize` handshake with `-32022 Unsupported protocol version`. `legacy`
+  now keeps its `"stateless"` default, which serves both eras, and
+  `src/mcp/protocol-negotiation.test.ts` pins the handshake
+- delivery: carrier failures now carry an actionable message instead of an
+  empty one — a body of `{"message": ""}` (EcoTrack, NOEST) falls through a
+  `??` fallback because an empty string is not nullish, and ZR Express's
+  plain-text `Invalid API Key` answer died in `res.json()`, so the dashboard
+  only ever showed a generic dispatch failure. Adapters now fall back to
+  `HTTP <status>` plus a bounded snippet of the raw body, `flattenErrorBag`
+  no longer returns an empty string, and dispatch failure logs record
+  `company_api_logs.http_status` from the carrier's status code
+- dashboard: the dispatch failure toast now carries the carrier's own message
+  (`Échec de l'expédition: ZR Express HTTP 401 (body: Invalid API Key)`)
+  instead of the bare label — the detail was already written to the inline
+  error banner, only the toast dropped it
 - delivery: **product-level shipping profiles were silently ignored at
   checkout** — a product assigned its own profile was charged the store
   default, so every order of that product under-collected (or over-collected)

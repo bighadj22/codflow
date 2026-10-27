@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api";
 import type {
+  CapiHealth,
   EmailConfig,
   EmailConnectionCheck,
   OtpConfig,
@@ -41,6 +42,10 @@ export async function getPixelConfig() {
 
 export async function savePixelConfig(data: SavePixelConfigData) {
   return (await apiFetch<DataEnvelope<PixelConfig>>("/api/stores/pixel-config", json({ method: "POST", body: JSON.stringify(data) }))).data;
+}
+
+export async function getCapiHealth() {
+  return (await apiFetch<DataEnvelope<CapiHealth>>("/api/stores/pixel-config/health")).data;
 }
 
 export async function getOtpConfig() {

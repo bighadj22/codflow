@@ -514,7 +514,7 @@ Print a resource inventory:
 
 > **Tell the developer how to get future updates:** "When CodFlow publishes
 > an update, just ask your AI agent to *'update CodFlow'* — it will follow
-> the [`codflow-update` runbook](.agents/skills/codflow-update/SKILL.md)
+> the [`codflow-update` runbook](../codflow-update/SKILL.md)
 > (shipped in this repo), which pulls the latest code from
 > `https://github.com/bighadj22/codflow` main, merges it into this install
 > without re-running setup, keeps your resources, secrets, and data intact,

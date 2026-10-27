@@ -5,7 +5,8 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev --port 8787 --persist-to ../.wrangler-shared",
-    "deploy": "wrangler deploy",
+    "deploy": "wrangler deploy --env production",
+    "deploy:dev": "wrangler deploy",
     "build:ci": "wrangler deploy --dry-run --outdir dist",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "node scripts/d1.mjs migrations apply --local --persist-to ../.wrangler-shared",
@@ -16,6 +17,8 @@
     "db:seed:remote": "node scripts/seed-local.mjs --remote",
     "db:seed:legal-pages:remote": "npx tsx scripts/seed-store-pages.ts --remote",
     "db:setup:remote": "npm run db:migrate:remote && npm run db:seed:remote && npm run db:seed:legal-pages:remote",
+    "db:backfill:store-key:local": "node scripts/backfill-store-api-key.mjs",
+    "db:backfill:store-key:remote": "node scripts/backfill-store-api-key.mjs --remote",
     "db:validate": "npx tsx scripts/validate-migration.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest --run",

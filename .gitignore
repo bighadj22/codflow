@@ -32,7 +32,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
-.dev.vars
+.dev.vars*
 
 # Wrangler
 .wrangler/
@@ -41,6 +41,8 @@ node_modules/
 # Copy wrangler.toml.example → wrangler.toml and fill in your own IDs.
 cod-server/wrangler.toml
 cod-client-astro/wrangler.toml
+cod-order-notifier/wrangler.toml
+cod-order-notifier/.local-state.json
 
 # OS
 .DS_Store

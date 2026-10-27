@@ -1089,5 +1089,22 @@ describe("EcotrackProvider error typing", () => {
     expect(err).toBeInstanceOf(EcoTrackApiError);
     expect((err as EcoTrackApiError).statusCode).toBe(502);
     expect((err as EcoTrackApiError).message).toMatch(/not valid JSON/);
+    expect((err as EcoTrackApiError).message).toContain("Bad Gateway");
+  });
+
+  it("never returns an empty message when the carrier answers {message:\"\"}", async () => {
+    server.override("/api/v1/create/order", () =>
+      new Response(JSON.stringify({ message: "" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      })
+    );
+
+    const err = await provider.createShipment(baseInput).catch((e) => e);
+    expect(err).toBeInstanceOf(EcoTrackApiError);
+    expect((err as EcoTrackApiError).statusCode).toBe(404);
+    expect((err as EcoTrackApiError).message).toContain("EcoTrack HTTP 404");
+    expect((err as EcoTrackApiError).message).toContain('{"message":""}');
+    expect((err as EcoTrackApiError).message.trim()).not.toBe("");
   });
 });

@@ -6,12 +6,14 @@ import { updateStoreSchema } from "./validation";
 import { NotFoundError, SystemError, ValidationError, ExternalApiError } from "@/lib/errors/classes";
 import { ERROR_CODES } from "../../../../cod-shared/errors/codes";
 import { getPixelConfig as queryPixelConfig, upsertPixelConfig } from "../../../../cod-shared/queries/pixel-config";
+import { getCapiHealth } from "../../../../cod-shared/queries/capi-health";
 import { maskApiKey } from "@/lib/mask";
 import { getOtpConfigRaw, upsertOtpConfig } from "../../../../cod-shared/queries/otp-config";
 import { getTurnstileConfigRaw, upsertTurnstileConfig } from "../../../../cod-shared/queries/turnstile-config";
 import { getEmailConfigRaw, upsertEmailConfig } from "../../../../cod-shared/queries/email-config";
 import { createDzverifyClient, DzverifyError, DZVERIFY_ERRORS } from "@/endpoints/store-otp/dzverify";
 import { createSendiliClient, SendiliError, SENDILI_ERRORS } from "../../../../cod-shared/lib/sendili";
+import { isMetaAccessToken } from "../../../../cod-shared/lib/meta-token";
 // @hono/zod-openapi's `z` is zod plus `.openapi()`, which the shared
 // pixelConfigSchema needs because the route documents itself from it.
 import { z } from "@hono/zod-openapi";
@@ -56,10 +58,17 @@ export async function updateMyStore(c: Context<AppContext>) {
 export const pixelConfigSchema = z.object({
   pixelId: z.string().min(1),
   adAccountName: z.string().max(200).nullable().optional(),
-  accessToken: z.string().default("").openapi({
-    description:
-      "Meta access token. Empty string keeps the previously stored token (the token is never sent back to the client).",
-  }),
+  accessToken: z
+    .string()
+    .default("")
+    .openapi({
+      description:
+        "Meta access token. Empty string keeps the previously stored token (the token is never sent back to the client).",
+    })
+    .refine((value) => value.trim() === "" || isMetaAccessToken(value.trim()), {
+      message:
+        "This does not look like a Meta access token — paste the Conversions API token generated in Events Manager (it starts with EAA).",
+    }),
   testEventCode: z.string().nullable().optional(),
   conversionEvent: z.enum(["Purchase", "Purchase_Confirmed", "Purchase_Delivered", "Lead"]),
   testMode: z.boolean().optional(),
@@ -107,6 +116,20 @@ export async function savePixelConfig(c: Context<AppContext>) {
     throw new SystemError("Failed to save pixel config");
   }
   return c.json({ success: true, data: pixelConfigResponse(result) }, 200);
+}
+
+/**
+ * GET /api/stores/pixel-config/health
+ *
+ * Delivery health for the Conversions API, read from `capi_event_log`.
+ * Bound and redacted at write time, and this projection adds no order id, no
+ * customer field and never a token — safe to show in Settings → Tracking.
+ */
+export async function getPixelConfigHealth(c: Context<AppContext>) {
+  const db = getDb(c.env.DB);
+  const store = await queries.getStore(db);
+  if (!store) throw new NotFoundError("Store");
+  return c.json({ success: true, data: await getCapiHealth(db) }, 200);
 }
 
 // ─── WhatsApp OTP verification config (dzverify) ──────────────────────────────

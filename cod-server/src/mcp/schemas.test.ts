@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { z } from "zod";
 import { TOOL_REGISTRY } from "./registry";
 import { TOOL_SCHEMAS, TOOL_NAMES, TOOL_META, TOOL_OUTPUT_SCHEMAS } from "./schemas";
 
@@ -49,6 +50,13 @@ describe("TOOL_META (client-specific tool-descriptor extensions)", () => {
     });
   });
 
+  it("advertises product image uploads as ChatGPT file inputs", () => {
+    expect(TOOL_META["uploadProductImage"]).toEqual({
+      "openai/fileParams": ["image"],
+    });
+    expect(TOOL_NAMES).toContain("uploadProductImage");
+  });
+
   it("toolInvocation status text stays within the documented 64-char limit", () => {
     for (const value of Object.values(TOOL_META["uploadLandingPageImage"] ?? {})) {
       if (typeof value === "string") {
@@ -61,6 +69,49 @@ describe("TOOL_META (client-specific tool-descriptor extensions)", () => {
     for (const name of Object.keys(TOOL_META)) {
       expect(TOOL_NAMES).toContain(name);
     }
+  });
+});
+
+describe("uploadProductImage input schema (ChatGPT file contract)", () => {
+  // ChatGPT scans the advertised schema and rejects any file parameter that is
+  // not the canonical four-property file object, so `image` must stay an
+  // object in tools/list even though execution also accepts the bare URL
+  // string the model sees (the file parameter is masked to `string` for it).
+  const inputSchema = z.object(TOOL_SCHEMAS.uploadProductImage);
+  const UUID = "6f0c9b8e-3d2a-4e5f-8a7b-9c1d2e3f4a5b";
+
+  it("advertises image as the four-property file object with download_url + file_id required", () => {
+    const json = z.toJSONSchema(inputSchema, {
+      target: "draft-2020-12",
+      io: "input",
+    }) as { properties?: Record<string, Record<string, unknown>> };
+    const image = json.properties!.image;
+
+    expect(image.type).toBe("object");
+    expect(Object.keys(image.properties as object).sort()).toEqual([
+      "download_url",
+      "file_id",
+      "file_name",
+      "mime_type",
+    ]);
+    expect(image.required).toEqual(["download_url", "file_id"]);
+    expect(image.additionalProperties).toBe(false);
+    expect(JSON.stringify(image)).not.toContain("anyOf");
+  });
+
+  it("parses the object form, the bare URL string, and rejects an opaque file id", () => {
+    expect(
+      inputSchema.safeParse({
+        productId: UUID,
+        image: { download_url: "https://files.example/x.png", file_id: "file_1" },
+      }).success,
+    ).toBe(true);
+    expect(
+      inputSchema.safeParse({ productId: UUID, image: "https://files.example/x.png" }).success,
+    ).toBe(true);
+    expect(
+      inputSchema.safeParse({ productId: UUID, image: "file_opaque123" }).success,
+    ).toBe(false);
   });
 });
 

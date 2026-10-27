@@ -22,7 +22,8 @@ import { getDb } from "@/db";
 import { orders, communes, orderProducts, stores, capiEventLog, landingPages } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { resolveTrackingConfig } from "../../../cod-shared/queries/tracking-config";
-import { sendCapiEvent, type CapiResult } from "@/lib/capi";
+import { sendCapiEvent, CapiHttpError, type CapiResult } from "@/lib/capi";
+import { sanitizeErrorForLog } from "@/lib/redact";
 import {
   resolveCapiDispatch,
   resolveConversionForStage,
@@ -276,10 +277,15 @@ export class CodCapiWorkflow extends WorkflowEntrypoint<Env, CodCapiParams> {
       await step.do("log-failure", async () => {
         const db = getDb(this.env.DB);
         const now = new Date().toISOString();
-        const errorMsg = err instanceof Error ? err.message : String(err);
+        // The workflow runtime re-wraps errors after retries, so the status is
+        // best-effort: a 5xx keeps it, a re-thrown wrapper leaves it null.
+        const httpStatus = err instanceof CapiHttpError ? err.httpStatus : null;
+        const errorMsg =
+          sanitizeErrorForLog(err instanceof Error ? err.message : String(err)) ??
+          "unknown CAPI error";
         await db.run(
           sql`UPDATE capi_event_log
-              SET status = 'failed', error = ${errorMsg}, sent_at = ${now}
+              SET status = 'failed', error = ${errorMsg}, http_status = ${httpStatus}, sent_at = ${now}
               WHERE order_id = ${orderId} AND stage = ${stage} AND event_name = ${eventName}`
         );
       });
@@ -292,11 +298,12 @@ export class CodCapiWorkflow extends WorkflowEntrypoint<Env, CodCapiParams> {
       const now = new Date().toISOString();
       const status = capiResult.success ? "sent" : "failed";
       const metaEventId = capiResult.fbtrace_id ?? null;
-      const error = capiResult.error ?? null;
+      const error = sanitizeErrorForLog(capiResult.error);
+      const httpStatus = capiResult.httpStatus ?? null;
 
       await db.run(
         sql`UPDATE capi_event_log
-            SET status = ${status}, meta_event_id = ${metaEventId}, error = ${error}, sent_at = ${now}
+            SET status = ${status}, meta_event_id = ${metaEventId}, error = ${error}, http_status = ${httpStatus}, sent_at = ${now}
             WHERE order_id = ${orderId} AND stage = ${stage} AND event_name = ${eventName}`
       );
     });

@@ -94,9 +94,11 @@ function put(id: string, body: Record<string, unknown>) {
   });
 }
 
+const VALID_TOKEN = `EAA${"Ab3dEf6h".repeat(8)}`;
+
 const VALID = {
   pixelId: "1234567890",
-  accessToken: "EAAG-real-token",
+  accessToken: VALID_TOKEN,
   conversionEvent: "Purchase",
 };
 
@@ -124,7 +126,7 @@ describe("GET /landing-pages/:id/tracking", () => {
     const res = await app.request(`/landing-pages/${id}/tracking`);
     const raw = await res.text();
 
-    expect(raw).not.toContain("EAAG-real-token");
+    expect(raw).not.toContain(VALID_TOKEN);
     const body = JSON.parse(raw) as { data: { config: Record<string, unknown> } };
     expect(body.data.config).toMatchObject({ pixelId: "1234567890", enabled: true });
     expect(body.data.config.accessToken).toBeUndefined();
@@ -143,7 +145,7 @@ describe("PUT /landing-pages/:id/tracking", () => {
     expect(stored).toMatchObject({
       landingPageId: id,
       pixelId: "1234567890",
-      accessToken: "EAAG-real-token",
+      accessToken: VALID_TOKEN,
     });
   });
 
@@ -152,7 +154,7 @@ describe("PUT /landing-pages/:id/tracking", () => {
 
     const raw = await (await put(id, VALID)).text();
 
-    expect(raw).not.toContain("EAAG-real-token");
+    expect(raw).not.toContain(VALID_TOKEN);
   });
 
   it("refuses to create an override without a token", async () => {
@@ -180,16 +182,25 @@ describe("PUT /landing-pages/:id/tracking", () => {
     expect(stored).toMatchObject({
       pixelId: "9999999999",
       conversionEvent: "Lead",
-      accessToken: "EAAG-real-token",
+      accessToken: VALID_TOKEN,
     });
   });
 
   it("requires the merchant to choose a conversion event", async () => {
     const id = await seedLandingPage();
 
-    const res = await put(id, { pixelId: "1234567890", accessToken: "EAAG-x" });
+    const res = await put(id, { pixelId: "1234567890", accessToken: "EAA-short" });
 
     expect(res.status).toBe(400);
+  });
+
+  it("rejects a placeholder token instead of storing it", async () => {
+    const id = await seedLandingPage();
+
+    const res = await put(id, { ...VALID, accessToken: "AAAAAAAAAAAAAAAA" });
+
+    expect(res.status).toBe(400);
+    expect(await harness.db.select().from(schema.landingPagePixelConfig).get()).toBeUndefined();
   });
 
   it("rejects a conversion event Meta does not have", async () => {
@@ -285,7 +296,7 @@ describe("the landing pages list", () => {
 
     const raw = await (await app.request("/landing-pages")).text();
 
-    expect(raw).not.toContain("EAAG-real-token");
+    expect(raw).not.toContain(VALID_TOKEN);
     expect(raw).not.toContain("accessToken");
   });
 });

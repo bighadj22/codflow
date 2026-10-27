@@ -6,8 +6,14 @@ import {
   ConversionEventPicker,
   type ConversionEvent,
 } from "@/components/tracking/ConversionEventPicker";
-import { getPixelConfig, savePixelConfig } from "@/features/settings/api";
+import { getCapiHealth, getPixelConfig, savePixelConfig } from "@/features/settings/api";
+import type { CapiHealth } from "@/features/settings/types";
 import { FieldRow, SettingsSection } from "@/features/settings/components/SettingsSection";
+
+function formatMoment(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
 
 export function TrackingSettings() {
   const t = useT("settings");
@@ -22,6 +28,7 @@ export function TrackingSettings() {
   const [perPageTracking, setPerPageTracking] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [health, setHealth] = useState<CapiHealth | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -37,6 +44,15 @@ export function TrackingSettings() {
       setPerPageTracking(data.perPageTrackingEnabled);
       setLastSaved(data.updatedAt);
     });
+    // Health is advisory: an older server without the endpoint must never
+    // break the settings form, so a failure just leaves the panel hidden.
+    getCapiHealth()
+      .then((data) => {
+        if (alive) setHealth(data);
+      })
+      .catch(() => {
+        if (alive) setHealth(null);
+      });
     return () => {
       alive = false;
     };
@@ -109,6 +125,58 @@ export function TrackingSettings() {
         </button>
       </div>
 
+      {health && (
+        <div
+          className={`rounded-xl border p-3 text-xs ${
+            health.consecutiveFailures > 0
+              ? "border-destructive/40 bg-destructive/5"
+              : "border-border bg-muted/40"
+          }`}
+        >
+          {health.lastAttemptAt === null ? (
+            <p className="text-muted-foreground">{t("store.tracking_health_never")}</p>
+          ) : health.consecutiveFailures > 0 && health.lastFailure ? (
+            <div className="space-y-1">
+              <p className="font-semibold text-destructive">
+                {t("store.tracking_health_failing").replace(
+                  "{count}",
+                  String(health.consecutiveFailures),
+                )}
+              </p>
+              <p className="text-muted-foreground">
+                {t("store.tracking_health_last_failure")
+                  .replace("{date}", formatMoment(health.lastFailure.at))
+                  .replace(
+                    "{status}",
+                    health.lastFailure.httpStatus ? String(health.lastFailure.httpStatus) : "—",
+                  )}
+              </p>
+              {health.lastFailure.message && (
+                <p dir="ltr" className="break-words text-muted-foreground">
+                  {health.lastFailure.message}
+                </p>
+              )}
+            </div>
+          ) : health.lastSuccessAt ? (
+            <p className="text-muted-foreground">
+              {t("store.tracking_health_ok").replace(
+                "{date}",
+                formatMoment(health.lastSuccessAt),
+              )}
+            </p>
+          ) : (
+            <p className="text-muted-foreground">{t("store.tracking_health_no_delivery")}</p>
+          )}
+          {health.lastAttemptAt !== null && (
+            <p className="mt-1 text-muted-foreground">
+              {t("store.tracking_health_totals")
+                .replace("{sent}", String(health.sentLast30Days))
+                .replace("{failed}", String(health.failedLast30Days))}
+            </p>
+          )}
+        </div>
+      )}
+
       <FieldRow label={t("store.tracking_ad_account_label")} hint={t("store.tracking_ad_account_hint")}>
         <Input
           dir="ltr"
@@ -152,6 +220,7 @@ export function TrackingSettings() {
             {t("store.otp_key_stored")}: <span dir="ltr">{accessTokenMasked}</span>
           </p>
         )}
+        <p className="text-xs text-muted-foreground">{t("store.tracking_token_shape_hint")}</p>
       </FieldRow>
 
       <div className="space-y-2.5">

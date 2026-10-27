@@ -52,11 +52,11 @@ const customerRowSchema = z.looseObject({
   id: z.string().describe("Customer UUID"),
   name: z.string(),
   phone: z.string().describe("Primary Algerian mobile (05/06/07) — the customer's identity anchor"),
-  wilaya: z.string().optional().describe("Wilaya display-name snapshot"),
-  commune: z.string().optional().describe("Commune display-name snapshot"),
-  totalSpent: z.number().optional().describe("Running value of kept orders in DZD"),
-  totalOrders: z.number().optional().describe("Orders ever placed, minus deleted ones"),
-  lastOrderAt: timestampSchema.nullable().optional().describe("Creation time of the most recent order, or null"),
+  wilaya: z.string().describe("Wilaya display-name snapshot — customers.wilaya is NOT NULL, always set"),
+  commune: z.string().nullable().describe("Commune display-name snapshot, or null when unset"),
+  totalSpent: z.number().describe("Running value of kept orders in DZD — customers.total_spent is NOT NULL"),
+  totalOrders: z.number().describe("Orders ever placed, minus deleted ones — customers.total_orders is NOT NULL"),
+  lastOrderAt: timestampSchema.nullable().describe("Creation time of the most recent order, or null"),
 });
 
 export const CUSTOMER_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
@@ -88,8 +88,8 @@ export const CUSTOMER_TOOL_OUTPUT_SCHEMAS: Record<string, z.ZodType> = {
           status: z.string().describe("Order lifecycle status"),
           totalPrice: z.number().describe("Product subtotal excluding delivery fee (DZD)"),
           createdAt: timestampSchema,
-          wilaya: z.string(),
-          commune: z.string(),
+          wilaya: z.string().nullable(),
+          commune: z.string().nullable(),
         }),
       )
       .describe("The customer's orders, newest first"),

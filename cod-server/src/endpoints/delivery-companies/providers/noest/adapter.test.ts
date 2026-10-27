@@ -13,6 +13,7 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NoestProvider } from "./adapter";
+import { CarrierHttpError } from "../utils";
 import type { CreateShipmentInput } from "../types";
 
 const TOKEN = "token-abc";
@@ -117,6 +118,26 @@ describe("NoestProvider.createShipment", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Forbidden" }, 403));
     const provider = new NoestProvider(TOKEN, GUID);
     await expect(provider.createShipment(baseInput)).rejects.toThrow("Forbidden");
+  });
+
+  it("falls back to NOEST HTTP <status> when the error body message is empty", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "" }, 401));
+    const provider = new NoestProvider(TOKEN, GUID);
+
+    const err = await provider.createShipment(baseInput).catch((e) => e);
+    expect(err).toBeInstanceOf(CarrierHttpError);
+    expect((err as CarrierHttpError).statusCode).toBe(401);
+    expect((err as CarrierHttpError).message).toBe("NOEST HTTP 401");
+  });
+
+  it("includes a snippet of a plain-text error body", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("Unauthorized", { status: 401 }));
+    const provider = new NoestProvider(TOKEN, GUID);
+
+    const err = await provider.createShipment(baseInput).catch((e) => e);
+    expect(err).toBeInstanceOf(CarrierHttpError);
+    expect((err as CarrierHttpError).statusCode).toBe(401);
+    expect((err as CarrierHttpError).message).toContain("Unauthorized");
   });
 });
 

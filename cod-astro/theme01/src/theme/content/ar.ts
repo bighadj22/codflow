@@ -106,6 +106,8 @@ export const ar: StoreFrontContent = {
   formRequiredField: "يرجى اختيار أحد الخيارات",
   formSubmit: "تأكيد الطلب",
   formConfirmNote: "سيتصل بك فريقنا لتأكيد طلبك خلال 24 ساعة",
+  formSubmitting: "جارٍ تأكيد الطلب...",
+  formErrorGeneric: "تعذر إتمام الطلب. تحقق من معلوماتك وحاول مرة أخرى.",
 
   checkoutConsentText: "بإتمامك لهذا الطلب، فإنك توافق على {terms} وعلى {refund}.",
   // ── WhatsApp OTP verification ─────────────────────────────────────────────

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ALLOWED_TRANSITIONS,
   detailStatusActions,
+  dispatchFailureMessage,
   dispatchFieldSupport,
   canAssignOrder,
   canDeleteOrderFromDetail,
@@ -16,8 +17,10 @@ import {
   shipmentUpdateFieldSupport,
   sortOrders,
   abandonedBasketView,
+  DEFAULT_ABANDONED_STATUS,
+  filterAbandonedOrders,
 } from "./model";
-import type { OrderListItem } from "./types";
+import type { AbandonedOrder, OrderListItem } from "./types";
 
 const order = (overrides: Partial<OrderListItem> = {}): OrderListItem => ({
   id: "1",
@@ -373,5 +376,109 @@ describe("abandonedBasketView", () => {
     expect(abandonedBasketView({ items: null, productName: null, variantLabel: null })).toEqual({
       kind: "unknown",
     });
+  });
+});
+
+describe("dispatchFailureMessage", () => {
+  it("names the carrier's own failure behind the localized label", () => {
+    expect(dispatchFailureMessage("Dispatch failed", "ZR Express HTTP 401 (body: Invalid API Key)")).toBe(
+      "Dispatch failed: ZR Express HTTP 401 (body: Invalid API Key)",
+    );
+  });
+
+  it("keeps the label alone when the carrier sent no detail", () => {
+    expect(dispatchFailureMessage("Dispatch failed", "")).toBe("Dispatch failed");
+    expect(dispatchFailureMessage("Dispatch failed", "   ")).toBe("Dispatch failed");
+  });
+
+  it("trims the detail so a carrier's padding never shows in the toast", () => {
+    expect(dispatchFailureMessage("Dispatch failed", "  NOEST HTTP 403  ")).toBe(
+      "Dispatch failed: NOEST HTTP 403",
+    );
+  });
+});
+
+/**
+ * The status filter on the abandoned-orders list.
+ *
+ * The bug it guards: a shopper who fills the checkout then places an order
+ * leaves a *converted* record carrying the order's own number. Opening the
+ * list on "All" made that order look like it existed in both the orders list
+ * and the abandoned list. The list now opens on the `abandoned` queue alone.
+ */
+describe("filterAbandonedOrders", () => {
+  const row = (overrides: Partial<AbandonedOrder> = {}): AbandonedOrder => ({
+    id: "ab1",
+    sessionId: "sess-1",
+    customerName: "Sara",
+    phone: "0550000001",
+    wilayaId: 16,
+    communeId: null,
+    wilayaName: "الجزائر",
+    communeName: null,
+    productId: "p1",
+    productName: "Hoodie",
+    variantId: null,
+    variantLabel: null,
+    price: 2400,
+    items: null,
+    itemCount: null,
+    deliveryType: "home",
+    status: "abandoned",
+    convertedOrderId: null,
+    convertedOrderNumber: null,
+    recoveryAttempts: 0,
+    createdAt: "2026-10-10T08:00:00.000Z",
+    updatedAt: "2026-10-10T08:00:00.000Z",
+    ...overrides,
+  });
+
+  const rows = [
+    row({ id: "pending-row", status: "pending" }),
+    row({ id: "abandoned-row", status: "abandoned" }),
+    row({ id: "contacted-row", status: "contacted" }),
+    row({
+      id: "converted-row",
+      status: "converted",
+      convertedOrderId: "order-1",
+      convertedOrderNumber: "ORD-20261010-6890",
+    }),
+  ];
+  const ids = (status: string) =>
+    filterAbandonedOrders(rows, { query: "", status }).map((r) => r.id);
+
+  it("opens on the abandoned queue, so a finalized order is not listed", () => {
+    expect(DEFAULT_ABANDONED_STATUS).toBe("abandoned");
+    expect(ids(DEFAULT_ABANDONED_STATUS)).toEqual(["abandoned-row"]);
+    expect(ids(DEFAULT_ABANDONED_STATUS)).not.toContain("converted-row");
+  });
+
+  it("still resolves every explicit status, converted included", () => {
+    expect(ids("pending")).toEqual(["pending-row"]);
+    expect(ids("abandoned")).toEqual(["abandoned-row"]);
+    expect(ids("contacted")).toEqual(["contacted-row"]);
+    expect(ids("converted")).toEqual(["converted-row"]);
+  });
+
+  it("keeps 'all' meaning all, converted records included", () => {
+    expect(ids("all")).toEqual([
+      "pending-row",
+      "abandoned-row",
+      "contacted-row",
+      "converted-row",
+    ]);
+  });
+
+  it("still matches a search across name, phone and product", () => {
+    const searchable = [
+      row({ id: "a", customerName: "Ahmed", phone: "0660000000", productName: "Bag" }),
+      row({ id: "b", customerName: "Sara", phone: "0770000000", productName: "Watch" }),
+    ];
+    expect(
+      filterAbandonedOrders(searchable, { query: "watch", status: "all" }).map((r) => r.id),
+    ).toEqual(["b"]);
+    expect(
+      filterAbandonedOrders(searchable, { query: "0660", status: "all" }).map((r) => r.id),
+    ).toEqual(["a"]);
   });
 });

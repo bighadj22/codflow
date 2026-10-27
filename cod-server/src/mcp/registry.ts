@@ -168,18 +168,19 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   // ─── Products ─────────────────────────────────────────────────────────────
   {
     requires: [SCOPES.PRODUCTS_READ],
-    build: (db) => pick(getProductTools(db), [
+    build: (db, env) => pick(getProductTools(db, env), [
       "listProducts",
       "getProductDetails",
     ]),
   },
   {
     requires: [SCOPES.PRODUCTS_MANAGE],
-    build: (db) => pick(getProductTools(db), [
+    build: (db, env) => pick(getProductTools(db, env), [
       "createNewProduct",
       "updateProductDetails",
       "updateProductStatus",
       "deleteProduct",
+      "uploadProductImage",
     ]),
   },
 

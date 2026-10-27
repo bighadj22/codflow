@@ -137,6 +137,17 @@ describe("sendCapiEvent — request shape", () => {
     );
   });
 
+  it("URL-encodes reserved characters in the token instead of truncating the query", async () => {
+    // A raw `#` would end the URL and drop everything after it; a raw `&`
+    // would split the token into another parameter. Both must round-trip.
+    const token = "EAA+abc/def=ghi#jkl&mno";
+    const captured = stubFetch(metaOk);
+    await sendCapiEvent(PIXEL, token, basePayload());
+    const parsed = new URL(captured.url);
+    expect(parsed.searchParams.get("access_token")).toBe(token);
+    expect(captured.url).not.toContain("#");
+  });
+
   it("sends the canonical event envelope", async () => {
     const captured = stubFetch(metaOk);
     await sendCapiEvent(PIXEL, TOKEN, basePayload({ eventSourceUrl: "https://store.example/prod" }));
@@ -294,12 +305,55 @@ describe("sendCapiEvent — error classification", () => {
     expect(result).toEqual({
       success: false,
       error: "(#100) Param event_time is invalid",
+      httpStatus: 400,
+    });
+  });
+
+  it("keeps the status on a 4xx so auth failures can be told from rate limits", async () => {
+    stubFetch(
+      () =>
+        new Response(
+          JSON.stringify({ error: { message: "Invalid OAuth access token - Cannot parse access token" } }),
+          { status: 401 }
+        )
+    );
+    const result = await sendCapiEvent(PIXEL, TOKEN, basePayload());
+    expect(result.success).toBe(false);
+    expect(result.httpStatus).toBe(401);
+    expect(result.error).toContain("Cannot parse access token");
+  });
+
+  it("never returns the token, even when Meta echoes it back", async () => {
+    stubFetch(
+      () =>
+        new Response(
+          JSON.stringify({ error: { message: `OAuth call failed for ${TOKEN}` } }),
+          { status: 401 }
+        )
+    );
+    const result = await sendCapiEvent(PIXEL, TOKEN, basePayload());
+    expect(result.error).not.toContain(TOKEN);
+    expect(result.error).toContain("[redacted-token]");
+  });
+
+  it("carries the status on a retryable 5xx without leaking the token", async () => {
+    stubFetch(
+      () =>
+        new Response(
+          JSON.stringify({ error: { message: `Upstream hiccup for ${TOKEN}` } }),
+          { status: 502 }
+        )
+    );
+    await expect(sendCapiEvent(PIXEL, TOKEN, basePayload())).rejects.toMatchObject({
+      name: "CapiHttpError",
+      httpStatus: 502,
+      message: expect.not.stringContaining(TOKEN),
     });
   });
 
   it("returns success with fbtrace_id on a 2xx events_received=1", async () => {
     stubFetch(metaOk);
     const result = await sendCapiEvent(PIXEL, TOKEN, basePayload());
-    expect(result).toEqual({ success: true, fbtrace_id: "TRACE1" });
+    expect(result).toEqual({ success: true, fbtrace_id: "TRACE1", httpStatus: 200 });
   });
 });

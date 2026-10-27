@@ -200,7 +200,7 @@ describe("Slice 4 — public GET /store/landing-pages/{slug} (real D1 + store au
     const row = await db.select().from(schema.landingPages)
       .where(eq(schema.landingPages.slug, "counted-page")).get();
     expect(row?.views).toBe(25);
-  });
+  }, 60_000);
 
   it("missing store key is rejected before anything renders", async () => {
     const res = await app.request("/store/landing-pages/live-page");

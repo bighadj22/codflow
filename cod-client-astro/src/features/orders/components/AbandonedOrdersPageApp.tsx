@@ -27,6 +27,7 @@ import {
 import {
   abandonedBasketView,
   abandonedStatusOptions,
+  DEFAULT_ABANDONED_STATUS,
   filterAbandonedOrders,
   formatMoney,
 } from "@/features/orders/model";
@@ -364,7 +365,7 @@ function AbandonedOrdersView() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState<string>(DEFAULT_ABANDONED_STATUS);
   const [page, setPage] = useState(1);
   const pageSize = 10;
 

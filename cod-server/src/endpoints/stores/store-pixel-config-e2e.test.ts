@@ -66,9 +66,11 @@ beforeEach(async () => {
   });
 });
 
+const VALID_TOKEN = `EAA${"Ab3dEf6h".repeat(8)}`;
+
 const VALID = {
   pixelId: "1234567890",
-  accessToken: "EAAG-real-token",
+  accessToken: VALID_TOKEN,
   conversionEvent: "Purchase",
 };
 
@@ -143,7 +145,7 @@ describe("saving the store's tracking settings", () => {
 
     expect(await storedRow()).toMatchObject({
       pixelId: "1234567890",
-      accessToken: "EAAG-real-token",
+      accessToken: VALID_TOKEN,
       adAccountName: "Zinc Ads",
       testMode: true,
       testEventCode: "TEST123",
@@ -158,7 +160,35 @@ describe("saving the store's tracking settings", () => {
     const res = await app.request("/api/stores/pixel-config");
     const raw = await res.text();
 
-    expect(raw).not.toContain("EAAG-real-token");
+    expect(raw).not.toContain(VALID_TOKEN);
     expect(raw).toContain("accessTokenMasked");
+  });
+
+  it("refuses a placeholder instead of storing it for later failure", async () => {
+    const res = await save({ ...VALID, accessToken: "AAAAAAAAAAAAAAAA" });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as any;
+    expect(body.code).toBe("VALIDATION_FAILED");
+    expect(body.context.fields).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: "accessToken" })])
+    );
+    expect(await storedRow()).toBeUndefined();
+  });
+
+  it("accepts a valid token pasted with surrounding whitespace and trims it", async () => {
+    const res = await save({ ...VALID, accessToken: `  ${VALID_TOKEN}  ` });
+
+    expect(res.status).toBe(200);
+    expect((await storedRow())?.accessToken).toBe(VALID_TOKEN);
+  });
+
+  it("accepts an empty token on update, which keeps the stored one", async () => {
+    await save(VALID);
+
+    const res = await save({ ...VALID, accessToken: "" });
+
+    expect(res.status).toBe(200);
+    expect((await storedRow())?.accessToken).toBe(VALID_TOKEN);
   });
 });

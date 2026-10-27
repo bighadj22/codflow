@@ -39,6 +39,7 @@ const READ_ONLY_OVERRIDES: ReadonlySet<string> = new Set([
  */
 const OPEN_WORLD_TOOLS: ReadonlySet<string> = new Set([
   "uploadLandingPageImage", // fetches agent-supplied public image URLs
+  "uploadProductImage", // same fetch-the-chat-file-object contract
 ]);
 
 /**

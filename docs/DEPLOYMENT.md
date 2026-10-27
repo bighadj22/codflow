@@ -127,6 +127,14 @@ cd ../cod-client-astro && npm run deploy
 cd ../cod-astro/theme01 && npm run deploy
 ```
 
+`cod-server`'s `deploy` targets the `production` environment
+(`wrangler deploy --env production`) — the `[env.production]` block, which is
+the deployment that serves traffic, owns the hourly cron trigger and (if you
+declared one) the custom domain. `npm run deploy:dev` deploys the
+development-flavored top-level worker instead; that one claims the same
+hostname, cron and workflows with development variables, so it is for local or
+throwaway use only.
+
 Each `deploy` script builds first. For the dashboard and the storefront, build
 separately only when you want the artifact without shipping it — their deploy
 scripts also inject the production API origin, which a bare `npm run build` on a
@@ -278,6 +286,11 @@ Cloudflare dashboard:
 4. Enter: `api.yourdomain.com` (backend), `dashboard.yourdomain.com` (dashboard), `shop.yourdomain.com` (storefront)
 
 After custom domains are active, update URLs in the wrangler configs and redeploy.
+
+A hostname belongs to one Worker at a time. Deploy `cod-server` with
+`npm run deploy` (the `production` environment) so the hostname and the cron
+trigger stay on the deployment you configured; a bare `wrangler deploy` would
+move both — and the development `[vars]` — to the top-level worker.
 
 ---
 

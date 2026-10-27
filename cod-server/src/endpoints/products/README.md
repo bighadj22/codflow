@@ -129,6 +129,7 @@ Soft-delete a product — blocked with `422 PRODUCT_HAS_ORDERS` if any order lin
 - `POST`: Associate an R2-uploaded image (`key`, `src`) with the product.
 - `PATCH /reorder`: Set display order — send the complete ordered array of image IDs.
 - `DELETE /{imageId}`: Remove an image record and its corresponding R2 object.
+- MCP `uploadProductImage`: accepts a chat-client file object, stores the image in R2, and attaches it to the product.
 
 ### Variants (`/api/products/:productId/variants`)
 - `GET`: List all variants for a product (position order).

@@ -11,6 +11,7 @@ import {
   listStopDesks,
 } from "@/features/orders/api";
 import {
+  dispatchFailureMessage,
   dispatchFieldSupport,
 } from "@/features/orders/model";
 import type {
@@ -132,8 +133,9 @@ export function DispatchCompanyDialog({
       });
       trackingNumber = response.data.trackingNumber;
     } catch (cause) {
-      onError(cause instanceof Error ? cause.message : String(cause));
-      notify.error(t("detail.dispatch_failed"));
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      onError(detail);
+      notify.error(dispatchFailureMessage(t("detail.dispatch_failed"), detail));
       setBusy(false);
       return;
     }

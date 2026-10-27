@@ -60,11 +60,10 @@ name       = "lp-image-upload-workflow"
 binding    = "LP_IMAGE_UPLOAD_WORKFLOW"
 class_name = "CodLandingPageImageUploadWorkflow"
 
-# Cron Triggers
-# Sweeps pending abandoned orders → abandoned status every hour.
-# Maximum lag from "true abandonment" to "marked abandoned" is ~90 min (pending > 30 min).
-[triggers]
-crons = ["0 * * * *"]
+# The cron trigger and the custom domain are declared under [env.production]
+# below: production is the deployment that serves traffic, and triggers are
+# per-script, so declaring them at this development-flavored top level would
+# register a second hourly sweep against a worker nobody routes to.
 
 # Environment variables (non-secret).
 #
@@ -126,6 +125,20 @@ class_name = "CodCapiWorkflow"
 name       = "lp-image-upload-workflow"
 binding    = "LP_IMAGE_UPLOAD_WORKFLOW"
 class_name = "CodLandingPageImageUploadWorkflow"
+
+# Custom domain (optional). Declaring it here keeps the hostname on the
+# production deployment. The "Add Custom Domains" walkthrough in
+# docs/DEPLOYMENT.md also works, but a bare `wrangler deploy` would then hand
+# the hostname (and the development [vars]) to the top-level worker.
+# [[env.production.routes]]
+# pattern = "api.yourdomain.com"
+# custom_domain = true
+
+# Cron Triggers
+# Sweeps pending abandoned orders → abandoned status every hour.
+# Maximum lag from "true abandonment" to "marked abandoned" is ~90 min (pending > 30 min).
+[env.production.triggers]
+crons = ["0 * * * *"]
 
 # Share local D1 state with the dashboard so both read the same SQLite file in
 # dev. `persist_to` under [dev] is not a wrangler 3.x field (hence the old

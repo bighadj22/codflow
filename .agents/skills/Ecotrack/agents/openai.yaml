@@ -1,0 +1,5 @@
+interface:
+  display_name: "EcoTrack"
+  short_description: "Integrate and audit the shared EcoTrack courier API used by Algerian delivery companies"
+policy:
+  allow_implicit_invocation: false
